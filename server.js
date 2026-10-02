@@ -1,6 +1,6 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v2/https');
 const { generateMateoResponse } = require('./agent');
 
 const app = express();
@@ -143,7 +143,7 @@ app.post('/webhook', handleIncomingMessage);
 app.post('/', handleIncomingMessage);
 
 // Export for Firebase Cloud Functions (24/7 serverless execution)
-exports.webhook = functions.https.onRequest(app);
+exports.webhook = functions.onRequest({ cors: true, invoker: 'public' }, app);
 
 // Start locally if executed directly
 if (process.env.NODE_ENV !== 'production' || !process.env.FUNCTION_TARGET) {

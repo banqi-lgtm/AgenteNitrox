@@ -1,14 +1,13 @@
 {
-  "name": "btnt",
+  "name": "agente-nitrox",
   "version": "1.0.0",
-  "main": "check_phone.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "engines": {
+    "node": "22"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "dotenv": "^18.0.5",

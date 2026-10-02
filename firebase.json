@@ -1,4 +1,4 @@
-﻿{
+{
   "functions": [
     {
       "source": ".",
@@ -8,8 +8,7 @@
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log",
-        "cloudflared.exe",
-        ".env"
+        "cloudflared.exe"
       ]
     }
   ]
