@@ -1,7 +1,18 @@
 ﻿const fs = require('fs');
 const path = require('path');
+const admin = require('firebase-admin');
 
-// Storage for user states
+// Initialize Firebase Admin for Firestore
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      projectId: 'agente-nitrox'
+    });
+  } catch (e) {
+    console.warn('Firebase Admin warning:', e.message);
+  }
+}
+
 const DB_FILE = path.join(__dirname, 'conversations.json');
 
 function loadDB() {
@@ -10,7 +21,7 @@ function loadDB() {
       return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
     }
   } catch (e) {
-    console.error('Error reading DB:', e);
+    console.error('Error reading local DB:', e);
   }
   return {};
 }
@@ -19,14 +30,30 @@ function saveDB(data) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
-    console.error('Error saving DB:', e);
+    console.error('Error saving local DB:', e);
+  }
+}
+
+async function saveLeadToFirestore(phone, data) {
+  try {
+    const firestore = admin.firestore();
+    await firestore.collection('talleres_aliados').doc(phone).set({
+      telefono: phone,
+      nombre_taller: data.workshopName || '',
+      ubicacion: data.location || '',
+      personal: data.teamSize || '',
+      maquinaria: data.equipment || '',
+      fecha_registro: new Date().toISOString()
+    }, { merge: true });
+    console.log(`✅ [FIRESTORE] Taller "${data.workshopName}" guardado en la base de datos de Firebase!`);
+  } catch (err) {
+    console.warn('[FIRESTORE]', err.message);
   }
 }
 
 // Regex to capture affiliation / registration intent
 const AFFILIATION_REGEX = /(afilia|registr|unir|inscrib|aliad|taller|ingresa|pertenec|hacer parte|socio|empez|arranc|si|claro|hagale|hágale|de una|dar de alta|vengo)/i;
 
-// Generate response with Mateo persona (Paisa, conversational, human)
 async function generateMateoResponse(fromNumber, userText) {
   const db = loadDB();
   if (!db[fromNumber]) {
@@ -152,6 +179,10 @@ async function generateMateoResponse(fromNumber, userText) {
       'Con esto ya te paso a nuestra lista de talleres aliados NITROX para darte de alta. En un ratico te estamos contactando con los siguientes pasos y beneficios. ¡Cualquier cosa me avisas pues!'
     ];
     session.stage = 'COMPLETED';
+
+    // Save lead to Firestore automatically!
+    saveLeadToFirestore(fromNumber, session.data);
+
   } else if (session.stage === 'COMPLETED') {
     messagesToSend = [
       '¡Hola de nuevo pariente! Tus datos ya quedaron súper bien radicados en NITROX.',
