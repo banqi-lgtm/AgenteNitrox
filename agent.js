@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const admin = require('firebase-admin');
 
@@ -9,11 +9,13 @@ if (!admin.apps.length) {
       projectId: 'agente-nitrox'
     });
   } catch (e) {
-    console.warn('Firebase Admin warning:', e.message);
+    // Local fallback
   }
 }
 
-const DB_FILE = path.join(__dirname, 'conversations.json');
+// Writeable DB file: /tmp on Cloud Functions, local path on PC
+const DB_FILE = process.env.FUNCTION_TARGET ? '/tmp/conversations.json' : path.join(__dirname, 'conversations.json');
+const memoryCache = {};
 
 function loadDB() {
   try {
@@ -21,17 +23,18 @@ function loadDB() {
       return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
     }
   } catch (e) {
-    console.error('Error reading local DB:', e);
+    // ignore
   }
-  return {};
+  return memoryCache;
 }
 
 function saveDB(data) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
-    console.error('Error saving local DB:', e);
+    // ignore write error on restricted FS
   }
+  Object.assign(memoryCache, data);
 }
 
 async function saveLeadToFirestore(phone, data) {
@@ -39,23 +42,34 @@ async function saveLeadToFirestore(phone, data) {
     const firestore = admin.firestore();
     await firestore.collection('talleres_aliados').doc(phone).set({
       telefono: phone,
+      nombre_contacto: data.userName || '',
       nombre_taller: data.workshopName || '',
       ubicacion: data.location || '',
       personal: data.teamSize || '',
       maquinaria: data.equipment || '',
       fecha_registro: new Date().toISOString()
     }, { merge: true });
-    console.log(`✅ [FIRESTORE] Taller "${data.workshopName}" guardado en la base de datos de Firebase!`);
+    console.log(`[FIRESTORE] Taller "${data.workshopName}" guardado con exito`);
   } catch (err) {
-    console.warn('[FIRESTORE]', err.message);
+    console.warn('[FIRESTORE (opcional)]', err.message);
   }
 }
 
-// Regex to capture affiliation / registration intent
-const AFFILIATION_REGEX = /(afilia|registr|unir|inscrib|aliad|taller|ingresa|pertenec|hacer parte|socio|empez|arranc|si|claro|hagale|hágale|de una|dar de alta|vengo)/i;
+// Helper to extract a name if user writes "soy Walter" or "me llamo Walter"
+function extractName(text) {
+  const match = text.match(/(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i);
+  if (match) return match[1];
+  // If short text, first word could be name
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= 2 && !/^(hola|buenas|quiero|vengo|afiliar)/i.test(words[0])) {
+    return words[0];
+  }
+  return '';
+}
 
 async function generateMateoResponse(fromNumber, userText) {
   const db = loadDB();
+  
   if (!db[fromNumber]) {
     db[fromNumber] = {
       stage: 'INIT',
@@ -70,123 +84,105 @@ async function generateMateoResponse(fromNumber, userText) {
   const textLower = userText.toLowerCase().trim();
   let messagesToSend = [];
 
-  // Check if LLM (Gemini or OpenAI) is configured
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const { GoogleGenerativeAI } = require('@google/generative-ai');
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: getSystemPrompt()
-      });
-
-      const contents = session.history.slice(-10).map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }]
-      }));
-
-      const result = await model.generateContent({ contents });
-      const reply = result.response.text();
-      messagesToSend = splitIntoBubbles(reply);
-      
-      session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
-      saveDB(db);
-      return messagesToSend;
-    } catch (err) {
-      console.error('Error calling Gemini, falling back to local Mateo engine:', err.message);
-    }
-  } else if (process.env.OPENAI_API_KEY) {
-    try {
-      const OpenAI = require('openai');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: getSystemPrompt() },
-          ...session.history.slice(-10).map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
-        ]
-      });
-      const reply = completion.choices[0].message.content;
-      messagesToSend = splitIntoBubbles(reply);
-      session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
-      saveDB(db);
-      return messagesToSend;
-    } catch (err) {
-      console.error('Error calling OpenAI, falling back to local Mateo engine:', err.message);
+  // Reset if completed and user greets or restarts
+  if (session.stage === 'COMPLETED') {
+    if (/^(hola|buenas|buen dia|que mas|otro|nuevo|reiniciar)/i.test(textLower)) {
+      session.stage = 'INIT';
+      session.data = {};
     }
   }
 
-  // --- Natural Paisa Conversational Engine (NITROX) ---
+  // --- Conversational Flow ---
   if (session.stage === 'INIT') {
-    if (AFFILIATION_REGEX.test(textLower)) {
+    // First message: ask name and what they are looking for
+    const foundName = extractName(userText);
+    if (foundName) session.data.userName = foundName;
+
+    if (textLower.includes('taller') || textLower.includes('afiliar') || textLower.includes('registrar')) {
+      if (session.data.userName) {
+        messagesToSend = [
+          'hola ' + session.data.userName + ', soy Mateo asesor de NITROX. un gusto saludarte',
+          'para el registro de tu taller vamos a necesitar unos datos sencillos. como se llama el taller?'
+        ];
+        session.stage = 'ASK_WORKSHOP_NAME';
+      } else {
+        messagesToSend = [
+          'hola, soy Mateo asesor de NITROX. con todo gusto te ayudo con la afiliacion',
+          'como es tu nombre y como se llama el taller?'
+        ];
+        session.stage = 'ASK_WORKSHOP_NAME';
+      }
+    } else {
       messagesToSend = [
-        '¡Qué más pues! Qué elegancia que quieras hacer parte de la red de Talleres Aliados NITROX.',
-        'De una, vamos a hacer unas pregunticas bien breves para dejarte listo en el sistema.',
-        'Contame primero, ¿cómo se llama tu taller?'
+        'hola, soy Mateo asesor de NITROX',
+        'como es tu nombre y que estas buscando en la plataforma hoy?'
+      ];
+      session.stage = 'AWAITING_NAME_AND_INTENT';
+    }
+
+  } else if (session.stage === 'AWAITING_NAME_AND_INTENT') {
+    const foundName = extractName(userText);
+    if (foundName) session.data.userName = foundName;
+
+    const nameGreeting = session.data.userName ? 'un gusto ' + session.data.userName + '. ' : '';
+
+    if (textLower.includes('taller') || textLower.includes('afiliar') || textLower.includes('registrar') || textLower.includes('alianza') || textLower.includes('socio') || textLower.includes('servicio')) {
+      messagesToSend = [
+        nameGreeting + 'de una, para afiliar tu taller a la red de aliados NITROX te voy a pedir unos datos breves',
+        'como se llama tu taller?'
       ];
       session.stage = 'ASK_WORKSHOP_NAME';
     } else {
       messagesToSend = [
-        '¡Hola! Mi nombre es Mateo, soy asesor comercial de Talleres NITROX.',
-        'Cuéntame, ¿en qué te puedo colaborar hoy?'
-      ];
-      session.stage = 'AWAITING_INTENT';
-    }
-  } else if (session.stage === 'AWAITING_INTENT') {
-    if (AFFILIATION_REGEX.test(textLower)) {
-      messagesToSend = [
-        '¡Hágale pues, de una! Qué bueno tenerte por acá.',
-        'Vamos a hacer unas pregunticas bien puntuales para dejarte registrado en la red de NITROX.',
-        'Primero que todo, ¿cómo se llama tu taller?'
-      ];
-      session.stage = 'ASK_WORKSHOP_NAME';
-    } else {
-      messagesToSend = [
-        '¡Listo pariente! Con todo el gusto te ayudo.',
-        'Si vienes a afiliarte como taller aliado de NITROX, avisame y arrancamos de una con las preguntas.'
+        nameGreeting + 'cuentame, vienes a registrar tu taller como aliado NITROX o necesitas alguna otra informacion?'
       ];
     }
+
   } else if (session.stage === 'ASK_WORKSHOP_NAME') {
+    // If we hadn't captured their personal name earlier and this text has words
+    if (!session.data.userName) {
+      const foundName = extractName(userText);
+      if (foundName) session.data.userName = foundName;
+    }
     session.data.workshopName = userText;
     messagesToSend = [
-      '¡Qué buen nombre, ' + userText + '! Bacano.',
-      'Y contame, ¿en qué ciudad están y cuál es la dirección del taller?'
+      'buen nombre, ' + userText,
+      'en que ciudad estan ubicados y cual es la direccion del taller?'
     ];
     session.stage = 'ASK_LOCATION';
+
   } else if (session.stage === 'ASK_LOCATION') {
     session.data.location = userText;
     messagesToSend = [
-      'Listo, ya me quedó anotada la dirección.',
-      'Decime una cosa: ¿más o menos cuántas personas o mecánicos trabajan con vos allá en el taller?'
+      'listo, anotada la direccion',
+      'cuantas personas o mecanicos trabajan alla contigo?'
     ];
     session.stage = 'ASK_TEAM_SIZE';
+
   } else if (session.stage === 'ASK_TEAM_SIZE') {
     session.data.teamSize = userText;
     messagesToSend = [
-      'Excelente equipo, hermano.',
-      'Ahora contame un poco sobre las herramientas y maquinaria que tienen.',
-      'Por ejemplo: ¿tienen elevadores hidráulicos, escáner automotriz, desmontadora de llantas, torno o prensa? Decime con qué equipos cuentan.'
+      'excelente equipo',
+      'y que maquinaria o herramientas tienen? por ejemplo elevadores, escaner, torno, prensa, desmontadora de llantas...'
     ];
     session.stage = 'ASK_EQUIPMENT';
+
   } else if (session.stage === 'ASK_EQUIPMENT') {
     session.data.equipment = userText;
+    const clientName = session.data.userName ? ' ' + session.data.userName : '';
     messagesToSend = [
-      '¡Uff, completísimo! Tienen muy buen equipo de trabajo.',
-      'Hermano, ya te tomé todos los datos iniciales:\n\n• Taller: ' + session.data.workshopName + '\n• Ubicación: ' + session.data.location + '\n• Personal: ' + session.data.teamSize + '\n• Maquinaria: ' + session.data.equipment,
-      'Con esto ya te paso a nuestra lista de talleres aliados NITROX para darte de alta. En un ratico te estamos contactando con los siguientes pasos y beneficios. ¡Cualquier cosa me avisas pues!'
+      'perfecto, tienen muy buen equipo de trabajo',
+      'listo' + clientName + ', ya te tome todos los datos:\n\n• Taller: ' + (session.data.workshopName || 'Aliado') + '\n• Ubicacion: ' + (session.data.location || 'Registrada') + '\n• Personal: ' + (session.data.teamSize || 'Registrado') + '\n• Maquinaria: ' + session.data.equipment,
+      'con esto quedan registrados en la red de talleres aliados NITROX. en un momento te contactaremos para los siguientes pasos. cualquier duda me avisas'
     ];
     session.stage = 'COMPLETED';
 
-    // Save lead to Firestore automatically!
     saveLeadToFirestore(fromNumber, session.data);
 
   } else if (session.stage === 'COMPLETED') {
     messagesToSend = [
-      '¡Hola de nuevo pariente! Tus datos ya quedaron súper bien radicados en NITROX.',
-      '¿Necesitas que revisemos algún dato o te puedo colaborar con alguna otra duda?'
+      'hola de nuevo. los datos de tu taller ya quedaron registrados en NITROX',
+      'si necesitas registrar otro taller o corregir algun dato me avisas y lo hacemos de una'
     ];
   }
 
@@ -194,29 +190,6 @@ async function generateMateoResponse(fromNumber, userText) {
   saveDB(db);
 
   return messagesToSend;
-}
-
-function getSystemPrompt() {
-  return `Eres Mateo, asesor comercial de Talleres NITROX.
-Tu personalidad es 100% PAISA: muy natural, cálido, relajado, formal pero cercano (como un paisa de Medellín educado y profesional hablando por WhatsApp).
-Usa expresiones paisas colombianas muy naturales con moderación y fluidez: "qué más pues", "bien o qué", "pariente", "con todo gusto", "hágale pues", "de una", "bacano", "hermano".
-IMPORTANTE:
-- La marca es siempre NITROX (o Talleres NITROX).
-- NO hables como un robot ni como una IA.
-- Tu misión principal es registrar y afiliar al cliente como Taller Aliado NITROX.
-- Debes pedir la información PASO A PASO, haciendo UNA sola pregunta a la vez:
-  1. Saludo inicial si no ha dicho su intención.
-  2. Si quiere afiliarse o registrarse: darle la bienvenida con entusiasmo paisa y preguntarle cómo se llama el taller.
-  3. Preguntar dirección y ciudad.
-  4. Preguntar cuántas personas trabajan en el taller.
-  5. Preguntar qué maquinaria y equipos tienen (dándole ejemplos cotidianos: elevadores hidráulicos, escáner automotriz, desmontadora, compresor, torno, alineadora, etc.).
-  6. Confirmarle con alegría que sus datos quedaron registrados para la red de aliados NITROX.
-- Respuestas breves y humanas.`;
-}
-
-function splitIntoBubbles(text) {
-  const parts = text.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
-  return parts.length > 0 ? parts : [text];
 }
 
 module.exports = {

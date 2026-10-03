@@ -1,6 +1,6 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
-const functions = require('firebase-functions/v2/https');
+const { onRequest } = require('firebase-functions/v2/https');
 const { generateMateoResponse } = require('./agent');
 
 const app = express();
@@ -14,7 +14,6 @@ const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'btnt_nitrox_secret_tok
 const processedMessageIds = new Set();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Send a WhatsApp message
 async function sendWhatsAppMessage(to, text) {
   try {
     const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
@@ -31,16 +30,17 @@ async function sendWhatsAppMessage(to, text) {
       })
     });
     const data = await res.json();
+    console.log(`[META ENVIO A +${to}]:`, JSON.stringify(data));
     return data;
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('Error enviando mensaje a', to, error);
   }
 }
 
-// Mark message as read
-async function markMessageAsRead(messageId) {
+// Typing indicator ("escribiendo..." with 3 animated dots) & read receipt
+async function sendTypingIndicator(messageId) {
   try {
-    await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -49,52 +49,53 @@ async function markMessageAsRead(messageId) {
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         status: 'read',
-        message_id: messageId
+        message_id: messageId,
+        typing_indicator: {
+          type: 'text'
+        }
       })
     });
+    const d = await res.json();
+    console.log(`[META TYPING INDICATOR]:`, JSON.stringify(d));
   } catch (err) {
-    // Ignore read mark errors
+    // ignore
   }
 }
 
-// 1. Meta Webhook Verification (GET)
+// 1. Webhook Verification (GET)
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('[WEBHOOK] Verified successfully with Meta!');
+    console.log('[WEBHOOK] Verificado exitosamente con Meta!');
     return res.status(200).send(challenge);
-  } else {
-    console.warn('[WEBHOOK] Verification failed. Expected token:', VERIFY_TOKEN, 'Received:', token);
-    return res.sendStatus(403);
   }
+  return res.sendStatus(403);
 });
 
-// Also support root path GET for Firebase Functions direct webhook URL
 app.get('/', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('[WEBHOOK] Root verified successfully with Meta!');
     return res.status(200).send(challenge);
   }
-  res.send('Servidor WhatsApp Agente Mateo (Talleres NITROX) activo en Firebase 🚀');
+  res.send('Servidor WhatsApp Agente Mateo (NITROX) activo 🚀');
 });
 
 // 2. Incoming Messages Webhook (POST)
 async function handleIncomingMessage(req, res) {
-  res.status(200).send('EVENT_RECEIVED');
-
   const body = req.body;
-  if (!body.entry || !body.entry[0].changes) return;
+  if (!body.entry || !body.entry[0].changes) {
+    return res.status(200).send('EVENT_RECEIVED');
+  }
 
   const change = body.entry[0].changes[0].value;
   if (!change.messages || change.messages.length === 0) {
-    return;
+    return res.status(200).send('EVENT_RECEIVED');
   }
 
   const message = change.messages[0];
@@ -102,55 +103,58 @@ async function handleIncomingMessage(req, res) {
   const from = message.from;
 
   if (processedMessageIds.has(messageId)) {
-    return;
+    return res.status(200).send('EVENT_RECEIVED');
   }
   processedMessageIds.add(messageId);
-  if (processedMessageIds.size > 1000) {
+  if (processedMessageIds.size > 2000) {
     const firstItem = processedMessageIds.values().next().value;
     processedMessageIds.delete(firstItem);
   }
 
   if (message.type !== 'text') {
-    return;
+    return res.status(200).send('EVENT_RECEIVED');
   }
 
   const incomingText = message.text.body;
   console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
 
-  // Human typing simulation:
-  await markMessageAsRead(messageId);
+  try {
+    // 1. Send real WhatsApp typing indicator ("escribiendo...")
+    await sendTypingIndicator(messageId);
 
-  const initialDelay = Math.floor(Math.random() * 2000) + 5000;
-  console.log(`⏳ [MATEO ESCRIBIENDO...] Espera de ${(initialDelay / 1000).toFixed(1)}s...`);
-  await sleep(initialDelay);
+    // 2. Fast human delay: 1.5 to 2.5 seconds
+    const initialDelay = Math.floor(Math.random() * 1000) + 1500;
+    console.log(`⏳ [ESCRIBIENDO...] Pausa de ${(initialDelay / 1000).toFixed(1)}s...`);
+    await sleep(initialDelay);
 
-  const bubbles = await generateMateoResponse(from, incomingText);
+    // 3. Generate response bubbles
+    const bubbles = await generateMateoResponse(from, incomingText);
 
-  for (let i = 0; i < bubbles.length; i++) {
-    const bubble = bubbles[i];
-    console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length})]: "${bubble}"`);
-    await sendWhatsAppMessage(from, bubble);
+    // 4. Send bubbles with short interval
+    for (let i = 0; i < bubbles.length; i++) {
+      const bubble = bubbles[i];
+      console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
+      await sendWhatsAppMessage(from, bubble);
 
-    if (i < bubbles.length - 1) {
-      const bubbleDelay = Math.floor(Math.random() * 1500) + 2000;
-      await sleep(bubbleDelay);
+      if (i < bubbles.length - 1) {
+        await sleep(1000);
+      }
     }
+    console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
+  } catch (err) {
+    console.error('Error procesando mensaje:', err);
   }
-  console.log('✅ [RESPUESTA COMPLETADA]\n');
+
+  return res.status(200).send('EVENT_RECEIVED');
 }
 
 app.post('/webhook', handleIncomingMessage);
 app.post('/', handleIncomingMessage);
 
-// Export for Firebase Cloud Functions (24/7 serverless execution)
-exports.webhook = functions.onRequest({ cors: true, invoker: 'public' }, app);
+exports.webhook = onRequest({ cors: true, invoker: 'public' }, app);
 
-// Start locally if executed directly
-if (process.env.NODE_ENV !== 'production' || !process.env.FUNCTION_TARGET) {
+if (!process.env.FUNCTION_TARGET) {
   app.listen(PORT, () => {
-    console.log(`======================================================`);
     console.log(`🚀 Servidor Mateo NITROX activo en el puerto ${PORT}`);
-    console.log(`👉 Token de verificación de Webhook: ${VERIFY_TOKEN}`);
-    console.log(`======================================================`);
   });
 }
