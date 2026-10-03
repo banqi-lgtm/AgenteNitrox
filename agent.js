@@ -1,5 +1,3 @@
-﻿const fs = require('fs');
-const path = require('path');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin for Firestore
@@ -13,34 +11,56 @@ if (!admin.apps.length) {
   }
 }
 
-// Writeable DB file: /tmp on Cloud Functions, local path on PC
-const DB_FILE = process.env.FUNCTION_TARGET ? '/tmp/conversations.json' : path.join(__dirname, 'conversations.json');
 const memoryCache = {};
 
-function loadDB() {
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    }
-  } catch (e) {
-    // ignore
+// Helper to extract personal name
+function extractName(text) {
+  const match = text.match(/(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i);
+  if (match) return match[1];
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= 2 && !/^(hola|buenas|quiero|vengo|afiliar|taller)/i.test(words[0])) {
+    return words[0];
   }
-  return memoryCache;
+  return '';
 }
 
-function saveDB(data) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) {
-    // ignore write error on restricted FS
+// Persistent session management via Firestore + RAM cache
+async function getSession(phoneNumber) {
+  if (memoryCache[phoneNumber]) {
+    return memoryCache[phoneNumber];
   }
-  Object.assign(memoryCache, data);
+
+  try {
+    const doc = await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).get();
+    if (doc.exists) {
+      memoryCache[phoneNumber] = doc.data();
+      return memoryCache[phoneNumber];
+    }
+  } catch (e) {
+    console.warn('[FIRESTORE GET SESSION]', e.message);
+  }
+
+  const newSession = {
+    stage: 'INIT',
+    data: {},
+    history: []
+  };
+  memoryCache[phoneNumber] = newSession;
+  return newSession;
+}
+
+async function saveSession(phoneNumber, session) {
+  memoryCache[phoneNumber] = session;
+  try {
+    await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).set(session, { merge: true });
+  } catch (e) {
+    console.warn('[FIRESTORE SAVE SESSION]', e.message);
+  }
 }
 
 async function saveLeadToFirestore(phone, data) {
   try {
-    const firestore = admin.firestore();
-    await firestore.collection('talleres_aliados').doc(phone).set({
+    await admin.firestore().collection('talleres_aliados').doc(phone).set({
       telefono: phone,
       nombre_contacto: data.userName || '',
       nombre_taller: data.workshopName || '',
@@ -51,42 +71,22 @@ async function saveLeadToFirestore(phone, data) {
     }, { merge: true });
     console.log(`[FIRESTORE] Taller "${data.workshopName}" guardado con exito`);
   } catch (err) {
-    console.warn('[FIRESTORE (opcional)]', err.message);
+    console.warn('[FIRESTORE LEAD SAVE]', err.message);
   }
-}
-
-// Helper to extract a name if user writes "soy Walter" or "me llamo Walter"
-function extractName(text) {
-  const match = text.match(/(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i);
-  if (match) return match[1];
-  // If short text, first word could be name
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length <= 2 && !/^(hola|buenas|quiero|vengo|afiliar)/i.test(words[0])) {
-    return words[0];
-  }
-  return '';
 }
 
 async function generateMateoResponse(fromNumber, userText) {
-  const db = loadDB();
-  
-  if (!db[fromNumber]) {
-    db[fromNumber] = {
-      stage: 'INIT',
-      data: {},
-      history: []
-    };
-  }
-
-  const session = db[fromNumber];
+  const session = await getSession(fromNumber);
+  session.history = session.history || [];
+  session.data = session.data || {};
   session.history.push({ role: 'user', content: userText, timestamp: Date.now() });
 
   const textLower = userText.toLowerCase().trim();
   let messagesToSend = [];
 
-  // Reset if completed and user greets or restarts
+  // Reset ONLY if user explicitly requests another workshop or reset
   if (session.stage === 'COMPLETED') {
-    if (/^(hola|buenas|buen dia|que mas|otro|nuevo|reiniciar)/i.test(textLower)) {
+    if (/(otro taller|nuevo taller|registrar otro|reiniciar|nueva afiliacion)/i.test(textLower)) {
       session.stage = 'INIT';
       session.data = {};
     }
@@ -94,7 +94,6 @@ async function generateMateoResponse(fromNumber, userText) {
 
   // --- Conversational Flow ---
   if (session.stage === 'INIT') {
-    // First message: ask name and what they are looking for
     const foundName = extractName(userText);
     if (foundName) session.data.userName = foundName;
 
@@ -139,7 +138,6 @@ async function generateMateoResponse(fromNumber, userText) {
     }
 
   } else if (session.stage === 'ASK_WORKSHOP_NAME') {
-    // If we hadn't captured their personal name earlier and this text has words
     if (!session.data.userName) {
       const foundName = extractName(userText);
       if (foundName) session.data.userName = foundName;
@@ -180,14 +178,15 @@ async function generateMateoResponse(fromNumber, userText) {
     saveLeadToFirestore(fromNumber, session.data);
 
   } else if (session.stage === 'COMPLETED') {
+    const clientName = session.data.userName ? ' ' + session.data.userName : '';
     messagesToSend = [
-      'hola de nuevo. los datos de tu taller ya quedaron registrados en NITROX',
+      'hola de nuevo' + clientName + ', los datos de tu taller ya quedaron radicados en NITROX',
       'si necesitas registrar otro taller o corregir algun dato me avisas y lo hacemos de una'
     ];
   }
 
   session.history.push({ role: 'assistant', content: messagesToSend.join(' '), timestamp: Date.now() });
-  saveDB(db);
+  await saveSession(fromNumber, session);
 
   return messagesToSend;
 }

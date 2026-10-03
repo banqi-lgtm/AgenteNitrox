@@ -1,7 +1,7 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
-const { generateMateoResponse } = require('./agent');
+const { generateMateoResponse, admin } = require('./agent');
 
 const app = express();
 app.use(express.json());
@@ -13,6 +13,24 @@ const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'btnt_nitrox_secret_tok
 
 const processedMessageIds = new Set();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function isMessageAlreadyProcessed(messageId) {
+  if (processedMessageIds.has(messageId)) return true;
+  processedMessageIds.add(messageId);
+  if (processedMessageIds.size > 2000) {
+    const firstItem = processedMessageIds.values().next().value;
+    processedMessageIds.delete(firstItem);
+  }
+  try {
+    const docRef = admin.firestore().collection('mensajes_procesados').doc(messageId);
+    const doc = await docRef.get();
+    if (doc.exists) return true;
+    await docRef.set({ timestamp: Date.now() });
+  } catch (err) {
+    // Non-blocking fallback
+  }
+  return false;
+}
 
 async function sendWhatsAppMessage(to, text) {
   try {
@@ -31,6 +49,9 @@ async function sendWhatsAppMessage(to, text) {
     });
     const data = await res.json();
     console.log(`[META ENVIO A +${to}]:`, JSON.stringify(data));
+    if (data.error) {
+      console.error(`❌ [ERROR META ENVIANDO A +${to}]:`, JSON.stringify(data.error));
+    }
     return data;
   } catch (error) {
     console.error('Error enviando mensaje a', to, error);
@@ -57,6 +78,9 @@ async function sendTypingIndicator(messageId) {
     });
     const d = await res.json();
     console.log(`[META TYPING INDICATOR]:`, JSON.stringify(d));
+    if (d.error) {
+      console.error(`❌ [ERROR META TYPING]:`, JSON.stringify(d.error));
+    }
   } catch (err) {
     // ignore
   }
@@ -102,13 +126,11 @@ async function handleIncomingMessage(req, res) {
   const messageId = message.id;
   const from = message.from;
 
-  if (processedMessageIds.has(messageId)) {
+  // Prevent duplicate processing on container cold start or Meta retries
+  const alreadyProcessed = await isMessageAlreadyProcessed(messageId);
+  if (alreadyProcessed) {
+    console.log(`⚠️ [DUPLICADO IGNORADO] Mensaje ${messageId} ya fue procesado`);
     return res.status(200).send('EVENT_RECEIVED');
-  }
-  processedMessageIds.add(messageId);
-  if (processedMessageIds.size > 2000) {
-    const firstItem = processedMessageIds.values().next().value;
-    processedMessageIds.delete(firstItem);
   }
 
   if (message.type !== 'text') {
@@ -119,25 +141,25 @@ async function handleIncomingMessage(req, res) {
   console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
 
   try {
-    // 1. Send real WhatsApp typing indicator ("escribiendo...")
+    // 1. Send real WhatsApp typing indicator ("escribiendo..." animated dots)
     await sendTypingIndicator(messageId);
 
-    // 2. Fast human delay: 1.5 to 2.5 seconds
-    const initialDelay = Math.floor(Math.random() * 1000) + 1500;
+    // 2. Natural human pause: 1.5 to 2.2 seconds
+    const initialDelay = Math.floor(Math.random() * 700) + 1500;
     console.log(`⏳ [ESCRIBIENDO...] Pausa de ${(initialDelay / 1000).toFixed(1)}s...`);
     await sleep(initialDelay);
 
     // 3. Generate response bubbles
     const bubbles = await generateMateoResponse(from, incomingText);
 
-    // 4. Send bubbles with short interval
+    // 4. Send bubbles with smooth natural interval (500ms)
     for (let i = 0; i < bubbles.length; i++) {
       const bubble = bubbles[i];
       console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
       await sendWhatsAppMessage(from, bubble);
 
       if (i < bubbles.length - 1) {
-        await sleep(1000);
+        await sleep(500);
       }
     }
     console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
