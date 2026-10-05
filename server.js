@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
-const { generateMateoResponse, admin } = require('./agent');
+const { generateMateoResponse, admin, localMecanicosStore } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
 
 const app = express();
@@ -65,9 +65,57 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // In-memory fallback for local dev / resilience
-let localMecanicosCache = [];
+let localMecanicosCache = localMecanicosStore;
 
-// Formulario Virtual API
+// Formulario Lookup API (Permite al formulario web precargar los datos ya capturados por WhatsApp)
+app.get('/api/formulario/lookup', async (req, res) => {
+  try {
+    const q = req.query.q || req.query.id || req.query.tel;
+    if (!q) {
+      return res.status(400).json({ success: false, message: 'Parámetro de búsqueda requerido' });
+    }
+
+    const cleanQ = q.replace(/\D/g, '');
+    let found = (localMecanicosCache || []).find(m => m.id_unico === q || (cleanQ && (m.celular_whatsapp || '').includes(cleanQ)));
+
+    if (!found) {
+      try {
+        const firestorePromise = (async () => {
+          const doc = await admin.firestore().collection('mecanicos_red_nitrox').doc(q).get();
+          if (doc.exists) return doc.data();
+
+          const snap = await admin.firestore().collection('mecanicos_red_nitrox').where('id_unico', '==', q).get();
+          if (!snap.empty) return snap.docs[0].data();
+
+          if (cleanQ) {
+            const snap2 = await admin.firestore().collection('mecanicos_red_nitrox').where('celular_whatsapp', '==', cleanQ).get();
+            if (!snap2.empty) return snap2.docs[0].data();
+            const altPhone = cleanQ.startsWith('57') ? cleanQ.substring(2) : `57${cleanQ}`;
+            const snap3 = await admin.firestore().collection('mecanicos_red_nitrox').where('celular_whatsapp', '==', altPhone).get();
+            if (!snap3.empty) return snap3.docs[0].data();
+          }
+          return null;
+        })();
+
+        found = await Promise.race([
+          firestorePromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+        ]);
+      } catch (fsErr) {
+        console.warn('[LOOKUP TIMEOUT/FALLBACK]', fsErr.message);
+      }
+    }
+
+    if (found) {
+      return res.json({ success: true, mecanico: found });
+    }
+    return res.status(404).json({ success: false, message: 'Mecánico no encontrado' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Formulario Virtual API (Canal opcional o complementario)
 app.post('/api/formulario', async (req, res) => {
   try {
     const rawData = req.body || {};
@@ -75,18 +123,49 @@ app.post('/api/formulario', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
     }
 
-    const normalized = normalizeMechanicData(rawData, 'Formulario Web');
-    const docId = normalized.id_unico;
+    // Detectar si complementa un registro previo de WhatsApp
+    let existingDoc = null;
+    let targetDocId = rawData.id_unico;
 
     try {
-      await admin.firestore().collection('mecanicos_red_nitrox').doc(docId).set(normalized);
-      console.log(`[FORMULARIO WEB] Mecánico registrado en Firestore: ${normalized.nombres_apellidos} (ID: ${normalized.id_unico})`);
-    } catch (fsErr) {
-      console.warn('[FIRESTORE (fallback local)]', fsErr.message);
-      localMecanicosCache.unshift(normalized);
+      if (targetDocId) {
+        existingDoc = (localMecanicosCache || []).find(m => m.id_unico === targetDocId);
+        if (!existingDoc) {
+          const snap = await Promise.race([
+            admin.firestore().collection('mecanicos_red_nitrox').doc(targetDocId).get(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
+          ]);
+          if (snap.exists) existingDoc = snap.data();
+        }
+      }
+      if (!existingDoc && rawData.celular_whatsapp) {
+        const cleanPhone = rawData.celular_whatsapp.replace(/\D/g, '');
+        existingDoc = (localMecanicosCache || []).find(m => (m.celular_whatsapp || '').includes(cleanPhone));
+        if (existingDoc) targetDocId = existingDoc.id_unico;
+      }
+    } catch (e) {
+      console.warn('[CHECK EXISTING]', e.message);
     }
 
-    return res.json({ success: true, mecanico: normalized });
+    const origin = existingDoc ? 'WhatsApp + Web (Opcional)' : 'Formulario Web';
+    const mergedData = { ...(existingDoc || {}), ...rawData };
+    if (targetDocId) mergedData.id_unico = targetDocId;
+
+    const normalized = normalizeMechanicData(mergedData, origin);
+    const docId = normalized.id_unico;
+
+    const idx = localMecanicosCache.findIndex(m => m.id_unico === docId);
+    if (idx >= 0) localMecanicosCache[idx] = normalized;
+    else localMecanicosCache.unshift(normalized);
+
+    try {
+      admin.firestore().collection('mecanicos_red_nitrox').doc(docId).set(normalized, { merge: true }).catch(e => console.warn('[FIRESTORE BACKGROUND SAVE]', e.message));
+      console.log(`[FORMULARIO] Guardado: ${normalized.nombres_apellidos} (ID: ${normalized.id_unico} | Origen: ${origin})`);
+    } catch (fsErr) {
+      console.warn('[FIRESTORE]', fsErr.message);
+    }
+
+    return res.json({ success: true, mecanico: normalized, origen });
   } catch (err) {
     console.error('Error al guardar formulario web:', err);
     return res.status(500).json({ success: false, message: 'Error interno al procesar el registro' });
@@ -98,12 +177,22 @@ app.get('/api/crm/mecanicos', requireAuth, async (req, res) => {
   try {
     let list = [];
     try {
-      const snapshot = await admin.firestore().collection('mecanicos_red_nitrox').get();
+      const snapPromise = admin.firestore().collection('mecanicos_red_nitrox').get();
+      const snapshot = await Promise.race([
+        snapPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      ]);
       snapshot.forEach(doc => list.push(doc.data()));
     } catch (fsErr) {
       console.warn('[FIRESTORE (fallback local)]', fsErr.message);
-      list = [...localMecanicosCache];
     }
+
+    (localMecanicosCache || []).forEach(localItem => {
+      if (!list.some(item => item.id_unico === localItem.id_unico)) {
+        list.push(localItem);
+      }
+    });
+
     list.sort((a, b) => new Date(b.fecha_registro || 0) - new Date(a.fecha_registro || 0));
     return res.json({ success: true, count: list.length, mecanicos: list });
   } catch (err) {

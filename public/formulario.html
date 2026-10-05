@@ -368,6 +368,89 @@
       from { opacity: 0; transform: translateY(-6px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* Primary Channel Notice */
+    .channel-notice {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    @media (min-width: 640px) {
+      .channel-notice {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+    .notice-badge {
+      background: #10B981;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .notice-text strong {
+      display: block;
+      color: #fff;
+      font-size: 0.95rem;
+    }
+    .notice-text span {
+      color: var(--text-muted);
+      font-size: 0.84rem;
+    }
+    .btn-notice-wa {
+      background: #10B981;
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-notice-wa:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
+    /* Prefill Banner */
+    .prefill-banner {
+      background: rgba(239, 35, 60, 0.08);
+      border: 1px solid rgba(239, 35, 60, 0.3);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .prefill-icon { font-size: 2rem; }
+    .prefill-body h3 { font-size: 1.05rem; color: #fff; margin-bottom: 4px; }
+    .prefill-body p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+    .prefill-badge {
+      display: inline-block;
+      background: #1B1F2D;
+      border: 1px solid var(--accent);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -378,6 +461,30 @@
       <div class="brand-badge">⚡ Registro Oficial – Piloto Medellín</div>
       <h1 class="brand-title">RED <span>NITROX</span></h1>
       <p class="brand-subtitle">Ficha Maestra de Mecánicos y Talleres Aliados</p>
+    </div>
+
+    <!-- WhatsApp Channel Notice (Primary) -->
+    <div class="channel-notice">
+      <div>
+        <div class="notice-badge">Canal Principal y Recomendado</div>
+        <div class="notice-text">
+          <strong>💡 ¿Prefieres registrarte en 2 minutos por WhatsApp?</strong>
+          <span>Es el método principal, más rápido y directo de RED NITROX. Chatea con Mateo directamente sin llenar formularios largos.</span>
+        </div>
+      </div>
+      <a href="https://wa.me/1217186421467657?text=Hola%20Mateo,%20quiero%20afiliar%20mi%20taller%20a%20la%20RED%20NITROX" target="_blank" class="btn-notice-wa">
+        💬 Chatear con Mateo por WhatsApp
+      </a>
+    </div>
+
+    <!-- Pre-filled notification if opened via WhatsApp link (?tel= or ?id=) -->
+    <div id="prefillBanner" class="prefill-banner" style="display:none;">
+      <div class="prefill-icon">✅</div>
+      <div class="prefill-body">
+        <h3 id="prefillTitle">¡Hola Mecánico Aliado!</h3>
+        <p id="prefillDesc">Tus datos principales ya están registrados en RED NITROX a través de WhatsApp. Este formulario web es 100% opcional: úsalo si deseas complementar tus temas de capacitación técnica y beneficios de taller.</p>
+        <div id="prefillBadge" class="prefill-badge"></div>
+      </div>
     </div>
 
     <!-- Stepper -->
@@ -963,6 +1070,57 @@
       showStep(step);
     }
 
+    let preloadedIdUnico = null;
+
+    // Detectar si ingresa desde WhatsApp (?id= o ?tel=)
+    window.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryParam = urlParams.get('id') || urlParams.get('tel');
+      if (!queryParam) return;
+
+      try {
+        const res = await fetch(`/api/formulario/lookup?q=${encodeURIComponent(queryParam)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.mecanico) {
+            const m = data.mecanico;
+            preloadedIdUnico = m.id_unico;
+
+            // Mostrar banner de bienvenida desde WhatsApp
+            const banner = document.getElementById('prefillBanner');
+            if (banner) {
+              banner.style.display = 'flex';
+              document.getElementById('prefillTitle').textContent = `¡Hola ${m.nombres_apellidos || 'Mecánico Aliado'}!`;
+              document.getElementById('prefillDesc').textContent = `Tu taller "${m.nombre_taller || 'Aliado'}" ya está registrado en RED NITROX a través de WhatsApp. Tus datos principales ya están cargados. Puedes avanzar libremente para elegir tus temas de capacitación o beneficios preferidos.`;
+              document.getElementById('prefillBadge').textContent = `Código: ${m.id_unico} | Nivel ${m.nivel_relacion_numero}: ${m.nivel_relacion_nombre} | Score: ${m.score_potencial} pts`;
+            }
+
+            // Precargar campos del formulario
+            if (m.nombres_apellidos) document.getElementById('nombres_apellidos').value = m.nombres_apellidos;
+            if (m.celular_whatsapp) document.getElementById('celular_whatsapp').value = m.celular_whatsapp;
+            if (m.nombre_taller) document.getElementById('nombre_taller').value = m.nombre_taller;
+            if (m.ciudad_taller) document.getElementById('ciudad_taller').value = m.ciudad_taller;
+            if (m.barrio_taller) document.getElementById('barrio_taller').value = m.barrio_taller;
+            if (m.ciudad_residencia) document.getElementById('ciudad_residencia').value = m.ciudad_residencia;
+            if (m.direccion_taller) document.getElementById('direccion_taller').value = m.direccion_taller;
+            if (m.motos_por_semana) document.getElementById('motos_por_semana').value = m.motos_por_semana;
+            if (m.quien_decide_repuesto) document.getElementById('quien_decide_repuesto').value = m.quien_decide_repuesto;
+            if (m.relacion_taller) document.getElementById('relacion_taller').value = m.relacion_taller;
+
+            if (m.conoce_nitrox) {
+              document.getElementById('conoce_nitrox').value = m.conoce_nitrox;
+              document.querySelectorAll('[data-target="conoce_nitrox"] .choice-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.value === m.conoce_nitrox);
+              });
+              handleNitroxConditional();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error al precargar datos:', err);
+      }
+    });
+
     // Submit handler
     document.getElementById('nitroxForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -972,6 +1130,7 @@
       btnSubmit.innerHTML = '<span>⏳ Guardando Ficha Maestra...</span>';
 
       const payload = {
+        id_unico: preloadedIdUnico,
         nombres_apellidos: document.getElementById('nombres_apellidos').value.trim(),
         cedula: document.getElementById('cedula').value.trim(),
         celular_whatsapp: document.getElementById('celular_whatsapp').value.trim(),

@@ -423,12 +423,25 @@
     }
 
     .origin-badge {
-      display: inline-block;
-      font-size: 0.72rem;
-      padding: 2px 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      padding: 3px 8px;
       border-radius: 6px;
       background: #1E2330;
       color: var(--text-muted);
+    }
+    .origin-badge.origin-wa {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34D399;
+    }
+    .origin-badge.origin-web {
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93C5FD;
     }
 
     .btn-view-sheet {
@@ -624,24 +637,29 @@
     <!-- KPI Summary Row -->
     <div class="kpi-grid">
       <div class="kpi-card">
-        <span class="kpi-label">Mecánicos Registrados</span>
+        <span class="kpi-label">Total Registrados</span>
         <div class="kpi-value" id="kpiTotal">0</div>
-        <span class="kpi-sub">Fichas maestras capturadas</span>
+        <span class="kpi-sub">Mecánicos en base de datos</span>
       </div>
       <div class="kpi-card kpi-green">
-        <span class="kpi-label">Potencial Promedio</span>
-        <div class="kpi-value" id="kpiScore">0<small style="font-size:1.1rem">/100</small></div>
-        <span class="kpi-sub">Scoring de prescripción y volumen</span>
+        <span class="kpi-label">💬 Vía WhatsApp (Principal)</span>
+        <div class="kpi-value" id="kpiWa">0</div>
+        <span class="kpi-sub" id="kpiWaSub">0% del total</span>
       </div>
       <div class="kpi-card kpi-blue">
-        <span class="kpi-label">Prescriptores Clave</span>
-        <div class="kpi-value" id="kpiPrescriptores">0%</div>
-        <span class="kpi-sub">Mecánicos que deciden el repuesto</span>
+        <span class="kpi-label">🌐 Formulario Web (Opcional)</span>
+        <div class="kpi-value" id="kpiWeb">0</div>
+        <span class="kpi-sub" id="kpiWebSub">0% del total</span>
       </div>
       <div class="kpi-card kpi-purple">
-        <span class="kpi-label">Conocimiento NITROX</span>
-        <div class="kpi-value" id="kpiConocen">0%</div>
-        <span class="kpi-sub">Reconocen o han usado repuestos</span>
+        <span class="kpi-label">Prescriptores Clave</span>
+        <div class="kpi-value" id="kpiPrescriptores">0%</div>
+        <span class="kpi-sub">Deciden qué repuesto instalar</span>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid var(--accent);">
+        <span class="kpi-label">Potencial Promedio</span>
+        <div class="kpi-value" id="kpiScore">0<small style="font-size:1.1rem">/100</small></div>
+        <span class="kpi-sub">Score de prescripción y volumen</span>
       </div>
     </div>
 
@@ -680,11 +698,9 @@
         </select>
 
         <select id="origenFilter" class="select-filter">
-          <option value="all">Todos los Orígenes</option>
-          <option value="WhatsApp">WhatsApp (Mateo)</option>
-          <option value="Web">Formulario Web</option>
-          <option value="QR">Código QR</option>
-          <option value="Ruta">Ruta NITROX</option>
+          <option value="all">Todos los Canales</option>
+          <option value="WhatsApp">💬 WhatsApp (Canal Principal)</option>
+          <option value="Web">🌐 Formulario Web (Opcional)</option>
         </select>
 
         <button id="btnExport" class="btn-action btn-export">
@@ -792,6 +808,13 @@
       const total = list.length;
       document.getElementById('kpiTotal').textContent = total;
 
+      const waCount = list.filter(m => (m.origen_registro || '').toLowerCase().includes('whatsapp')).length;
+      const webCount = total - waCount;
+      document.getElementById('kpiWa').textContent = waCount;
+      document.getElementById('kpiWaSub').textContent = total > 0 ? `${Math.round((waCount / total) * 100)}% del total` : '0%';
+      document.getElementById('kpiWeb').textContent = webCount;
+      document.getElementById('kpiWebSub').textContent = total > 0 ? `${Math.round((webCount / total) * 100)}% del total` : '0%';
+
       if (total === 0) return;
 
       const avgScore = Math.round(list.reduce((acc, m) => acc + (m.score_potencial || 0), 0) / total);
@@ -802,13 +825,6 @@
         return d.includes('mecánico') || d.includes('mecanico') || d.includes('ambos');
       }).length;
       document.getElementById('kpiPrescriptores').textContent = `${Math.round((prescriptores / total) * 100)}%`;
-
-      const conocen = list.filter(m => {
-        const c = (m.conoce_nitrox || '').toLowerCase();
-        const u = (m.ha_usado_nitrox || '').toLowerCase();
-        return c.includes('sí') || c.includes('si') || u.includes('sí') || u.includes('si');
-      }).length;
-      document.getElementById('kpiConocen').textContent = `${Math.round((conocen / total) * 100)}%`;
 
       // Level counts
       document.getElementById('badgeAll').textContent = total;
@@ -832,7 +848,11 @@
         // Municipio
         if (municipio !== 'all' && (m.ciudad_taller || m.ciudad_residencia) !== municipio) return false;
         // Origen
-        if (origen !== 'all' && (m.origen_registro || '').toLowerCase() !== origen.toLowerCase()) return false;
+        if (origen !== 'all') {
+          const mOrigin = (m.origen_registro || '').toLowerCase();
+          if (origen === 'WhatsApp' && !mOrigin.includes('whatsapp')) return false;
+          if (origen === 'Web' && mOrigin.includes('whatsapp')) return false;
+        }
         // Search
         if (searchTerm) {
           const matchStr = `${m.nombres_apellidos} ${m.nombre_taller} ${m.celular_whatsapp} ${m.barrio_taller} ${m.id_unico}`.toLowerCase();
@@ -853,6 +873,9 @@
         const levelName = m.nivel_relacion_nombre || `Nivel ${levelNum}`;
         const score = m.score_potencial || 0;
         const cleanPhone = (m.celular_whatsapp || '').replace(/\D/g, '');
+        const isWa = (m.origen_registro || '').toLowerCase().includes('whatsapp');
+        const originClass = isWa ? 'origin-wa' : 'origin-web';
+        const originLabel = isWa ? '💬 WhatsApp (Principal)' : '🌐 Formulario Web (Opcional)';
 
         return `
           <tr>
@@ -890,7 +913,7 @@
               </span>
             </td>
             <td>
-              <span class="origin-badge">${m.origen_registro || 'Web'}</span>
+              <span class="origin-badge ${originClass}">${originLabel}</span>
             </td>
             <td>
               <button class="btn-view-sheet" onclick="openFichaMaestra('${m.id_unico}')">
@@ -908,8 +931,13 @@
       if (!m) return;
       currentSelectedId = id;
 
+      const isWa = (m.origen_registro || '').toLowerCase().includes('whatsapp');
+      const originTag = isWa 
+        ? `<div style="margin-top:6px;"><span class="origin-badge origin-wa" style="font-size:0.82rem; padding:4px 10px;">💬 Canal Principal: Capturado directamente por WhatsApp (Agente Mateo)</span></div>`
+        : `<div style="margin-top:6px;"><span class="origin-badge origin-web" style="font-size:0.82rem; padding:4px 10px;">🌐 Canal Opcional: Diligenciado en Formulario Web</span></div>`;
+
       document.getElementById('modalMechanicName').textContent = `${m.nombres_apellidos || 'Mecánico Aliado'} (${m.nombre_taller || 'Taller'})`;
-      document.getElementById('modalSubhead').textContent = `ID: ${m.id_unico} | Registrado el ${new Date(m.fecha_registro).toLocaleString('es-CO')} vía ${m.origen_registro || 'Web'}`;
+      document.getElementById('modalSubhead').innerHTML = `ID: ${m.id_unico} | Registrado el ${new Date(m.fecha_registro).toLocaleString('es-CO')} ${originTag}`;
       document.getElementById('changeLevelSelect').value = (m.nivel_relacion_numero || 1).toString();
 
       const modalContent = document.getElementById('modalContent');
