@@ -14,9 +14,29 @@ if (!admin.apps.length) {
 
 const memoryCache = {};
 
-// Helper to detect generic greetings
+// Helper to detect generic greetings (e.g. "Hola", "Buenas tardes", "Hola como estas")
+function isPureGreeting(text) {
+  const clean = (text || '').trim().toLowerCase().replace(/[.,!¡?¿]+/g, ' ').trim();
+  if (/(?:taller|motos|moto|repuestos|llamo|nombre|soy|medellin|bello|itagui|afiliar|registro|inscribir|info|informacion|información)/i.test(clean)) {
+    return false;
+  }
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 5) return false;
+  const greetingTokens = /^(?:hola|buenas|buenos|dia|dias|día|días|tarde|tardes|noche|noches|que|qué|mas|más|tal|como|cómo|estas|estás|esta|está|va|todo|bien|amigo|hermano|mateo|sr|señor|senor|nitrox|asesor|saludos|alo|aló|hey)$/i;
+  return words.every(w => greetingTokens.test(w));
+}
+
+function isGreetingResponse(text) {
+  const clean = (text || '').trim().toLowerCase().replace(/[.,!¡?¿]+/g, ' ').trim();
+  if (/(?:taller|motos|moto|repuestos|llamo|nombre|soy)/i.test(clean)) return false;
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 6) return false;
+  const tokens = /^(?:bien|muy|todo|gracias|y|tu|tú|vos|usted|hermano|amigo|dios|a|orden|excelente|aca|acá|trabajando|ahi|ahí|vamos|buenas|hola|saludos|al|pelo|firme)$/i;
+  return words.every(w => tokens.test(w));
+}
+
 function isGreeting(text) {
-  return /^(?:hola|buenas|buenos dias|buenas tardes|buenas noches|que mas|saludos|hey|alo|info|informacion|afiliacion|afiliar|red nitrox)[\s.,!]*$/i.test((text || '').trim());
+  return isPureGreeting(text) || isGreetingResponse(text) || /^(?:info|informacion|afiliacion|afiliar|red nitrox)[\s.,!]*$/i.test((text || '').trim());
 }
 
 // Helper to count words
@@ -29,11 +49,11 @@ function countWords(str) {
 function cleanPersonName(str) {
   if (!str) return '';
   let s = str.trim();
-  if (isGreeting(s)) return '';
+  if (isPureGreeting(s) || isGreetingResponse(s)) return '';
   s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es)\s+/gi, '');
   s = s.replace(/(?:taller|motos|repuestos).*$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
-  if (isGreeting(s)) return '';
+  if (isPureGreeting(s) || isGreetingResponse(s)) return '';
   const words = s.split(/\s+/).filter(Boolean);
   if (words.length === 1 && /^(hola|buenas|quiero|taller|motos|info)$/i.test(words[0])) return '';
   return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
@@ -119,9 +139,17 @@ function extractEntities(text, sessionData) {
 
   // 1. Name & Workshop if missing
   if (!sessionData.nombres_apellidos || !sessionData.nombre_taller) {
-    const { name, workshop } = parseNameAndWorkshop(raw);
-    if (name && !sessionData.nombres_apellidos) updates.nombres_apellidos = name;
-    if (workshop && !sessionData.nombre_taller) updates.nombre_taller = workshop;
+    if (sessionData._lastQuestion === 'NOMBRE' && !sessionData.nombres_apellidos) {
+      const p = cleanPersonName(raw);
+      if (p) updates.nombres_apellidos = p;
+    } else if (sessionData._lastQuestion === 'TALLER' && !sessionData.nombre_taller) {
+      const w = cleanWorkshopName(raw);
+      if (w) updates.nombre_taller = w;
+    } else {
+      const { name, workshop } = parseNameAndWorkshop(raw);
+      if (name && !sessionData.nombres_apellidos) updates.nombres_apellidos = name;
+      if (workshop && !sessionData.nombre_taller) updates.nombre_taller = workshop;
+    }
   }
 
   // 2. Municipality & Barrio
@@ -133,7 +161,12 @@ function extractEntities(text, sessionData) {
   else if (/caldas/i.test(lower)) updates.ciudad_taller = 'Caldas';
   else if (/copacabana/i.test(lower)) updates.ciudad_taller = 'Copacabana';
   else if (/girardota/i.test(lower)) updates.ciudad_taller = 'Girardota';
-  else if (/medellin|medellín|guayabal|belen|laureles|castilla|robledo|poblado/i.test(lower)) updates.ciudad_taller = 'Medellín';
+  else if (/medellin|medellín|guayabal|belen|laureles|castilla|robledo|poblado|manrique|aranjuez|prado|san javier|buenos aires|centro|la 70|la 80|la 33/i.test(lower)) {
+    updates.ciudad_taller = 'Medellín';
+  } else if (sessionData._lastQuestion === 'UBICACION') {
+    updates.ciudad_taller = 'Medellín';
+    updates.barrio_taller = raw;
+  }
 
   if (updates.ciudad_taller) updates.ciudad_residencia = updates.ciudad_taller;
 
@@ -141,6 +174,8 @@ function extractEntities(text, sessionData) {
   if (/mecanico|mecánico|empleado|las arreglo yo|yo arreglo/i.test(lower)) updates.relacion_taller = 'Mecánico';
   else if (/dueño|dueno|propietario|el taller es mio|es mio|yo lo manejo/i.test(lower)) updates.relacion_taller = 'Propietario';
   else if (/socio|copropietario/i.test(lower)) updates.relacion_taller = 'Socio';
+  else if (/ambas|las dos|ambos|jefe|admin|encargado/i.test(lower)) updates.relacion_taller = 'Propietario y Mecánico';
+  else if (sessionData._lastQuestion === 'ROL') updates.relacion_taller = raw;
 
   // 4. Volume (only if asked or explicit volume keywords, never from workshop name)
   const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN';
@@ -165,7 +200,11 @@ function extractEntities(text, sessionData) {
   if (/hero/i.test(lower)) brands.push('Hero');
   if (/ktm/i.test(lower)) brands.push('KTM');
   if (/todas|de todas|variadas|de todo/i.test(lower)) brands.push('Variadas / Todas');
-  if (brands.length > 0) updates.marcas_motos = brands;
+  if (brands.length > 0) {
+    updates.marcas_motos = brands;
+  } else if (sessionData._lastQuestion === 'MARCAS') {
+    updates.marcas_motos = [raw];
+  }
 
   // 6. Frequent parts
   const parts = [];
@@ -175,13 +214,17 @@ function extractEntities(text, sessionData) {
   if (/aceite|filtro|lubricante/i.test(lower)) parts.push('Lubricación / Filtros');
   if (/suspension|amortiguador/i.test(lower)) parts.push('Suspensión');
   if (/electr|bateria|inyeccion/i.test(lower)) parts.push('Electricidad');
-  if (parts.length > 0) updates.repuestos_frecuentes = parts;
+  if (parts.length > 0) {
+    updates.repuestos_frecuentes = parts;
+  } else if (sessionData._lastQuestion === 'REPUESTOS') {
+    updates.repuestos_frecuentes = [raw];
+  }
 
   // 7. Decision maker
   if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|mecanico|mecánico/i.test(lower) && !sessionData.quien_decide_repuesto) {
     updates.quien_decide_repuesto = 'Mecánico';
     updates.frecuencia_recomendacion = 'Siempre';
-  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen/i.test(lower)) {
+  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen|propietarios/i.test(lower)) {
     updates.quien_decide_repuesto = 'Cliente';
     updates.frecuencia_recomendacion = 'Algunas veces';
   }
@@ -198,20 +241,34 @@ function extractEntities(text, sessionData) {
       updates.ha_usado_nitrox = 'No';
       updates.calificacion_experiencia_nitrox = 'No aplica';
       updates.recomendaria_nitrox = 'Probablemente sí';
+    } else if (/poco|apenas|mas o menos|más o menos|regular|algo/i.test(lower)) {
+      updates.conoce_nitrox = 'Sí';
+      updates.ha_usado_nitrox = 'Sí';
+      updates.calificacion_experiencia_nitrox = 'Regular';
+      updates.recomendaria_nitrox = 'Probablemente sí';
+    } else {
+      updates.conoce_nitrox = 'Sí';
+      updates.ha_usado_nitrox = 'Sí';
+      updates.calificacion_experiencia_nitrox = 'Buena';
     }
   }
 
   // 9. Purchase channel / criteria
-  if (sessionData._lastQuestion === 'CANAL_COMPRA' || /distribuidor|directo|barato|almacen/i.test(lower)) {
-    if (/distribuidor|distribuidora|ruta|preventista/i.test(lower)) {
+  if (sessionData._lastQuestion === 'CANAL_COMPRA' || /distrib|direct|barato|almacen|propietario|cliente|ellos|vehiculo|vehículo/i.test(lower)) {
+    if (/propietario|cliente|ellos lo compran|ellos los traen|traen los repuestos|vehiculo|vehículo/i.test(lower)) {
+      updates.canal_compra = 'Los clientes / propietarios los compran';
+      updates.quien_decide_repuesto = 'Cliente';
+    } else if (/distrib/i.test(lower)) {
       updates.canal_compra = 'Distribuidor';
-    } else if (/directo|fabrica|fábrica/i.test(lower)) {
+    } else if (/direct/i.test(lower)) {
       updates.canal_compra = 'Directo';
     } else if (/barato|economico|económico|precio|donde salga/i.test(lower)) {
       updates.canal_compra = 'Donde salga más barato';
       updates.criterio_compra = 'Precio';
     } else if (/almacen|almacenes|repuestera/i.test(lower)) {
       updates.canal_compra = 'Almacén de repuestos';
+    } else {
+      updates.canal_compra = raw; // Always consume whatever the user answered to prevent looping!
     }
   }
 
@@ -305,11 +362,33 @@ async function generateMateoResponse(fromNumber, userText) {
     return [reply];
   }
 
-  // 1. Extract newly provided entities
+  // 1. Pure greeting check: if user sends only a greeting first (Requirement: primero saludar, esperar que salude)
+  if (!data._initialGreetingSent && isPureGreeting(raw)) {
+    data._initialGreetingSent = true;
+    data._lastQuestion = 'WAITING_GREETING_REPLY';
+    const reply = "¡Hola! ¿Cómo estás? Soy Mateo, asesor de la RED NITROX en Medellín.";
+    session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+    await saveSession(fromNumber, session);
+    return [reply];
+  }
+
+  // 2. Extract newly provided entities
   const newEntities = extractEntities(userText, data);
   Object.assign(data, newEntities);
 
-  // 2. Synchronize progressively to Firestore / CRM
+  // If user was answering the initial greeting:
+  if (data._lastQuestion === 'WAITING_GREETING_REPLY') {
+    delete data._lastQuestion;
+    if (!data.nombres_apellidos && !data.nombre_taller) {
+      data._lastQuestion = 'NOMBRE_Y_TALLER';
+      const reply = "Me alegra. ¿Cómo te llamas y cómo se llama tu taller de motos?";
+      session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+      await saveSession(fromNumber, session);
+      return [reply];
+    }
+  }
+
+  // 3. Synchronize progressively to Firestore / CRM
   if (data.nombres_apellidos || data.nombre_taller) {
     await saveMechanicToFirestore(fromNumber, data);
   }
@@ -317,7 +396,7 @@ async function generateMateoResponse(fromNumber, userText) {
   const firstName = (data.nombres_apellidos || '').split(' ')[0] || '';
   const workshopName = data.nombre_taller || '';
 
-  // 3. User inquiry interceptor (if user asks what RED NITROX is)
+  // 4. User inquiry interceptor (if user asks what RED NITROX is)
   if (/(que es red nitrox|de que se trata|para que es|que beneficios|quien es nitrox)/i.test(lower)) {
     let reply = "Es una red de talleres aliados de NITROX en Medellín con capacitaciones, muestras de repuestos y beneficios directos.";
     if (!data.nombres_apellidos || !data.nombre_taller) {
@@ -329,10 +408,10 @@ async function generateMateoResponse(fromNumber, userText) {
     return [reply];
   }
 
-  // 4. Decide the SINGLE logical next response based on memory and context (Prompt Maestro)
+  // 5. Decide the SINGLE logical next response based on memory and context (Prompt Maestro)
   let reply = '';
 
-  // Initial greeting / Missing both name and workshop
+  // Initial prompt if user didn't start with pure greeting
   if (!data.nombres_apellidos && !data.nombre_taller) {
     data._lastQuestion = 'NOMBRE_Y_TALLER';
     reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cómo te llamas y cómo se llama tu taller?";
@@ -387,14 +466,24 @@ async function generateMateoResponse(fromNumber, userText) {
     data._ofertaVisita = true;
     reply = `Entendido. En NITROX manejamos muy buena calidad y precios para talleres. ¿Te gustaría recibir muestras y catálogo?`;
   }
-  // If price / channel was answered
-  else if (data.criterio_compra === 'Precio' && !data._marcaPreguntada) {
-    data._marcaPreguntada = true;
-    reply = `Claro, el precio pesa bastante. ¿Qué marca compras más?`;
+  // If purchase channel was answered
+  else if (data.canal_compra && !data._repuestosComprados) {
+    data._repuestosComprados = true;
+    data._lastQuestion = 'MARCA_REPUESTOS';
+    if (/cliente|propietario|ellos/i.test(data.canal_compra)) {
+      reply = `Entiendo, el cliente los lleva. ¿Y qué marcas de repuestos te llevan más a instalar?`;
+    } else if (/direct/i.test(data.canal_compra)) {
+      reply = `Buenísimo directo. ¿Y qué marcas o repuestos compras con más frecuencia?`;
+    } else {
+      reply = `Claro, se busca buen margen. ¿Qué marca de repuestos compras más?`;
+    }
   }
   // Final closing / Natural human farewell (concise, warm, respectful)
-  else {
+  else if (!data._finished) {
+    data._finished = true;
     reply = `Listo ${firstName}, anotado todo. Muy bacano tu taller ${workshopName}. Quedo súper atento por acá para lo que necesites.`;
+  } else {
+    reply = `¡Con todo el gusto ${firstName}! Por acá a la orden siempre.`;
   }
 
   // Word count checklist enforcement
