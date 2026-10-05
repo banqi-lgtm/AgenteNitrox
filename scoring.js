@@ -25,6 +25,8 @@ function calculateMechanicScore(data) {
       else if (val >= 20) score += 20;
       else if (val >= 10) score += 12;
       else score += 5;
+    } else if (/mucha|bastante|harto|full|varias/i.test(motos)) {
+      score += 25; // Buen volumen libre
     } else {
       score += 10; // Default moderado
     }
@@ -32,7 +34,7 @@ function calculateMechanicScore(data) {
 
   // 2. Capacidad de Prescripción (Quién decide el repuesto) (Máx 30 pts)
   const decide = (data.quien_decide_repuesto || data.decisionRepuesto || '').toLowerCase();
-  if (decide.includes('mecánico') || decide.includes('mecanico') || decide.includes('ambos')) {
+  if (decide.includes('mecánico') || decide.includes('mecanico') || decide.includes('ambos') || decide.includes('sujier') || decide.includes('sugier') || decide.includes('recomiend') || decide.includes('yo')) {
     score += 30;
   } else if (decide.includes('dueño') || decide.includes('propietario del taller') || decide.includes('administrador')) {
     score += 20;
