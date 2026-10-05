@@ -1,18 +1,215 @@
 require('dotenv').config();
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
+const path = require('path');
 const { generateMateoResponse, admin } = require('./agent');
+const { normalizeMechanicData } = require('./scoring');
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
 const ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'btnt_nitrox_secret_token_2026';
+const ADMIN_TOKEN = 'nitrox_admin_secret_token_2026';
 
 const processedMessageIds = new Set();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Auth Middleware for CRM
+function requireAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = (authHeader && authHeader.startsWith('Bearer ')) 
+    ? authHeader.split(' ')[1] 
+    : (req.query.token || req.headers['x-admin-token']);
+
+  if (token === ADMIN_TOKEN) {
+    return next();
+  }
+  return res.status(401).json({ success: false, message: 'No autorizado. Ingrese con credenciales de administrador.' });
+}
+
+// ==========================================
+// 1. WEB & CRM ROUTES
+// ==========================================
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/crm', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'crm.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.redirect('/crm');
+});
+
+app.get('/formulario', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'formulario.html'));
+});
+
+app.get('/registro', (req, res) => {
+  res.redirect('/formulario');
+});
+
+// Auth API
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {};
+  if (email === 'administrador@nitrox.com' && password === 'administrador') {
+    return res.json({ success: true, token: ADMIN_TOKEN });
+  }
+  return res.status(401).json({ success: false, message: 'Correo o contraseña incorrectos' });
+});
+
+// In-memory fallback for local dev / resilience
+let localMecanicosCache = [];
+
+// Formulario Virtual API
+app.post('/api/formulario', async (req, res) => {
+  try {
+    const rawData = req.body || {};
+    if (!rawData.nombres_apellidos || !rawData.celular_whatsapp || !rawData.nombre_taller) {
+      return res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
+    }
+
+    const normalized = normalizeMechanicData(rawData, 'Formulario Web');
+    const docId = normalized.id_unico;
+
+    try {
+      await admin.firestore().collection('mecanicos_red_nitrox').doc(docId).set(normalized);
+      console.log(`[FORMULARIO WEB] Mecánico registrado en Firestore: ${normalized.nombres_apellidos} (ID: ${normalized.id_unico})`);
+    } catch (fsErr) {
+      console.warn('[FIRESTORE (fallback local)]', fsErr.message);
+      localMecanicosCache.unshift(normalized);
+    }
+
+    return res.json({ success: true, mecanico: normalized });
+  } catch (err) {
+    console.error('Error al guardar formulario web:', err);
+    return res.status(500).json({ success: false, message: 'Error interno al procesar el registro' });
+  }
+});
+
+// CRM Mecánicos List API
+app.get('/api/crm/mecanicos', requireAuth, async (req, res) => {
+  try {
+    let list = [];
+    try {
+      const snapshot = await admin.firestore().collection('mecanicos_red_nitrox').get();
+      snapshot.forEach(doc => list.push(doc.data()));
+    } catch (fsErr) {
+      console.warn('[FIRESTORE (fallback local)]', fsErr.message);
+      list = [...localMecanicosCache];
+    }
+    list.sort((a, b) => new Date(b.fecha_registro || 0) - new Date(a.fecha_registro || 0));
+    return res.json({ success: true, count: list.length, mecanicos: list });
+  } catch (err) {
+    console.error('Error obteniendo mecánicos:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// CRM Mecánicos Update Level API
+app.put('/api/crm/mecanicos/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { nivel, estado, notas } = req.body || {};
+    const updates = {};
+
+    if (nivel !== undefined) {
+      updates.nivel_relacion_numero = parseInt(nivel, 10);
+      const levelNames = {
+        1: 'Registrado',
+        2: 'Conoce NITROX',
+        3: 'Capacitado',
+        4: 'Probó NITROX',
+        5: 'Compra NITROX',
+        6: 'Usuario recurrente',
+        7: 'Recomienda NITROX'
+      };
+      updates.nivel_relacion_nombre = levelNames[updates.nivel_relacion_numero] || `Nivel ${updates.nivel_relacion_numero}`;
+    }
+    if (estado) updates.estado_mecanico = estado;
+    if (notas) updates.notas_promotor = notas;
+
+    try {
+      const docRef = admin.firestore().collection('mecanicos_red_nitrox').doc(id);
+      const docSnap = await docRef.get();
+      if (docSnap.exists) {
+        await docRef.update(updates);
+      } else {
+        const q = await admin.firestore().collection('mecanicos_red_nitrox').where('id_unico', '==', id).get();
+        if (!q.empty) {
+          await q.docs[0].ref.update(updates);
+        }
+      }
+    } catch (fsErr) {
+      const item = localMecanicosCache.find(m => m.id_unico === id || m.celular_whatsapp === id);
+      if (item) Object.assign(item, updates);
+    }
+    return res.json({ success: true, updates });
+  } catch (err) {
+    console.error('Error actualizando mecánico:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// CRM Export CSV API
+app.get('/api/crm/export', requireAuth, async (req, res) => {
+  try {
+    let list = [];
+    try {
+      const snapshot = await admin.firestore().collection('mecanicos_red_nitrox').get();
+      snapshot.forEach(doc => list.push(doc.data()));
+    } catch (fsErr) {
+      console.warn('[FIRESTORE (fallback local)]', fsErr.message);
+      list = [...localMecanicosCache];
+    }
+    list.sort((a, b) => new Date(b.fecha_registro || 0) - new Date(a.fecha_registro || 0));
+
+    const headers = [
+      'ID Unico', 'Fecha Registro', 'Origen', 'Nivel Numero', 'Nivel Nombre', 'Score Potencial',
+      'Nombres y Apellidos', 'Cedula', 'Celular WhatsApp', 'Tiene WhatsApp', 'Correo', 'Ciudad Residencia', 'Barrio Residencia',
+      'Nombre Taller', 'Ciudad Taller', 'Barrio Taller', 'Direccion Taller', 'Relacion Taller', 'Antiguedad Taller', 'Personas Taller',
+      'Experiencia Mecanico', 'Especialidades', 'Tipos Motos', 'Marcas Motos', 'Motos Por Semana',
+      'Quien Decide Repuesto', 'Frecuencia Recomendacion', 'Donde Compra', 'Marcas Repuestos Usadas', 'Factores Eleccion',
+      'Conoce Nitrox', 'Como Conocio', 'Ha Usado Nitrox', 'Categorias Usadas', 'Calificacion Experiencia', 'Recomendaria Nitrox',
+      'Actividades Interes', 'Temas Capacitacion', 'Autorizacion Datos', 'Autorizacion Comercial'
+    ];
+
+    const escapeCsv = (str) => {
+      if (str === null || str === undefined) return '""';
+      const s = Array.isArray(str) ? str.join('; ') : String(str);
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    let csvContent = '\uFEFF'; // UTF-8 BOM for Excel
+    csvContent += headers.join(',') + '\r\n';
+
+    list.forEach(m => {
+      const row = [
+        m.id_unico, m.fecha_registro, m.origen_registro, m.nivel_relacion_numero, m.nivel_relacion_nombre, m.score_potencial,
+        m.nombres_apellidos, m.cedula, m.celular_whatsapp, m.tiene_whatsapp ? 'SI' : 'NO', m.correo, m.ciudad_residencia, m.barrio_residencia,
+        m.nombre_taller, m.ciudad_taller, m.barrio_taller, m.direccion_taller, m.relacion_taller, m.antiguedad_taller, m.personas_taller,
+        m.experiencia_mecanico, m.especialidad, m.tipo_motos, m.marcas_motos, m.motos_por_semana,
+        m.quien_decide_repuesto, m.frecuencia_recomendacion, m.donde_compra_repuestos, m.marcas_repuestos_usadas, m.factores_eleccion_repuesto,
+        m.conoce_nitrox, m.como_conocio_nitrox, m.ha_usado_nitrox, m.categorias_nitrox_usadas, m.calificacion_experiencia_nitrox, m.recomendaria_nitrox,
+        m.actividades_interes, m.temas_capacitacion, m.autorizacion_tratamiento_datos ? 'SI' : 'NO', m.autorizacion_comunicaciones_comerciales ? 'SI' : 'NO'
+      ];
+      csvContent += row.map(escapeCsv).join(',') + '\r\n';
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="RED_NITROX_Mecanicos_Medellin.csv"');
+    return res.send(csvContent);
+  } catch (err) {
+    console.error('Error exportando CSV:', err);
+    return res.status(500).send('Error exportando archivo CSV');
+  }
+});
 
 async function isMessageAlreadyProcessed(messageId) {
   if (processedMessageIds.has(messageId)) return true;
@@ -107,7 +304,7 @@ app.get('/', (req, res) => {
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     return res.status(200).send(challenge);
   }
-  res.send('Servidor WhatsApp Agente Mateo (NITROX) activo 🚀');
+  return res.redirect('/crm');
 });
 
 // 2. Incoming Messages Webhook (POST)
@@ -118,6 +315,15 @@ async function handleIncomingMessage(req, res) {
   }
 
   const change = body.entry[0].changes[0].value;
+
+  // Handle message status updates (sent, delivered, read, failed)
+  if (change.statuses && change.statuses.length > 0) {
+    for (const st of change.statuses) {
+      console.log(`📊 [META STATUS]: +${st.recipient_id} -> ${st.status} (id: ${st.id})${st.errors ? ' ❌ ERROR: ' + JSON.stringify(st.errors) : ''}`);
+    }
+    return res.status(200).send('EVENT_RECEIVED');
+  }
+
   if (!change.messages || change.messages.length === 0) {
     return res.status(200).send('EVENT_RECEIVED');
   }
@@ -134,6 +340,8 @@ async function handleIncomingMessage(req, res) {
   }
 
   if (message.type !== 'text') {
+    console.log(`📩 [MENSAJE NO TEXTO (${message.type}) de +${from}]`);
+    await sendWhatsAppMessage(from, 'hola! por ahora solo puedo leer mensajes de texto. cuentame que estas buscando en la plataforma hoy');
     return res.status(200).send('EVENT_RECEIVED');
   }
 

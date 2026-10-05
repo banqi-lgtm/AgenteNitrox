@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formulario RED NITROX | Registro de Mecánicos Piloto Medellín</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #D90429;
+      --primary-dark: #A3001B;
+      --accent: #EF233C;
+      --bg: #0F1117;
+      --card-bg: #171A23;
+      --card-border: #262B3A;
+      --text: #F8F9FA;
+      --text-muted: #8D99AE;
+      --input-bg: #10121A;
+      --success: #10B981;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    body {
+      background: radial-gradient(circle at top right, #1F1015, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 14px 60px;
+    }
+    .form-wrapper {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    /* Brand Header */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(217, 4, 41, 0.15);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      border: 1px solid rgba(217, 4, 41, 0.3);
+    }
+    .brand-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+    .brand-title span { color: var(--accent); }
+    .brand-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Stepper Bar */
+    .stepper {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .stepper::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 20px;
+      right: 20px;
+      height: 3px;
+      background: var(--card-border);
+      z-index: 1;
+      transform: translateY(-50%);
+    }
+    .step-item {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+    .step-circle {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .step-item.active .step-circle {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(217, 4, 41, 0.5);
+    }
+    .step-item.completed .step-circle {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+    .step-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      display: none;
+    }
+    @media (min-width: 540px) {
+      .step-label { display: block; }
+    }
+
+    /* Step Content Cards */
+    .form-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .form-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+    }
+    .step-section-header {
+      margin-bottom: 22px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .step-section-header h2 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .step-section-header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Form Fields */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    @media (min-width: 600px) {
+      .form-grid.two-cols {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #DDE2EC;
+      display: flex;
+      justify-content: space-between;
+    }
+    .form-label .req {
+      color: var(--accent);
+    }
+    .form-label .opt {
+      font-weight: 500;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+    .form-control {
+      width: 100%;
+      padding: 13px 15px;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 0.92rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(239, 35, 60, 0.2);
+    }
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Choice Buttons (Tap friendly for mobile mechanics) */
+    .choice-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .choice-btn {
+      padding: 9px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: #CBD5E1;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .choice-btn:hover {
+      border-color: rgba(239, 35, 60, 0.5);
+      color: #fff;
+    }
+    .choice-btn.selected {
+      background: rgba(217, 4, 41, 0.18);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* Checkbox & Legal */
+    .checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #CBD5E1;
+      line-height: 1.4;
+      user-select: none;
+    }
+    .checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Navigation Buttons */
+    .btn-nav-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn-prev {
+      padding: 13px 22px;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-prev:hover {
+      border-color: #fff;
+      color: #fff;
+    }
+    .btn-next {
+      padding: 13px 28px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border: none;
+      color: #fff;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-next:hover {
+      box-shadow: 0 6px 18px rgba(217, 4, 41, 0.4);
+      transform: translateY(-1px);
+    }
+
+    /* Success Card */
+    .success-card {
+      display: none;
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .success-icon {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+    }
+    .success-card h2 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .success-card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 500px;
+      margin: 0 auto 24px;
+    }
+    .badge-card {
+      background: #11131A;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 380px;
+      margin: 0 auto 24px;
+      text-align: left;
+    }
+    .btn-wa-chat {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #10B981;
+      color: #fff;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+    }
+
+    .conditional-block {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-wrapper">
+    <!-- Brand Header -->
+    <div class="brand-header">
+      <div class="brand-badge">⚡ Registro Oficial – Piloto Medellín</div>
+      <h1 class="brand-title">RED <span>NITROX</span></h1>
+      <p class="brand-subtitle">Ficha Maestra de Mecánicos y Talleres Aliados</p>
+    </div>
+
+    <!-- Stepper -->
+    <div class="stepper">
+      <div class="step-item active" data-step="1">
+        <div class="step-circle">1</div>
+        <span class="step-label">Mecánico y Taller</span>
+      </div>
+      <div class="step-item" data-step="2">
+        <div class="step-circle">2</div>
+        <span class="step-label">Perfil y Motos</span>
+      </div>
+      <div class="step-item" data-step="3">
+        <div class="step-circle">3</div>
+        <span class="step-label">Prescripción</span>
+      </div>
+      <div class="step-item" data-step="4">
+        <div class="step-circle">4</div>
+        <span class="step-label">NITROX</span>
+      </div>
+      <div class="step-item" data-step="5">
+        <div class="step-circle">5</div>
+        <span class="step-label">Beneficios</span>
+      </div>
+    </div>
+
+    <form id="nitroxForm">
+
+      <!-- PASO 1: DATOS DEL MECÁNICO Y TALLER (Campos 1 a 14) -->
+      <div class="form-card" id="step1">
+        <div class="step-section-header">
+          <h2>1. Datos del Mecánico y Taller</h2>
+          <p>Información básica para tu ficha e identificación territorial.</p>
+        </div>
+
+        <div class="form-grid two-cols">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">1. Nombres y apellidos completos <span class="req">*</span></label>
+            <input type="text" id="nombres_apellidos" class="form-control" placeholder="Ej. Walter Alexander Silva" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">2. Cédula de ciudadanía <span class="opt">(Opcional)</span></label>
+            <input type="number" id="cedula" class="form-control" placeholder="Sin puntos ni comas">
+            <span class="form-hint">La puedes registrar luego para beneficios y redenciones.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">3. Número de celular / WhatsApp <span class="req">*</span></label>
+            <input type="tel" id="celular_whatsapp" class="form-control" placeholder="Ej. 3209206581" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">4. ¿Este número tiene WhatsApp? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="tiene_whatsapp">
+              <div class="choice-btn selected" data-value="true">Sí tiene</div>
+              <div class="choice-btn" data-value="false">No tiene</div>
+            </div>
+            <input type="hidden" id="tiene_whatsapp" value="true">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">5. Correo electrónico <span class="opt">(Opcional)</span></label>
+            <input type="email" id="correo" class="form-control" placeholder="ejemplo@correo.com">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">6. Municipio de residencia <span class="req">*</span></label>
+            <select id="ciudad_residencia" class="form-control" required>
+              <option value="Medellín">Medellín</option>
+              <option value="Bello">Bello</option>
+              <option value="Itagüí">Itagüí</option>
+              <option value="Envigado">Envigado</option>
+              <option value="Sabaneta">Sabaneta</option>
+              <option value="La Estrella">La Estrella</option>
+              <option value="Caldas">Caldas</option>
+              <option value="Copacabana">Copacabana</option>
+              <option value="Girardota">Girardota</option>
+              <option value="Otro">Otro municipio</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">7. Barrio de residencia <span class="opt">(Opcional)</span></label>
+            <input type="text" id="barrio_residencia" class="form-control" placeholder="Ej. Belén, Aranjuez...">
+          </div>
+
+          <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px;">
+            <hr style="border: 0; border-top: 1px solid var(--card-border); margin-bottom: 12px;">
+            <h3 style="font-size: 1rem; color: #fff; margin-bottom: 8px;">🏢 Datos del Taller</h3>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">8. Nombre del taller <span class="req">*</span></label>
+            <input type="text" id="nombre_taller" class="form-control" placeholder="Ej. Taller Motos del Valle" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">9. Municipio del taller <span class="req">*</span></label>
+            <select id="ciudad_taller" class="form-control" required>
+              <option value="Medellín">Medellín</option>
+              <option value="Bello">Bello</option>
+              <option value="Itagüí">Itagüí</option>
+              <option value="Envigado">Envigado</option>
+              <option value="Sabaneta">Sabaneta</option>
+              <option value="La Estrella">La Estrella</option>
+              <option value="Caldas">Caldas</option>
+              <option value="Copacabana">Copacabana</option>
+              <option value="Girardota">Girardota</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">10. Barrio / Sector del taller <span class="req">*</span></label>
+            <input type="text" id="barrio_taller" class="form-control" placeholder="Ej. Guayabal, Centro, La 33..." required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">11. Dirección del taller <span class="req">*</span></label>
+            <input type="text" id="direccion_taller" class="form-control" placeholder="Ej. Calle 44 # 65-20" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">12. Relación con el taller <span class="req">*</span></label>
+            <select id="relacion_taller" class="form-control" required>
+              <option value="Propietario">Propietario</option>
+              <option value="Administrador">Administrador</option>
+              <option value="Mecánico-empleado">Mecánico-empleado</option>
+              <option value="Socio">Socio</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">13. Años de funcionamiento del taller <span class="req">*</span></label>
+            <select id="antiguedad_taller" class="form-control" required>
+              <option value="Menos de 1">Menos de 1 año</option>
+              <option value="1–3">1 a 3 años</option>
+              <option value="4–5">4 a 5 años</option>
+              <option value="6–10">6 a 10 años</option>
+              <option value="Más de 10">Más de 10 años</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">14. ¿Cuántas personas trabajan en el taller? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="personas_taller">
+              <div class="choice-btn" data-value="1">1 sola</div>
+              <div class="choice-btn selected" data-value="2–3">2 a 3 personas</div>
+              <div class="choice-btn" data-value="4–5">4 a 5 personas</div>
+              <div class="choice-btn" data-value="Más de 5">Más de 5 personas</div>
+            </div>
+            <input type="hidden" id="personas_taller" value="2–3">
+          </div>
+        </div>
+
+        <div class="btn-nav-row" style="justify-content: flex-end;">
+          <button type="button" class="btn-next" onclick="nextStep(2)">Continuar al Paso 2 ➔</button>
+        </div>
+      </div>
+
+      <!-- PASO 2: PERFIL PROFESIONAL Y MOTOS (Campos 15 a 19) -->
+      <div class="form-card" id="step2" style="display: none;">
+        <div class="step-section-header">
+          <h2>2. Perfil Profesional y Capacidad</h2>
+          <p>Tu experiencia y las motocicletas que atienden a diario.</p>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">15. ¿Cuántos años de experiencia tienes como mecánico? <span class="req">*</span></label>
+            <select id="experiencia_mecanico" class="form-control" required>
+              <option value="Menos de 1">Menos de 1 año</option>
+              <option value="1–3">1 a 3 años</option>
+              <option value="4–5" selected>4 a 5 años</option>
+              <option value="6–10">6 a 10 años</option>
+              <option value="Más de 10">Más de 10 años</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">16. ¿Cuál es tu principal especialidad? (Selecciona una o más) <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="especialidad">
+              <div class="choice-btn selected" data-value="Mecánica general">Mecánica general</div>
+              <div class="choice-btn selected" data-value="Motor">Motor</div>
+              <div class="choice-btn" data-value="Transmisión">Transmisión</div>
+              <div class="choice-btn" data-value="Frenos">Frenos</div>
+              <div class="choice-btn" data-value="Suspensión">Suspensión</div>
+              <div class="choice-btn" data-value="Eléctrico">Eléctrico</div>
+              <div class="choice-btn" data-value="Inyección">Inyección</div>
+              <div class="choice-btn" data-value="Diagnóstico">Diagnóstico</div>
+              <div class="choice-btn" data-value="Mantenimiento preventivo">Mantenimiento preventivo</div>
+            </div>
+            <input type="hidden" id="especialidad" value="Mecánica general,Motor">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">17. ¿Qué tipo de motos atiende principalmente? <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="tipo_motos">
+              <div class="choice-btn selected" data-value="Scooter">Scooter</div>
+              <div class="choice-btn selected" data-value="Semiautomáticas">Semiautomáticas</div>
+              <div class="choice-btn selected" data-value="Trabajo">Trabajo</div>
+              <div class="choice-btn" data-value="Deportivas">Deportivas</div>
+              <div class="choice-btn" data-value="Alta cilindrada">Alta cilindrada</div>
+              <div class="choice-btn" data-value="Motocarros">Motocarros</div>
+              <div class="choice-btn selected" data-value="Varias">Varias</div>
+            </div>
+            <input type="hidden" id="tipo_motos" value="Scooter,Semiautomáticas,Trabajo,Varias">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">18. ¿Qué marcas de motos atiende con mayor frecuencia? <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="marcas_motos">
+              <div class="choice-btn selected" data-value="Yamaha">Yamaha</div>
+              <div class="choice-btn selected" data-value="Bajaj">Bajaj</div>
+              <div class="choice-btn selected" data-value="Honda">Honda</div>
+              <div class="choice-btn selected" data-value="AKT">AKT</div>
+              <div class="choice-btn selected" data-value="Suzuki">Suzuki</div>
+              <div class="choice-btn" data-value="TVS">TVS</div>
+              <div class="choice-btn" data-value="Hero">Hero</div>
+              <div class="choice-btn" data-value="KTM">KTM</div>
+              <div class="choice-btn" data-value="Kymco">Kymco</div>
+            </div>
+            <input type="hidden" id="marcas_motos" value="Yamaha,Bajaj,Honda,AKT,Suzuki">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">19. Aproximadamente, ¿cuántas motos atiende el taller por semana? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="motos_por_semana">
+              <div class="choice-btn" data-value="1–10">1 a 10 motos</div>
+              <div class="choice-btn" data-value="11–20">11 a 20 motos</div>
+              <div class="choice-btn selected" data-value="21–40">21 a 40 motos</div>
+              <div class="choice-btn" data-value="41–60">41 a 60 motos</div>
+              <div class="choice-btn" data-value="Más de 60">Más de 60 motos</div>
+            </div>
+            <input type="hidden" id="motos_por_semana" value="21–40">
+          </div>
+        </div>
+
+        <div class="btn-nav-row">
+          <button type="button" class="btn-prev" onclick="prevStep(1)">⬅ Anterior</button>
+          <button type="button" class="btn-next" onclick="nextStep(3)">Continuar al Paso 3 ➔</button>
+        </div>
+      </div>
+
+      <!-- PASO 3: PRESCRIPCIÓN Y COMPRA (Campos 20 a 24) -->
+      <div class="form-card" id="step3" style="display: none;">
+        <div class="step-section-header">
+          <h2>3. Decisión de Compra y Repuestos</h2>
+          <p>Cómo seleccionas y adquieres los repuestos para tus clientes.</p>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">20. ¿Quién decide qué repuesto instalar en la motocicleta? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="quien_decide_repuesto">
+              <div class="choice-btn selected" data-value="Mecánico">Yo (el mecánico)</div>
+              <div class="choice-btn" data-value="Propietario de la moto">El cliente / propietario</div>
+              <div class="choice-btn" data-value="Ambos">Ambos de común acuerdo</div>
+              <div class="choice-btn" data-value="Dueño del taller">El dueño del taller</div>
+            </div>
+            <input type="hidden" id="quien_decide_repuesto" value="Mecánico">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">21. ¿Con qué frecuencia recomiendas una marca específica a tus clientes? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="frecuencia_recomendacion">
+              <div class="choice-btn selected" data-value="Siempre">Siempre</div>
+              <div class="choice-btn" data-value="Frecuentemente">Frecuentemente</div>
+              <div class="choice-btn" data-value="Algunas veces">Algunas veces</div>
+              <div class="choice-btn" data-value="Rara vez">Rara vez</div>
+              <div class="choice-btn" data-value="Nunca">Nunca</div>
+            </div>
+            <input type="hidden" id="frecuencia_recomendacion" value="Siempre">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">22. ¿Dónde compras normalmente los repuestos? <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="donde_compra_repuestos">
+              <div class="choice-btn selected" data-value="Almacenes">Almacenes de barrio</div>
+              <div class="choice-btn selected" data-value="Distribuidores">Distribuidores</div>
+              <div class="choice-btn" data-value="Mayoristas">Mayoristas</div>
+              <div class="choice-btn" data-value="Concesionarios">Concesionarios</div>
+              <div class="choice-btn" data-value="Canales digitales">Canales digitales / Web</div>
+            </div>
+            <input type="hidden" id="donde_compra_repuestos" value="Almacenes,Distribuidores">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">23. ¿Qué marcas de repuestos utilizas con mayor frecuencia? <span class="req">*</span></label>
+            <input type="text" id="marcas_repuestos_usadas" class="form-control" placeholder="Ej. NITROX, Auteco, Originales, Revo..." value="NITROX, Originales">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">24. Factores más importantes al elegir un repuesto (Elige hasta 3) <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="factores_eleccion_repuesto" data-max="3">
+              <div class="choice-btn selected" data-value="Calidad">Calidad</div>
+              <div class="choice-btn selected" data-value="Durabilidad">Durabilidad</div>
+              <div class="choice-btn selected" data-value="Garantía-respaldo">Garantía / Respaldo</div>
+              <div class="choice-btn" data-value="Precio">Precio</div>
+              <div class="choice-btn" data-value="Disponibilidad">Disponibilidad</div>
+              <div class="choice-btn" data-value="Marca">Reconocimiento de marca</div>
+              <div class="choice-btn" data-value="Experiencia previa">Experiencia previa</div>
+            </div>
+            <input type="hidden" id="factores_eleccion_repuesto" value="Calidad,Durabilidad,Garantía-respaldo">
+          </div>
+        </div>
+
+        <div class="btn-nav-row">
+          <button type="button" class="btn-prev" onclick="prevStep(2)">⬅ Anterior</button>
+          <button type="button" class="btn-next" onclick="nextStep(4)">Continuar al Paso 4 ➔</button>
+        </div>
+      </div>
+
+      <!-- PASO 4: RELACIÓN ACTUAL CON NITROX (Campos 25 a 30 con condicionales) -->
+      <div class="form-card" id="step4" style="display: none;">
+        <div class="step-section-header">
+          <h2>4. Tu Relación con NITROX</h2>
+          <p>Tu conocimiento y experiencia con repuestos de la marca.</p>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">25. ¿Conoces la marca NITROX? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="conoce_nitrox" onchange="toggleNitroxKnowledge()">
+              <div class="choice-btn selected" data-value="Sí">Sí la conozco</div>
+              <div class="choice-btn" data-value="No">No la conozco</div>
+            </div>
+            <input type="hidden" id="conoce_nitrox" value="Sí">
+          </div>
+
+          <!-- BLOQUE CONDICIONAL: Solo si conoce NITROX -->
+          <div id="blockConoceNitrox" class="conditional-block" style="display: block;">
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label class="form-label">26. ¿Cómo conociste NITROX?</label>
+              <select id="como_conocio_nitrox" class="form-control">
+                <option value="Auteco">Auteco</option>
+                <option value="Almacén de repuestos">Almacén de repuestos</option>
+                <option value="Otro mecánico">Recomendación de otro mecánico</option>
+                <option value="Redes sociales">Redes sociales</option>
+                <option value="Distribuidor">Distribuidor</option>
+                <option value="Cliente">Cliente</option>
+                <option value="Publicidad">Publicidad / Eventos</option>
+                <option value="Otro">Otro medio</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label class="form-label">27. ¿Has utilizado algún repuesto NITROX en el taller?</label>
+              <div class="choice-group single-select" data-target="ha_usado_nitrox">
+                <div class="choice-btn selected" data-value="Sí">Sí he utilizado</div>
+                <div class="choice-btn" data-value="No">No he utilizado</div>
+                <div class="choice-btn" data-value="No estoy seguro">No estoy seguro</div>
+              </div>
+              <input type="hidden" id="ha_usado_nitrox" value="Sí">
+            </div>
+
+            <!-- SUB-CONDICIONAL: Solo si ha usado NITROX -->
+            <div id="blockUsoNitrox" class="conditional-block" style="display: block;">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">28. ¿Qué categorías NITROX has utilizado?</label>
+                <div class="choice-group multi-select" data-target="categorias_nitrox_usadas">
+                  <div class="choice-btn selected" data-value="Motor">Motor (cilindros, pistones)</div>
+                  <div class="choice-btn selected" data-value="Transmisión">Transmisión (kits de arrastre)</div>
+                  <div class="choice-btn" data-value="Frenos">Frenos (pastillas, bandas)</div>
+                  <div class="choice-btn" data-value="Suspensión">Suspensión</div>
+                  <div class="choice-btn" data-value="Otros">Otros repuestos</div>
+                </div>
+                <input type="hidden" id="categorias_nitrox_usadas" value="Motor,Transmisión">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">29. ¿Cómo calificarías tu experiencia con NITROX?</label>
+                <div class="choice-group single-select" data-target="calificacion_experiencia_nitrox">
+                  <div class="choice-btn selected" data-value="Excelente">⭐ Excelente</div>
+                  <div class="choice-btn" data-value="Buena">👍 Buena</div>
+                  <div class="choice-btn" data-value="Regular">😐 Regular</div>
+                  <div class="choice-btn" data-value="Mala">👎 Mala</div>
+                </div>
+                <input type="hidden" id="calificacion_experiencia_nitrox" value="Excelente">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">30. ¿Recomendarías NITROX a tus clientes? <span class="req">*</span></label>
+            <div class="choice-group single-select" data-target="recomendaria_nitrox">
+              <div class="choice-btn selected" data-value="Definitivamente sí">Definitivamente sí</div>
+              <div class="choice-btn" data-value="Probablemente sí">Probablemente sí</div>
+              <div class="choice-btn" data-value="No estoy seguro">No estoy seguro</div>
+              <div class="choice-btn" data-value="Probablemente no">Probablemente no</div>
+            </div>
+            <input type="hidden" id="recomendaria_nitrox" value="Definitivamente sí">
+          </div>
+        </div>
+
+        <div class="btn-nav-row">
+          <button type="button" class="btn-prev" onclick="prevStep(3)">⬅ Anterior</button>
+          <button type="button" class="btn-next" onclick="nextStep(5)">Continuar al Paso 5 ➔</button>
+        </div>
+      </div>
+
+      <!-- PASO 5: INTERÉS Y AUTORIZACIONES (Campos 31 a 34) -->
+      <div class="form-card" id="step5" style="display: none;">
+        <div class="step-section-header">
+          <h2>5. Beneficios, Capacitación y Autorización</h2>
+          <p>Accede a capacitaciones oficiales y premios como Mecánico Aliado.</p>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">31. ¿En qué actividades de RED NITROX estás interesado? <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="actividades_interes">
+              <div class="choice-btn selected" data-value="Capacitaciones técnicas">🎓 Capacitaciones técnicas</div>
+              <div class="choice-btn selected" data-value="Probar productos NITROX">🧪 Probar productos nuevos</div>
+              <div class="choice-btn selected" data-value="Beneficios y premios">🎁 Beneficios y premios</div>
+              <div class="choice-btn selected" data-value="Ser reconocido como Mecánico Aliado">🏅 Ser Aliado Oficial</div>
+              <div class="choice-btn" data-value="Información por WhatsApp">💬 Información técnica por WhatsApp</div>
+            </div>
+            <input type="hidden" id="actividades_interes" value="Capacitaciones técnicas,Probar productos NITROX,Beneficios y premios,Ser reconocido como Mecánico Aliado">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">32. ¿Sobre qué temas te gustaría recibir formación técnica? <span class="req">*</span></label>
+            <div class="choice-group multi-select" data-target="temas_capacitacion">
+              <div class="choice-btn selected" data-value="Motor">Motor y Ajustes</div>
+              <div class="choice-btn selected" data-value="Inyección">Inyección Electrónica</div>
+              <div class="choice-btn selected" data-value="Diagnóstico">Diagnóstico con Escáner</div>
+              <div class="choice-btn" data-value="Transmisión">Transmisión</div>
+              <div class="choice-btn" data-value="Frenos">Frenos ABS y Discos</div>
+              <div class="choice-btn" data-value="Electricidad">Electricidad</div>
+              <div class="choice-btn" data-value="Nuevas tecnologías">Nuevas Tecnologías</div>
+            </div>
+            <input type="hidden" id="temas_capacitacion" value="Motor,Inyección,Diagnóstico">
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <hr style="border: 0; border-top: 1px solid var(--card-border); margin-bottom: 16px;">
+            <h3 style="font-size: 1rem; color: #fff; margin-bottom: 12px;">⚖️ Autorizaciones Legales (Habeas Data)</h3>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autorizacion_tratamiento_datos" checked required>
+              <span><strong>33. Autorización de tratamiento de datos personales:</strong> Autorizo de manera voluntaria, previa, explícita e informada a RED NITROX para recolectar y almacenar mis datos para fines de caracterización, contacto y gestión del programa de aliados según su política de privacidad. <span class="req">*</span></span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autorizacion_comunicaciones_comerciales" checked required>
+              <span><strong>34. Comunicaciones comerciales y promocionales:</strong> Autorizo el envío de información técnica, promociones, beneficios y comunicaciones por medio de WhatsApp, mensajes de texto y llamadas. <span class="req">*</span></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="btn-nav-row">
+          <button type="button" class="btn-prev" onclick="prevStep(4)">⬅ Anterior</button>
+          <button type="submit" id="btnSubmitForm" class="btn-next" style="background: linear-gradient(135deg, #10B981, #059669);">
+            <span>🚀 Finalizar y Enviar Ficha Maestra</span>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- SUCCESS CONFIRMATION CARD -->
+    <div class="form-card success-card" id="successCard">
+      <div class="success-icon">🎉</div>
+      <h2>¡Bienvenido a RED NITROX!</h2>
+      <p>Tu Ficha Maestra ha sido radicada exitosamente en el sistema de Mecánicos Aliados – Piloto Medellín.</p>
+
+      <div class="badge-card">
+        <div style="font-size:0.75rem; color:var(--accent); font-weight:800; text-transform:uppercase;">Ficha de Pre-Afiliación</div>
+        <h3 id="resNombre" style="color:#fff; font-size:1.15rem; margin:6px 0;">Mecánico Aliado</h3>
+        <p id="resTaller" style="color:var(--text-muted); font-size:0.85rem;">Taller</p>
+        <hr style="border:0; border-top:1px solid var(--card-border); margin:10px 0;">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+          <span style="color:var(--text-muted);">Radicado ID:</span>
+          <strong id="resId" style="color:#fff; font-family:monospace;">RN-MED-XXXX</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-top:4px;">
+          <span style="color:var(--text-muted);">Estado Inicial:</span>
+          <strong id="resNivel" style="color:#10B981;">Nivel 1: Registrado</strong>
+        </div>
+      </div>
+
+      <a id="btnChatWa" href="https://wa.me/573209206581?text=Hola,%20acabo%20de%20diligenciar%20mi%20ficha%20RED%20NITROX" target="_blank" class="btn-wa-chat">
+        <span>💬 Hablar con Mateo por WhatsApp</span>
+      </a>
+    </div>
+
+  </div>
+
+  <script>
+    let currentStep = 1;
+
+    // Single / Multi Choice Button Handlers
+    document.querySelectorAll('.single-select').forEach(group => {
+      const targetId = group.dataset.target;
+      group.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          group.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          const input = document.getElementById(targetId);
+          if (input) input.value = btn.dataset.value;
+
+          // Trigger conditionals
+          if (targetId === 'conoce_nitrox') {
+            const blockConoce = document.getElementById('blockConoceNitrox');
+            blockConoce.style.display = btn.dataset.value === 'Sí' ? 'block' : 'none';
+          }
+          if (targetId === 'ha_usado_nitrox') {
+            const blockUso = document.getElementById('blockUsoNitrox');
+            blockUso.style.display = btn.dataset.value === 'Sí' ? 'block' : 'none';
+          }
+        });
+      });
+    });
+
+    document.querySelectorAll('.multi-select').forEach(group => {
+      const targetId = group.dataset.target;
+      const maxSelect = parseInt(group.dataset.max || '99', 10);
+
+      group.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('selected')) {
+            btn.classList.remove('selected');
+          } else {
+            const currentlySelected = group.querySelectorAll('.choice-btn.selected').length;
+            if (currentlySelected >= maxSelect) {
+              alert(`Solo puedes seleccionar hasta ${maxSelect} opciones en esta pregunta.`);
+              return;
+            }
+            btn.classList.add('selected');
+          }
+          const selectedValues = Array.from(group.querySelectorAll('.choice-btn.selected')).map(b => b.dataset.value);
+          const input = document.getElementById(targetId);
+          if (input) input.value = selectedValues.join(',');
+        });
+      });
+    });
+
+    function showStep(step) {
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`step${i}`).style.display = i === step ? 'block' : 'none';
+      }
+      document.querySelectorAll('.step-item').forEach(item => {
+        const s = parseInt(item.dataset.step, 10);
+        item.classList.remove('active', 'completed');
+        if (s === step) item.classList.add('active');
+        else if (s < step) item.classList.add('completed');
+      });
+      currentStep = step;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function nextStep(step) {
+      // Validate step 1 required
+      if (currentStep === 1) {
+        if (!document.getElementById('nombres_apellidos').value.trim()) {
+          alert('Por favor escribe tus nombres y apellidos');
+          return;
+        }
+        if (!document.getElementById('celular_whatsapp').value.trim()) {
+          alert('Por favor escribe tu número de celular / WhatsApp');
+          return;
+        }
+        if (!document.getElementById('nombre_taller').value.trim()) {
+          alert('Por favor escribe el nombre de tu taller');
+          return;
+        }
+        if (!document.getElementById('direccion_taller').value.trim()) {
+          alert('Por favor escribe la dirección del taller');
+          return;
+        }
+      }
+      showStep(step);
+    }
+
+    function prevStep(step) {
+      showStep(step);
+    }
+
+    // Submit handler
+    document.getElementById('nitroxForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const btnSubmit = document.getElementById('btnSubmitForm');
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span>⏳ Guardando Ficha Maestra...</span>';
+
+      const payload = {
+        nombres_apellidos: document.getElementById('nombres_apellidos').value.trim(),
+        cedula: document.getElementById('cedula').value.trim(),
+        celular_whatsapp: document.getElementById('celular_whatsapp').value.trim(),
+        tiene_whatsapp: document.getElementById('tiene_whatsapp').value === 'true',
+        correo: document.getElementById('correo').value.trim(),
+        ciudad_residencia: document.getElementById('ciudad_residencia').value,
+        barrio_residencia: document.getElementById('barrio_residencia').value.trim(),
+
+        nombre_taller: document.getElementById('nombre_taller').value.trim(),
+        ciudad_taller: document.getElementById('ciudad_taller').value,
+        barrio_taller: document.getElementById('barrio_taller').value.trim(),
+        direccion_taller: document.getElementById('direccion_taller').value.trim(),
+        relacion_taller: document.getElementById('relacion_taller').value,
+        antiguedad_taller: document.getElementById('antiguedad_taller').value,
+        personas_taller: document.getElementById('personas_taller').value,
+
+        experiencia_mecanico: document.getElementById('experiencia_mecanico').value,
+        especialidad: document.getElementById('especialidad').value.split(',').filter(Boolean),
+        tipo_motos: document.getElementById('tipo_motos').value.split(',').filter(Boolean),
+        marcas_motos: document.getElementById('marcas_motos').value.split(',').filter(Boolean),
+        motos_por_semana: document.getElementById('motos_por_semana').value,
+
+        quien_decide_repuesto: document.getElementById('quien_decide_repuesto').value,
+        frecuencia_recomendacion: document.getElementById('frecuencia_recomendacion').value,
+        donde_compra_repuestos: document.getElementById('donde_compra_repuestos').value.split(',').filter(Boolean),
+        marcas_repuestos_usadas: document.getElementById('marcas_repuestos_usadas').value.split(',').map(s=>s.trim()).filter(Boolean),
+        factores_eleccion_repuesto: document.getElementById('factores_eleccion_repuesto').value.split(',').filter(Boolean),
+
+        conoce_nitrox: document.getElementById('conoce_nitrox').value,
+        como_conocio_nitrox: document.getElementById('como_conocio_nitrox').value,
+        ha_usado_nitrox: document.getElementById('ha_usado_nitrox').value,
+        categorias_nitrox_usadas: document.getElementById('categorias_nitrox_usadas').value.split(',').filter(Boolean),
+        calificacion_experiencia_nitrox: document.getElementById('calificacion_experiencia_nitrox').value,
+        recomendaria_nitrox: document.getElementById('recomendaria_nitrox').value,
+
+        actividades_interes: document.getElementById('actividades_interes').value.split(',').filter(Boolean),
+        temas_capacitacion: document.getElementById('temas_capacitacion').value.split(',').filter(Boolean),
+
+        autorizacion_tratamiento_datos: document.getElementById('autorizacion_tratamiento_datos').checked,
+        autorizacion_comunicaciones_comerciales: document.getElementById('autorizacion_comunicaciones_comerciales').checked
+      };
+
+      try {
+        const res = await fetch('/api/formulario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          document.getElementById('nitroxForm').style.display = 'none';
+          document.querySelector('.stepper').style.display = 'none';
+
+          document.getElementById('resNombre').textContent = payload.nombres_apellidos;
+          document.getElementById('resTaller').textContent = `${payload.nombre_taller} (${payload.ciudad_taller} · ${payload.barrio_taller})`;
+          document.getElementById('resId').textContent = data.mecanico.id_unico;
+          document.getElementById('resNivel').textContent = `Nivel ${data.mecanico.nivel_relacion_numero}: ${data.mecanico.nivel_relacion_nombre}`;
+
+          document.getElementById('successCard').style.display = 'block';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          alert('Hubo un error al guardar la ficha: ' + (data.message || 'Intente nuevamente'));
+          btnSubmit.disabled = false;
+          btnSubmit.innerHTML = '<span>🚀 Finalizar y Enviar Ficha Maestra</span>';
+        }
+      } catch (err) {
+        alert('Error de conexión al enviar el formulario.');
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<span>🚀 Finalizar y Enviar Ficha Maestra</span>';
+      }
+    });
+  </script>
+</body>
+</html>

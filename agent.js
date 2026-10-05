@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { normalizeMechanicData } = require('./scoring');
 
 // Initialize Firebase Admin for Firestore
 if (!admin.apps.length) {
@@ -18,7 +19,7 @@ function extractName(text) {
   const match = text.match(/(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i);
   if (match) return match[1];
   const words = text.split(/\s+/).filter(Boolean);
-  if (words.length <= 2 && !/^(hola|buenas|quiero|vengo|afiliar|taller)/i.test(words[0])) {
+  if (words.length <= 2 && !/^(hola|buenas|quiero|vengo|afiliar|taller|red)/i.test(words[0])) {
     return words[0];
   }
   return '';
@@ -58,20 +59,20 @@ async function saveSession(phoneNumber, session) {
   }
 }
 
-async function saveLeadToFirestore(phone, data) {
+async function saveMechanicToFirestore(phone, data) {
   try {
-    await admin.firestore().collection('talleres_aliados').doc(phone).set({
-      telefono: phone,
-      nombre_contacto: data.userName || '',
-      nombre_taller: data.workshopName || '',
-      ubicacion: data.location || '',
-      personal: data.teamSize || '',
-      maquinaria: data.equipment || '',
-      fecha_registro: new Date().toISOString()
-    }, { merge: true });
-    console.log(`[FIRESTORE] Taller "${data.workshopName}" guardado con exito`);
+    const normalized = normalizeMechanicData({
+      ...data,
+      celular_whatsapp: phone,
+      telefono: phone
+    }, 'WhatsApp');
+
+    await admin.firestore().collection('mecanicos_red_nitrox').doc(phone).set(normalized, { merge: true });
+    console.log(`[FIRESTORE] Mecánico/Taller "${normalized.nombre_taller}" guardado en RED NITROX con ID: ${normalized.id_unico}`);
+    return normalized;
   } catch (err) {
-    console.warn('[FIRESTORE LEAD SAVE]', err.message);
+    console.warn('[FIRESTORE MECHANIC SAVE]', err.message);
+    return null;
   }
 }
 
@@ -92,96 +93,95 @@ async function generateMateoResponse(fromNumber, userText) {
     }
   }
 
-  // --- Conversational Flow ---
+  // --- Conversational Flow (4 Bloques Ágiles RED NITROX) ---
   if (session.stage === 'INIT') {
     const foundName = extractName(userText);
-    if (foundName) session.data.userName = foundName;
+    if (foundName) session.data.nombres_apellidos = foundName;
 
-    if (textLower.includes('taller') || textLower.includes('afiliar') || textLower.includes('registrar')) {
-      if (session.data.userName) {
-        messagesToSend = [
-          'hola ' + session.data.userName + ', soy Mateo asesor de NITROX. un gusto saludarte',
-          'para el registro de tu taller vamos a necesitar unos datos sencillos. como se llama el taller?'
-        ];
-        session.stage = 'ASK_WORKSHOP_NAME';
-      } else {
-        messagesToSend = [
-          'hola, soy Mateo asesor de NITROX. con todo gusto te ayudo con la afiliacion',
-          'como es tu nombre y como se llama el taller?'
-        ];
-        session.stage = 'ASK_WORKSHOP_NAME';
-      }
+    messagesToSend = [
+      'hola, soy Mateo asesor de RED NITROX',
+      'como es tu nombre y como se llama tu taller?'
+    ];
+    session.stage = 'AWAITING_NAME_AND_WORKSHOP';
+
+  } else if (session.stage === 'AWAITING_NAME_AND_WORKSHOP') {
+    // Parse name and workshop
+    const parts = userText.split(/,| y | taller /i);
+    if (!session.data.nombres_apellidos) {
+      session.data.nombres_apellidos = parts[0]?.trim() || userText.trim();
+    }
+    session.data.nombre_taller = parts.length > 1 ? parts[1]?.trim() : userText.trim();
+
+    const saludoName = session.data.nombres_apellidos ? 'un gusto ' + session.data.nombres_apellidos + '. ' : '';
+    messagesToSend = [
+      saludoName + 'en que municipio y barrio esta ubicado el taller (ej: Medellin Guayabal, Bello, Itagui)? y cual es tu rol alla (propietario, mecanico o socio)?'
+    ];
+    session.stage = 'AWAITING_LOCATION_AND_ROLE';
+
+  } else if (session.stage === 'AWAITING_LOCATION_AND_ROLE') {
+    // Detect city and role
+    session.data.ubicacion_raw = userText;
+    if (/bello/i.test(userText)) session.data.ciudad_taller = 'Bello';
+    else if (/itagui|itaguí/i.test(userText)) session.data.ciudad_taller = 'Itagüí';
+    else if (/envigado/i.test(userText)) session.data.ciudad_taller = 'Envigado';
+    else if (/sabaneta/i.test(userText)) session.data.ciudad_taller = 'Sabaneta';
+    else session.data.ciudad_taller = 'Medellín';
+
+    session.data.barrio_taller = userText;
+    if (/propietario|dueño|dueno/i.test(userText)) session.data.relacion_taller = 'Propietario';
+    else if (/administrador/i.test(userText)) session.data.relacion_taller = 'Administrador';
+    else if (/socio/i.test(userText)) session.data.relacion_taller = 'Socio';
+    else session.data.relacion_taller = 'Mecánico-empleado';
+
+    messagesToSend = [
+      'perfecto, anotada la zona',
+      'cuantas motos atienden por semana aproximadamente? y en tu taller, quien decide que repuesto instalar (tu o el cliente)?'
+    ];
+    session.stage = 'AWAITING_VOLUME_AND_DECISION';
+
+  } else if (session.stage === 'AWAITING_VOLUME_AND_DECISION') {
+    session.data.motos_por_semana = userText;
+    if (/yo|mecanico|mecánico|ambos/i.test(userText)) {
+      session.data.quien_decide_repuesto = 'Mecánico';
     } else {
-      messagesToSend = [
-        'hola, soy Mateo asesor de NITROX',
-        'como es tu nombre y que estas buscando en la plataforma hoy?'
-      ];
-      session.stage = 'AWAITING_NAME_AND_INTENT';
+      session.data.quien_decide_repuesto = 'Propietario de la moto';
     }
 
-  } else if (session.stage === 'AWAITING_NAME_AND_INTENT') {
-    const foundName = extractName(userText);
-    if (foundName) session.data.userName = foundName;
+    messagesToSend = [
+      'excelente dato',
+      'ya conoces o has utilizado repuestos NITROX en tus trabajos?'
+    ];
+    session.stage = 'AWAITING_NITROX_RELATION';
 
-    const nameGreeting = session.data.userName ? 'un gusto ' + session.data.userName + '. ' : '';
-
-    if (textLower.includes('taller') || textLower.includes('afiliar') || textLower.includes('registrar') || textLower.includes('alianza') || textLower.includes('socio') || textLower.includes('servicio')) {
-      messagesToSend = [
-        nameGreeting + 'de una, para afiliar tu taller a la red de aliados NITROX te voy a pedir unos datos breves',
-        'como se llama tu taller?'
-      ];
-      session.stage = 'ASK_WORKSHOP_NAME';
+  } else if (session.stage === 'AWAITING_NITROX_RELATION') {
+    if (/si|sí|claro|usado|utilizado/i.test(textLower)) {
+      session.data.conoce_nitrox = 'Sí';
+      session.data.ha_usado_nitrox = 'Sí';
+      session.data.recomendaria_nitrox = 'Definitivamente sí';
     } else {
-      messagesToSend = [
-        nameGreeting + 'cuentame, vienes a registrar tu taller como aliado NITROX o necesitas alguna otra informacion?'
-      ];
+      session.data.conoce_nitrox = 'No';
+      session.data.ha_usado_nitrox = 'No';
+      session.data.recomendaria_nitrox = 'Probablemente sí';
     }
 
-  } else if (session.stage === 'ASK_WORKSHOP_NAME') {
-    if (!session.data.userName) {
-      const foundName = extractName(userText);
-      if (foundName) session.data.userName = foundName;
-    }
-    session.data.workshopName = userText;
-    messagesToSend = [
-      'buen nombre, ' + userText,
-      'en que ciudad estan ubicados y cual es la direccion del taller?'
-    ];
-    session.stage = 'ASK_LOCATION';
+    // Save and compute scoring & level
+    const normalized = await saveMechanicToFirestore(fromNumber, session.data);
+    const clientName = session.data.nombres_apellidos ? ' ' + session.data.nombres_apellidos : '';
+    const idDisplay = normalized?.id_unico || 'RN-MED-PILOTO';
+    const nivelDisplay = normalized ? `Nivel ${normalized.nivel_relacion_numero}: ${normalized.nivel_relacion_nombre}` : 'Nivel 1: Registrado';
 
-  } else if (session.stage === 'ASK_LOCATION') {
-    session.data.location = userText;
     messagesToSend = [
-      'listo, anotada la direccion',
-      'cuantas personas o mecanicos trabajan alla contigo?'
-    ];
-    session.stage = 'ASK_TEAM_SIZE';
-
-  } else if (session.stage === 'ASK_TEAM_SIZE') {
-    session.data.teamSize = userText;
-    messagesToSend = [
-      'excelente equipo',
-      'y que maquinaria o herramientas tienen? por ejemplo elevadores, escaner, torno, prensa, desmontadora de llantas...'
-    ];
-    session.stage = 'ASK_EQUIPMENT';
-
-  } else if (session.stage === 'ASK_EQUIPMENT') {
-    session.data.equipment = userText;
-    const clientName = session.data.userName ? ' ' + session.data.userName : '';
-    messagesToSend = [
-      'perfecto, tienen muy buen equipo de trabajo',
-      'listo' + clientName + ', ya te tome todos los datos:\n\n• Taller: ' + (session.data.workshopName || 'Aliado') + '\n• Ubicacion: ' + (session.data.location || 'Registrada') + '\n• Personal: ' + (session.data.teamSize || 'Registrado') + '\n• Maquinaria: ' + session.data.equipment,
-      'con esto quedan registrados en la red de talleres aliados NITROX. en un momento te contactaremos para los siguientes pasos. cualquier duda me avisas'
+      'listo' + clientName + ', ya te tome los datos y quedas radicado como Mecanico Aliado RED NITROX (Piloto Medellin)',
+      'tu codigo oficial es ' + idDisplay + ' (' + nivelDisplay + '). con esto quedas habilitado para beneficios, capacitaciones y pruebas de producto',
+      'si quieres completar los temas de capacitacion que te interesan puedes ingresar aqui: https://webhook-my2e3j2ecq-uc.a.run.app/formulario. cualquier duda me escribes por aca'
     ];
     session.stage = 'COMPLETED';
 
-    saveLeadToFirestore(fromNumber, session.data);
-
   } else if (session.stage === 'COMPLETED') {
-    const clientName = session.data.userName ? ' ' + session.data.userName : '';
+    const clientName = session.data.nombres_apellidos ? ' ' + session.data.nombres_apellidos : '';
     messagesToSend = [
-      'hola de nuevo' + clientName + ', los datos de tu taller ya quedaron radicados en NITROX',
-      'si necesitas registrar otro taller o corregir algun dato me avisas y lo hacemos de una'
+      'hola de nuevo' + clientName + ', los datos de tu taller ya estan registrados en RED NITROX',
+      'si necesitas actualizar algun dato o inscribir otro mecanico me avisas y lo hacemos de una'
     ];
   }
 
@@ -192,5 +192,6 @@ async function generateMateoResponse(fromNumber, userText) {
 }
 
 module.exports = {
-  generateMateoResponse
+  generateMateoResponse,
+  admin
 };

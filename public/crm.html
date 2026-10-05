@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Pilotos y Mecánicos | RED NITROX Medellín</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #D90429;
+      --primary-dark: #A3001B;
+      --accent: #EF233C;
+      --bg: #0B0E14;
+      --card-bg: #141721;
+      --card-border: #232736;
+      --text: #F8F9FA;
+      --text-muted: #8D99AE;
+      --text-dim: #5C677D;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --info: #3B82F6;
+      --purple: #8B5CF6;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Navbar */
+    .navbar {
+      background: rgba(20, 23, 33, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .brand-logo-badge {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      padding: 8px 12px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+    }
+    .nav-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .nav-title span {
+      color: var(--accent);
+    }
+    .nav-tag {
+      font-size: 0.75rem;
+      background: rgba(239, 35, 60, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(239, 35, 60, 0.3);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-outline {
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .admin-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1B1F2D;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+    }
+    .btn-logout {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .btn-logout:hover {
+      color: var(--primary);
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      flex: 1;
+    }
+
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary);
+    }
+    .kpi-card.kpi-green::after { background: var(--success); }
+    .kpi-card.kpi-blue::after { background: var(--info); }
+    .kpi-card.kpi-purple::after { background: var(--purple); }
+
+    .kpi-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .kpi-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 8px 0 4px;
+    }
+    .kpi-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Level breakdown pills bar */
+    .levels-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .levels-bar-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .level-chip {
+      background: #1B1F2D;
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .level-chip:hover, .level-chip.active {
+      border-color: var(--accent);
+      background: rgba(239, 35, 60, 0.15);
+      color: #fff;
+    }
+    .level-chip .badge {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 260px;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 12px 16px 12px 38px;
+      background: #111318;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+    }
+    .filters-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .select-filter {
+      padding: 11px 14px;
+      background: #111318;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      cursor: pointer;
+    }
+    .btn-action {
+      padding: 11px 16px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-action:hover {
+      box-shadow: 0 4px 14px rgba(217, 4, 41, 0.4);
+    }
+    .btn-export {
+      background: #1F2430;
+      border: 1px solid var(--card-border);
+      color: #fff;
+    }
+    .btn-export:hover {
+      background: #282E3E;
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow-x: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+    th {
+      background: #111318;
+      color: var(--text-muted);
+      font-weight: 700;
+      padding: 14px 18px;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--card-border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .mechanic-name {
+      font-weight: 700;
+      color: #fff;
+      display: block;
+    }
+    .mechanic-id {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: monospace;
+    }
+    .workshop-name {
+      font-weight: 600;
+      color: #E2E8F0;
+    }
+    .workshop-loc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .phone-link {
+      color: #10B981;
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .phone-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Level Badges */
+    .level-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .level-1 { background: rgba(141, 153, 174, 0.15); color: #8D99AE; border: 1px solid rgba(141, 153, 174, 0.3); }
+    .level-2 { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .level-3 { background: rgba(139, 92, 246, 0.15); color: #A78BFA; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .level-4 { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .level-5 { background: rgba(239, 35, 60, 0.15); color: #F87171; border: 1px solid rgba(239, 35, 60, 0.3); }
+    .level-6 { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .level-7 { background: linear-gradient(135deg, rgba(217, 4, 41, 0.3), rgba(245, 158, 11, 0.3)); color: #FCD34D; border: 1px solid #F59E0B; }
+
+    /* Score Indicator */
+    .score-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .score-bar-bg {
+      width: 60px;
+      height: 6px;
+      background: #232736;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #F59E0B, #10B981);
+    }
+    .score-val {
+      font-weight: 800;
+      font-size: 0.85rem;
+    }
+
+    .origin-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: #1E2330;
+      color: var(--text-muted);
+    }
+
+    .btn-view-sheet {
+      padding: 6px 12px;
+      background: rgba(239, 35, 60, 0.12);
+      border: 1px solid rgba(239, 35, 60, 0.3);
+      color: var(--accent);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-view-sheet:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Modal Ficha Maestra */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #111318;
+    }
+    .modal-title-box h2 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .modal-title-box p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close:hover {
+      color: #fff;
+    }
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 20px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      background: #111318;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .detail-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .detail-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #F8F9FA;
+    }
+    .pills-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .detail-pill {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: #E2E8F0;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--card-border);
+      background: #111318;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .level-updater {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .level-updater label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .level-updater select {
+      padding: 8px 12px;
+      background: #1A1E29;
+      border: 1px solid var(--card-border);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state h3 {
+      font-size: 1.2rem;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <a href="/crm" class="nav-brand">
+      <span class="brand-logo-badge">NITROX</span>
+      <div class="nav-title">RED <span>NITROX</span> CRM</div>
+      <span class="nav-tag">Piloto Medellín</span>
+    </a>
+    <div class="nav-actions">
+      <a href="/formulario" target="_blank" class="btn-outline">
+        <span>📝 Abrir Formulario Virtual</span>
+      </a>
+      <div class="admin-pill">
+        <span class="status-dot"></span>
+        <span id="adminEmail">administrador@nitrox.com</span>
+      </div>
+      <button class="btn-logout" id="logoutBtn">Cerrar Sesión</button>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <div class="container">
+
+    <!-- KPI Summary Row -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-label">Mecánicos Registrados</span>
+        <div class="kpi-value" id="kpiTotal">0</div>
+        <span class="kpi-sub">Fichas maestras capturadas</span>
+      </div>
+      <div class="kpi-card kpi-green">
+        <span class="kpi-label">Potencial Promedio</span>
+        <div class="kpi-value" id="kpiScore">0<small style="font-size:1.1rem">/100</small></div>
+        <span class="kpi-sub">Scoring de prescripción y volumen</span>
+      </div>
+      <div class="kpi-card kpi-blue">
+        <span class="kpi-label">Prescriptores Clave</span>
+        <div class="kpi-value" id="kpiPrescriptores">0%</div>
+        <span class="kpi-sub">Mecánicos que deciden el repuesto</span>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <span class="kpi-label">Conocimiento NITROX</span>
+        <div class="kpi-value" id="kpiConocen">0%</div>
+        <span class="kpi-sub">Reconocen o han usado repuestos</span>
+      </div>
+    </div>
+
+    <!-- Levels breakdown bar -->
+    <div class="levels-bar">
+      <span class="levels-bar-title">Niveles RED NITROX:</span>
+      <div class="level-chip active" data-level="all">Todos <span class="badge" id="badgeAll">0</span></div>
+      <div class="level-chip" data-level="1">Nivel 1: Registrado <span class="badge" id="badgeN1">0</span></div>
+      <div class="level-chip" data-level="2">Nivel 2: Conoce <span class="badge" id="badgeN2">0</span></div>
+      <div class="level-chip" data-level="3">Nivel 3: Capacitado <span class="badge" id="badgeN3">0</span></div>
+      <div class="level-chip" data-level="4">Nivel 4: Probó <span class="badge" id="badgeN4">0</span></div>
+      <div class="level-chip" data-level="5">Nivel 5: Compra <span class="badge" id="badgeN5">0</span></div>
+      <div class="level-chip" data-level="6">Nivel 6: Recurrente <span class="badge" id="badgeN6">0</span></div>
+      <div class="level-chip" data-level="7">Nivel 7: Recomienda <span class="badge" id="badgeN7">0</span></div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="controls-bar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Buscar por mecánico, taller, celular o barrio...">
+      </div>
+
+      <div class="filters-group">
+        <select id="municipioFilter" class="select-filter">
+          <option value="all">Todos los Municipios</option>
+          <option value="Medellín">Medellín</option>
+          <option value="Bello">Bello</option>
+          <option value="Itagüí">Itagüí</option>
+          <option value="Envigado">Envigado</option>
+          <option value="Sabaneta">Sabaneta</option>
+          <option value="La Estrella">La Estrella</option>
+          <option value="Caldas">Caldas</option>
+          <option value="Copacabana">Copacabana</option>
+          <option value="Girardota">Girardota</option>
+        </select>
+
+        <select id="origenFilter" class="select-filter">
+          <option value="all">Todos los Orígenes</option>
+          <option value="WhatsApp">WhatsApp (Mateo)</option>
+          <option value="Web">Formulario Web</option>
+          <option value="QR">Código QR</option>
+          <option value="Ruta">Ruta NITROX</option>
+        </select>
+
+        <button id="btnExport" class="btn-action btn-export">
+          <span>📥 Exportar CSV / Excel</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ID / Fecha</th>
+            <th>Mecánico</th>
+            <th>Taller & Ubicación</th>
+            <th>Motos/Sem</th>
+            <th>Decisión Repuesto</th>
+            <th>Score</th>
+            <th>Nivel RED NITROX</th>
+            <th>Origen</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="mechanicsTableBody">
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 40px;">Cargando fichas maestras...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Modal Ficha Maestra -->
+  <div class="modal-overlay" id="sheetModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <h2 id="modalMechanicName">Ficha Maestra: Juan Pérez</h2>
+          <p id="modalSubhead">ID: RN-MED-001 | Taller Motos del Sur</p>
+        </div>
+        <button class="modal-close" id="modalCloseBtn">&times;</button>
+      </div>
+
+      <div class="modal-body" id="modalContent">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="modal-footer">
+        <div class="level-updater">
+          <label for="changeLevelSelect">Actualizar Nivel:</label>
+          <select id="changeLevelSelect">
+            <option value="1">Nivel 1: Registrado</option>
+            <option value="2">Nivel 2: Conoce NITROX</option>
+            <option value="3">Nivel 3: Capacitado</option>
+            <option value="4">Nivel 4: Probó NITROX</option>
+            <option value="5">Nivel 5: Compra NITROX</option>
+            <option value="6">Nivel 6: Usuario recurrente</option>
+            <option value="7">Nivel 7: Recomienda NITROX</option>
+          </select>
+          <button id="btnSaveLevel" class="btn-action" style="padding: 8px 14px;">Guardar Nivel</button>
+        </div>
+        <button class="btn-outline" id="modalCloseBtn2">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allMechanics = [];
+    let currentSelectedId = null;
+
+    // Authentication Guard
+    const token = localStorage.getItem('nitrox_admin_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('nitrox_admin_token');
+      window.location.href = '/login';
+    });
+
+    // Fetch Mechanics from API
+    async function loadMechanics() {
+      try {
+        const res = await fetch('/api/crm/mecanicos', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          localStorage.removeItem('nitrox_admin_token');
+          window.location.href = '/login';
+          return;
+        }
+        const data = await res.json();
+        allMechanics = data.mecanicos || [];
+        updateKPIs(allMechanics);
+        renderTable();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updateKPIs(list) {
+      const total = list.length;
+      document.getElementById('kpiTotal').textContent = total;
+
+      if (total === 0) return;
+
+      const avgScore = Math.round(list.reduce((acc, m) => acc + (m.score_potencial || 0), 0) / total);
+      document.getElementById('kpiScore').innerHTML = `${avgScore}<small style="font-size:1.1rem">/100</small>`;
+
+      const prescriptores = list.filter(m => {
+        const d = (m.quien_decide_repuesto || '').toLowerCase();
+        return d.includes('mecánico') || d.includes('mecanico') || d.includes('ambos');
+      }).length;
+      document.getElementById('kpiPrescriptores').textContent = `${Math.round((prescriptores / total) * 100)}%`;
+
+      const conocen = list.filter(m => {
+        const c = (m.conoce_nitrox || '').toLowerCase();
+        const u = (m.ha_usado_nitrox || '').toLowerCase();
+        return c.includes('sí') || c.includes('si') || u.includes('sí') || u.includes('si');
+      }).length;
+      document.getElementById('kpiConocen').textContent = `${Math.round((conocen / total) * 100)}%`;
+
+      // Level counts
+      document.getElementById('badgeAll').textContent = total;
+      for (let i = 1; i <= 7; i++) {
+        const count = list.filter(m => (m.nivel_relacion_numero || 1) === i).length;
+        const el = document.getElementById(`badgeN${i}`);
+        if (el) el.textContent = count;
+      }
+    }
+
+    // Filter and Render
+    function renderTable() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      const municipio = document.getElementById('municipioFilter').value;
+      const origen = document.getElementById('origenFilter').value;
+      const activeLevel = document.querySelector('.level-chip.active')?.dataset.level || 'all';
+
+      const filtered = allMechanics.filter(m => {
+        // Level
+        if (activeLevel !== 'all' && (m.nivel_relacion_numero || 1).toString() !== activeLevel) return false;
+        // Municipio
+        if (municipio !== 'all' && (m.ciudad_taller || m.ciudad_residencia) !== municipio) return false;
+        // Origen
+        if (origen !== 'all' && (m.origen_registro || '').toLowerCase() !== origen.toLowerCase()) return false;
+        // Search
+        if (searchTerm) {
+          const matchStr = `${m.nombres_apellidos} ${m.nombre_taller} ${m.celular_whatsapp} ${m.barrio_taller} ${m.id_unico}`.toLowerCase();
+          if (!matchStr.includes(searchTerm)) return false;
+        }
+        return true;
+      });
+
+      const tbody = document.getElementById('mechanicsTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-state"><h3>No se encontraron registros</h3><p>Intenta ajustar los filtros de búsqueda.</p></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(m => {
+        const dateStr = m.fecha_registro ? new Date(m.fecha_registro).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) : 'Hoy';
+        const levelNum = m.nivel_relacion_numero || 1;
+        const levelName = m.nivel_relacion_nombre || `Nivel ${levelNum}`;
+        const score = m.score_potencial || 0;
+        const cleanPhone = (m.celular_whatsapp || '').replace(/\D/g, '');
+
+        return `
+          <tr>
+            <td>
+              <span class="mechanic-id">${m.id_unico || 'RN-000'}</span>
+              <div style="font-size:0.75rem; color:var(--text-muted);">${dateStr}</div>
+            </td>
+            <td>
+              <span class="mechanic-name">${m.nombres_apellidos || 'Sin Nombre'}</span>
+              <a href="https://wa.me/${cleanPhone.startsWith('57') ? cleanPhone : '57' + cleanPhone}" target="_blank" class="phone-link">
+                💬 ${m.celular_whatsapp || 'Sin Celular'}
+              </a>
+            </td>
+            <td>
+              <div class="workshop-name">${m.nombre_taller || 'Taller sin nombre'}</div>
+              <div class="workshop-loc">${m.ciudad_taller || 'Medellín'} · ${m.barrio_taller || 'Sin Barrio'}</div>
+            </td>
+            <td>
+              <span style="font-weight:700;">${m.motos_por_semana || '11-20'}</span> motos
+            </td>
+            <td>
+              <span style="font-size:0.85rem; color:#E2E8F0;">${m.quien_decide_repuesto || 'Mecánico'}</span>
+            </td>
+            <td>
+              <div class="score-container">
+                <div class="score-bar-bg">
+                  <div class="score-bar-fill" style="width: ${score}%;"></div>
+                </div>
+                <span class="score-val">${score}</span>
+              </div>
+            </td>
+            <td>
+              <span class="level-badge level-${levelNum}">
+                N${levelNum}: ${levelName}
+              </span>
+            </td>
+            <td>
+              <span class="origin-badge">${m.origen_registro || 'Web'}</span>
+            </td>
+            <td>
+              <button class="btn-view-sheet" onclick="openFichaMaestra('${m.id_unico}')">
+                📄 Ver Ficha
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Modal Details
+    window.openFichaMaestra = function(id) {
+      const m = allMechanics.find(item => item.id_unico === id);
+      if (!m) return;
+      currentSelectedId = id;
+
+      document.getElementById('modalMechanicName').textContent = `${m.nombres_apellidos || 'Mecánico Aliado'} (${m.nombre_taller || 'Taller'})`;
+      document.getElementById('modalSubhead').textContent = `ID: ${m.id_unico} | Registrado el ${new Date(m.fecha_registro).toLocaleString('es-CO')} vía ${m.origen_registro || 'Web'}`;
+      document.getElementById('changeLevelSelect').value = (m.nivel_relacion_numero || 1).toString();
+
+      const modalContent = document.getElementById('modalContent');
+      modalContent.innerHTML = `
+        <!-- SECCIÓN A: DATOS DEL MECÁNICO -->
+        <div class="section-title">👤 A. Datos del Mecánico</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Nombres y Apellidos</span>
+            <span class="detail-value">${m.nombres_apellidos || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Cédula / Documento</span>
+            <span class="detail-value">${m.cedula || 'Pendiente para beneficios'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Celular / WhatsApp</span>
+            <span class="detail-value">
+              <a href="https://wa.me/${(m.celular_whatsapp||'').replace(/\D/g,'')}" target="_blank" style="color:#10B981; text-decoration:none;">
+                💬 ${m.celular_whatsapp} (${m.tiene_whatsapp ? 'Tiene WhatsApp' : 'Sin WhatsApp'})
+              </a>
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Correo Electrónico</span>
+            <span class="detail-value">${m.correo || 'No registrado'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Residencia</span>
+            <span class="detail-value">${m.ciudad_residencia || 'Medellín'} ${m.barrio_residencia ? '· ' + m.barrio_residencia : ''}</span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN B: DATOS DEL TALLER -->
+        <div class="section-title">🔧 B. Datos del Taller</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Nombre del Taller</span>
+            <span class="detail-value">${m.nombre_taller || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Ubicación Territorial</span>
+            <span class="detail-value">${m.ciudad_taller || 'Medellín'} · Barrio ${m.barrio_taller || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Dirección para Visitas</span>
+            <span class="detail-value">${m.direccion_taller || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Relación con el Taller</span>
+            <span class="detail-value">${m.relacion_taller || 'Propietario'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Años de Funcionamiento</span>
+            <span class="detail-value">${m.antiguedad_taller || '1–3 años'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Personas que Trabajan</span>
+            <span class="detail-value">${m.personas_taller || '1–2 personas'}</span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN C: PERFIL PROFESIONAL -->
+        <div class="section-title">🏍️ C. Perfil Profesional y Especialidad</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Años de Experiencia</span>
+            <span class="detail-value">${m.experiencia_mecanico || '4–5 años'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Especialidades</span>
+            <div class="pills-list">
+              ${(m.especialidad || []).map(e => `<span class="detail-pill">${e}</span>`).join('')}
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Tipos de Motocicleta</span>
+            <div class="pills-list">
+              ${(m.tipo_motos || []).map(t => `<span class="detail-pill">${t}</span>`).join('')}
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Marcas que más Atiende</span>
+            <div class="pills-list">
+              ${(m.marcas_motos || []).map(br => `<span class="detail-pill">${br}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN D: POTENCIAL E INFLUENCIA -->
+        <div class="section-title">📊 D. Potencial e Influencia</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Motos Atendidas / Semana</span>
+            <span class="detail-value" style="font-size:1.1rem; color:var(--accent); font-weight:800;">${m.motos_por_semana || '21–40'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Poder de Prescripción (Quién Decide)</span>
+            <span class="detail-value">${m.quien_decide_repuesto || 'Mecánico'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Frecuencia de Recomendación</span>
+            <span class="detail-value">${m.frecuencia_recomendacion || 'Frecuentemente'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Score Calculado</span>
+            <span class="detail-value" style="color:#10B981; font-weight:800;">${m.score_potencial || 0} / 100 Puntos</span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN E: COMPORTAMIENTO DE COMPRA -->
+        <div class="section-title">🛒 E. Comportamiento de Compra y Marcas</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Dónde Compra Repuestos</span>
+            <div class="pills-list">
+              ${(m.donde_compra_repuestos || []).map(p => `<span class="detail-pill">${p}</span>`).join('')}
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Marcas que Utiliza</span>
+            <div class="pills-list">
+              ${(m.marcas_repuestos_usadas || []).map(b => `<span class="detail-pill">${b}</span>`).join('')}
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Factores Clave de Elección</span>
+            <div class="pills-list">
+              ${(m.factores_eleccion_repuesto || []).map(f => `<span class="detail-pill">${f}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN F: RELACIÓN ACTUAL CON NITROX -->
+        <div class="section-title">⚡ F. Relación Actual con NITROX</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">¿Conoce NITROX?</span>
+            <span class="detail-value">${m.conoce_nitrox || 'No'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">¿Cómo lo Conoció?</span>
+            <span class="detail-value">${m.como_conocio_nitrox || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">¿Ha Utilizado Repuestos NITROX?</span>
+            <span class="detail-value">${m.ha_usado_nitrox || 'No'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Categorías NITROX Usadas</span>
+            <div class="pills-list">
+              ${(m.categorias_nitrox_usadas || []).map(c => `<span class="detail-pill">${c}</span>`).join('') || 'Ninguna'}
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Calificación de Experiencia</span>
+            <span class="detail-value">${m.calificacion_experiencia_nitrox || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">¿Recomendaría NITROX?</span>
+            <span class="detail-value">${m.recomendaria_nitrox || 'Definitivamente sí'}</span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN G: INTERÉS EN RED NITROX -->
+        <div class="section-title">🎯 G. Interés en RED NITROX</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Actividades de Interés</span>
+            <div class="pills-list">
+              ${(m.actividades_interes || []).map(a => `<span class="detail-pill">${a}</span>`).join('')}
+            </div>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Temas para Capacitación</span>
+            <div class="pills-list">
+              ${(m.temas_capacitacion || []).map(tc => `<span class="detail-pill">${tc}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN H: AUTORIZACIONES LEGALES -->
+        <div class="section-title">📋 H. Autorizaciones Legales (Habeas Data)</div>
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Tratamiento de Datos Personales</span>
+            <span class="detail-value" style="color:${m.autorizacion_tratamiento_datos ? '#10B981' : '#EF4444'}">
+              ${m.autorizacion_tratamiento_datos ? '✅ Aceptado y Autorizado' : '❌ No aceptado'}
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Comunicaciones Comerciales</span>
+            <span class="detail-value" style="color:${m.autorizacion_comunicaciones_comerciales ? '#10B981' : '#EF4444'}">
+              ${m.autorizacion_comunicaciones_comerciales ? '✅ Autoriza recibir promociones y WhatsApp' : '❌ No autoriza'}
+            </span>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('sheetModal').style.display = 'flex';
+    };
+
+    // Close Modal
+    function closeModal() {
+      document.getElementById('sheetModal').style.display = 'none';
+      currentSelectedId = null;
+    }
+    document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+    document.getElementById('modalCloseBtn2').addEventListener('click', closeModal);
+
+    // Update Level
+    document.getElementById('btnSaveLevel').addEventListener('click', async () => {
+      if (!currentSelectedId) return;
+      const newLevel = parseInt(document.getElementById('changeLevelSelect').value, 10);
+      try {
+        const res = await fetch(`/api/crm/mecanicos/${currentSelectedId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ nivel: newLevel })
+        });
+        if (res.ok) {
+          alert('¡Nivel RED NITROX actualizado exitosamente!');
+          closeModal();
+          loadMechanics();
+        }
+      } catch (err) {
+        alert('Error actualizando nivel');
+      }
+    });
+
+    // Level Chips Click
+    document.querySelectorAll('.level-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.level-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        renderTable();
+      });
+    });
+
+    // Search and Select Filters
+    document.getElementById('searchInput').addEventListener('input', renderTable);
+    document.getElementById('municipioFilter').addEventListener('change', renderTable);
+    document.getElementById('origenFilter').addEventListener('change', renderTable);
+
+    // Export CSV
+    document.getElementById('btnExport').addEventListener('click', () => {
+      window.location.href = `/api/crm/export?token=${token}`;
+    });
+
+    // Init
+    loadMechanics();
+  </script>
+</body>
+</html>
