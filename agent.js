@@ -276,8 +276,15 @@ async function generateMateoResponse(fromNumber, userText) {
   return messagesToSend;
 }
 
+function resetMemoryCache() {
+  for (const k in memoryCache) {
+    delete memoryCache[k];
+  }
+}
+
 module.exports = {
   generateMateoResponse,
   admin,
-  localMecanicosStore
+  localMecanicosStore,
+  resetMemoryCache
 };

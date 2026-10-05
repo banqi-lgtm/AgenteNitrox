@@ -620,6 +620,9 @@
       <span class="nav-tag">Piloto Medellín</span>
     </a>
     <div class="nav-actions">
+      <button id="btnResetMateo" class="btn-outline" style="border-color: rgba(239, 35, 60, 0.4); color: #EF233C;" title="Borrar conversaciones y dejar a Mateo en cero">
+        <span>🧹 Reiniciar Mateo (0)</span>
+      </button>
       <a href="/formulario" target="_blank" class="btn-outline">
         <span>📝 Abrir Formulario Virtual</span>
       </a>
@@ -1188,6 +1191,27 @@
     // Export CSV
     document.getElementById('btnExport').addEventListener('click', () => {
       window.location.href = `/api/crm/export?token=${token}`;
+    });
+
+    // Reset Mateo conversations
+    document.getElementById('btnResetMateo').addEventListener('click', async () => {
+      if (!confirm('⚠️ ¿Estás seguro de reiniciar todas las conversaciones de Mateo?\\n\\nEsto borrará todas las sesiones y mensajes en progreso, dejando a Mateo en cero como si no reconociera a nadie. (Los mecánicos guardados en el CRM no se borran).')) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/reset-conversations', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const d = await res.json();
+        if (d.success) {
+          alert(`✅ ${d.message}\\n(${d.deletedSessions || 0} sesiones y ${d.deletedProcessed || 0} mensajes borrados)`);
+        } else {
+          alert('❌ Error: ' + (d.message || 'No se pudo reiniciar'));
+        }
+      } catch (err) {
+        alert('❌ Error de conexión al reiniciar: ' + err.message);
+      }
     });
 
     // Init
