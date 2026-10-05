@@ -19,6 +19,12 @@ function isGreeting(text) {
   return /^(?:hola|buenas|buenos dias|buenas tardes|buenas noches|que mas|saludos|hey|alo|info|informacion|afiliacion|afiliar|red nitrox)[\s.,!]*$/i.test((text || '').trim());
 }
 
+// Helper to count words
+function countWords(str) {
+  if (!str) return 0;
+  return str.trim().split(/\s+/).filter(Boolean).length;
+}
+
 // Helper to extract and clean personal name
 function cleanPersonName(str) {
   if (!str) return '';
@@ -44,119 +50,112 @@ function cleanWorkshopName(str) {
   return s.split(/\s+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-// Intelligently parse Name and Workshop differentiating when only one or both are provided
-function parseNameAndWorkshop(text) {
+// Helper to parse Name & Workshop if provided together or separately
+function parseNameAndWorkshop(raw) {
   let name = '';
   let workshop = '';
-  const clean = (text || '').trim();
+  const clean = (raw || '').trim();
 
-  if (isGreeting(clean)) {
-    return { name: '', workshop: '' };
-  }
+  if (isGreeting(clean)) return { name: '', workshop: '' };
 
-  // 1. Multiline detection (User wrote name on line 1, workshop on line 2 or vice versa)
   const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (lines.length >= 2) {
-    const workshopRegex = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i;
-    if (workshopRegex.test(lines[1]) && !workshopRegex.test(lines[0])) {
+    const isW0 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(lines[0]);
+    const isW1 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(lines[1]);
+    if (isW1 && !isW0) {
       name = cleanPersonName(lines[0]);
       workshop = cleanWorkshopName(lines[1]);
-      return { name, workshop };
-    } else if (workshopRegex.test(lines[0]) && !workshopRegex.test(lines[1])) {
+    } else if (isW0 && !isW1) {
       workshop = cleanWorkshopName(lines[0]);
       name = cleanPersonName(lines[1]);
-      return { name, workshop };
     } else {
       name = cleanPersonName(lines[0]);
       workshop = cleanWorkshopName(lines[1]);
+    }
+    return { name, workshop };
+  }
+
+  if (clean.includes(',') || /\s+y\s+/i.test(clean)) {
+    const parts = clean.split(/,|\s+y\s+/i).map(p => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const isW0 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(parts[0]);
+      const isW1 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(parts[1]);
+      if (isW1 && !isW0) {
+        name = cleanPersonName(parts[0]);
+        workshop = cleanWorkshopName(parts[1]);
+      } else if (isW0 && !isW1) {
+        workshop = cleanWorkshopName(parts[0]);
+        name = cleanPersonName(parts[1]);
+      }
       return { name, workshop };
     }
   }
 
-  // 2. Explicit patterns: "Soy Walter Gonzalez de Taller La 22" or "Walter Gonzalez del Taller La 22"
   const deMatch = clean.match(/(?:soy|me llamo|mi nombre es)?\s*([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del|y mi taller es|y el taller es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)/i);
   if (deMatch && deMatch[1].trim() && deMatch[2].trim()) {
-    const candidateName = cleanPersonName(deMatch[1]);
-    const candidateWorkshop = cleanWorkshopName(deMatch[2]);
-    if (candidateName && candidateWorkshop) {
-      return { name: candidateName, workshop: candidateWorkshop };
+    name = cleanPersonName(deMatch[1]);
+    workshop = cleanWorkshopName(deMatch[2]);
+    return { name, workshop };
+  }
+
+  if (/^(?:taller|el taller|moto taller|motos|repuestos|garage)\s+[A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+$/i.test(clean) || (/(?:taller|repuestos|garage)/i.test(clean) && clean.split(/\s+/).length <= 4)) {
+    workshop = cleanWorkshopName(clean);
+    return { name: '', workshop };
+  }
+
+  if (!isGreeting(clean) && clean.split(/\s+/).length <= 4 && !/(?:bello|itagui|medellin|mecanico|dueño|motos|akt|repuestos)/i.test(clean)) {
+    name = cleanPersonName(clean);
+    return { name, workshop: '' };
+  }
+
+  return { name: '', workshop: '' };
+}
+
+// Semantic entity extractor for real-world messages, typos and Colombian mechanic slang
+function extractEntities(text, sessionData) {
+  const raw = (text || '').trim();
+  const lower = raw.toLowerCase();
+  const updates = {};
+
+  // 1. Name & Workshop if missing
+  if (!sessionData.nombres_apellidos || !sessionData.nombre_taller) {
+    const { name, workshop } = parseNameAndWorkshop(raw);
+    if (name && !sessionData.nombres_apellidos) updates.nombres_apellidos = name;
+    if (workshop && !sessionData.nombre_taller) updates.nombre_taller = workshop;
+  }
+
+  // 2. Municipality & Barrio
+  if (/bello/i.test(lower)) updates.ciudad_taller = 'Bello';
+  else if (/itagui|itaguí/i.test(lower)) updates.ciudad_taller = 'Itagüí';
+  else if (/envigado/i.test(lower)) updates.ciudad_taller = 'Envigado';
+  else if (/sabaneta/i.test(lower)) updates.ciudad_taller = 'Sabaneta';
+  else if (/estrella/i.test(lower)) updates.ciudad_taller = 'La Estrella';
+  else if (/caldas/i.test(lower)) updates.ciudad_taller = 'Caldas';
+  else if (/copacabana/i.test(lower)) updates.ciudad_taller = 'Copacabana';
+  else if (/girardota/i.test(lower)) updates.ciudad_taller = 'Girardota';
+  else if (/medellin|medellín|guayabal|belen|laureles|castilla|robledo|poblado/i.test(lower)) updates.ciudad_taller = 'Medellín';
+
+  if (updates.ciudad_taller) updates.ciudad_residencia = updates.ciudad_taller;
+
+  // 3. Role
+  if (/mecanico|mecánico|empleado|las arreglo yo|yo arreglo/i.test(lower)) updates.relacion_taller = 'Mecánico';
+  else if (/dueño|dueno|propietario|el taller es mio|es mio|yo lo manejo/i.test(lower)) updates.relacion_taller = 'Propietario';
+  else if (/socio|copropietario/i.test(lower)) updates.relacion_taller = 'Socio';
+
+  // 4. Volume (only if asked or explicit volume keywords, never from workshop name)
+  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN';
+  if ((isVolumeQuestion || /muchas|bastantes|un monton|monton|harto|full|motos por semana|por semana/i.test(lower)) && !sessionData.motos_por_semana) {
+    if (/mucha|bastante|harto|montón|monton|full|de todo/i.test(lower)) {
+      updates.motos_por_semana = 'Muchas / Alto flujo';
+    } else {
+      const numMatch = lower.match(/\b\d+\b/);
+      if (numMatch) updates.motos_por_semana = `${numMatch[0]} motos/semana`;
+      else updates.motos_por_semana = raw;
     }
   }
 
-  // 3. Comma / " y " separator: "Walter Gonzalez, Taller La 22"
-  if (clean.includes(',') || /\s+y\s+/i.test(clean)) {
-    const parts = clean.split(/,|\s+y\s+/i).map(p => p.trim()).filter(Boolean);
-    if (parts.length >= 2) {
-      const workshopRegex = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i;
-      if (workshopRegex.test(parts[1]) && !workshopRegex.test(parts[0])) {
-        return { name: cleanPersonName(parts[0]), workshop: cleanWorkshopName(parts[1]) };
-      } else if (workshopRegex.test(parts[0]) && !workshopRegex.test(parts[1])) {
-        return { name: cleanPersonName(parts[1]), workshop: cleanWorkshopName(parts[0]) };
-      }
-    }
-  }
-
-  // 4. Workshop only: "Taller La 22" or "Moto Taller El Paisa"
-  const workshopOnlyRegex = /^(?:taller|el taller|moto taller|motos|repuestos|garage)\s+[A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+$/i;
-  if (workshopOnlyRegex.test(clean) || (/(?:taller|repuestos|garage)/i.test(clean) && !/(?:soy|me llamo|mi nombre)/i.test(clean) && clean.split(/\s+/).length <= 4)) {
-    return { name: '', workshop: cleanWorkshopName(clean) };
-  }
-
-  // 5. Person name only: "Walter Gonzalez" or "Me llamo Walter Gonzalez"
-  const personOnlyMatch = clean.match(/(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+)/i);
-  if (personOnlyMatch) {
-    return { name: cleanPersonName(personOnlyMatch[1]), workshop: '' };
-  }
-
-  if (!/(?:taller|repuestos|motos|garage)/i.test(clean) && clean.split(/\s+/).length <= 4) {
-    return { name: cleanPersonName(clean), workshop: '' };
-  }
-
-  return { name: cleanPersonName(clean), workshop: '' };
-}
-
-// Helpers to extract location and role
-function extractLocationAndRole(text) {
-  let ciudad = 'Medellín';
-  let barrio = '';
-  let rol = '';
-
-  const lower = (text || '').toLowerCase();
-  if (/bello/i.test(lower)) ciudad = 'Bello';
-  else if (/itagui|itaguí/i.test(lower)) ciudad = 'Itagüí';
-  else if (/envigado/i.test(lower)) ciudad = 'Envigado';
-  else if (/sabaneta/i.test(lower)) ciudad = 'Sabaneta';
-  else if (/estrella/i.test(lower)) ciudad = 'La Estrella';
-  else if (/caldas/i.test(lower)) ciudad = 'Caldas';
-  else if (/copacabana/i.test(lower)) ciudad = 'Copacabana';
-  else if (/girardota/i.test(lower)) ciudad = 'Girardota';
-  else ciudad = 'Medellín';
-
-  if (/propietario|dueño|dueno/i.test(lower)) rol = 'Propietario';
-  else if (/administrador/i.test(lower)) rol = 'Administrador';
-  else if (/socio/i.test(lower)) rol = 'Socio';
-  else if (/mecanico|mecánico|empleado/i.test(lower)) rol = 'Mecánico-empleado';
-
-  const cleanBarrio = text
-    .replace(/(?:medellin|medellín|bello|itagui|itaguí|envigado|sabaneta|la estrella|caldas|copacabana|girardota)/gi, '')
-    .replace(/(?:propietario|dueño|dueno|administrador|socio|mecanico|mecánico|empleado)/gi, '')
-    .replace(/[,.-]/g, ' ')
-    .trim();
-  if (cleanBarrio.length > 2) {
-    barrio = cleanBarrio.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-  } else {
-    barrio = 'Sector Principal';
-  }
-
-  return { ciudad, barrio, rol };
-}
-
-// Helpers to extract volume and brands
-function extractVolumeAndBrands(text) {
-  let volume = (text || '').trim();
+  // 5. Brands
   const brands = [];
-  const lower = (text || '').toLowerCase();
-
   if (/yamaha/i.test(lower)) brands.push('Yamaha');
   if (/bajaj|pulsar|boxer|bjaja/i.test(lower)) brands.push('Bajaj');
   if (/akt|nkd/i.test(lower)) brands.push('AKT');
@@ -165,33 +164,58 @@ function extractVolumeAndBrands(text) {
   if (/tvs/i.test(lower)) brands.push('TVS');
   if (/hero/i.test(lower)) brands.push('Hero');
   if (/ktm/i.test(lower)) brands.push('KTM');
-  if (/todas/i.test(lower)) brands.push('Todas las marcas');
+  if (/todas|de todas|variadas|de todo/i.test(lower)) brands.push('Variadas / Todas');
+  if (brands.length > 0) updates.marcas_motos = brands;
 
-  const types = [];
-  if (/scooter|automatica|bws|nmax/i.test(lower)) types.push('Scooter / Automáticas');
-  if (/trabajo|100|125|150|mensajeria/i.test(lower)) types.push('Motos de trabajo (100 - 150 cc)');
-  if (/mediana|200|250|300|399/i.test(lower)) types.push('Media cilindrada (151 - 399 cc)');
-  if (/alta|400|600|1000/i.test(lower)) types.push('Alta cilindrada (400 cc o más)');
-  if (types.length === 0) types.push('Motos de trabajo (100 - 150 cc)', 'Scooter / Automáticas');
-
-  const hasBrands = brands.length > 0;
-  return { volume, brands, types, hasBrands };
-}
-
-// Helpers to extract parts
-function extractParts(text) {
+  // 6. Frequent parts
   const parts = [];
-  const lower = (text || '').toLowerCase();
-  if (/freno|pastilla|banda|disco/i.test(lower)) parts.push('Pastillas y bandas de freno');
+  if (/freno|pastilla|banda|disco/i.test(lower)) parts.push('Frenos');
   if (/arrastre|kit|cadena|pinon|corona/i.test(lower)) parts.push('Kit de arrastre');
-  if (/motor|valvula|cilindro|piston|ajuste/i.test(lower)) parts.push('Motor y ajuste');
-  if (/aceite|filtro|preventivo|mantenimiento/i.test(lower)) parts.push('Mantenimiento preventivo / lubricación');
-  if (/suspension|amortiguador/i.test(lower)) parts.push('Suspensión y amortiguadores');
-  if (/electr|bateria|luces|inyeccion/i.test(lower)) parts.push('Electricidad e inyección');
-  if (/todo|todos|varias/i.test(lower) || parts.length === 0) {
-    parts.push('Pastillas de freno', 'Kit de arrastre', 'Partes de motor');
+  if (/motor|valvula|cilindro|piston|ajuste/i.test(lower)) parts.push('Partes de motor');
+  if (/aceite|filtro|lubricante/i.test(lower)) parts.push('Lubricación / Filtros');
+  if (/suspension|amortiguador/i.test(lower)) parts.push('Suspensión');
+  if (/electr|bateria|inyeccion/i.test(lower)) parts.push('Electricidad');
+  if (parts.length > 0) updates.repuestos_frecuentes = parts;
+
+  // 7. Decision maker
+  if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|mecanico|mecánico/i.test(lower) && !sessionData.quien_decide_repuesto) {
+    updates.quien_decide_repuesto = 'Mecánico';
+    updates.frecuencia_recomendacion = 'Siempre';
+  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen/i.test(lower)) {
+    updates.quien_decide_repuesto = 'Cliente';
+    updates.frecuencia_recomendacion = 'Algunas veces';
   }
-  return parts;
+
+  // 8. NITROX experience
+  if (sessionData._lastQuestion === 'NITROX_EXP' || /repuestos nitrox|marca nitrox/i.test(lower)) {
+    if (/si|sí|claro|bueno|buenos|excelente|bien|salido buenos/i.test(lower)) {
+      updates.conoce_nitrox = 'Sí';
+      updates.ha_usado_nitrox = 'Sí';
+      updates.calificacion_experiencia_nitrox = /excelente/i.test(lower) ? 'Excelente' : 'Buena';
+      updates.recomendaria_nitrox = 'Definitivamente sí';
+    } else if (/no|nunca|todavia no|todavía no/i.test(lower)) {
+      updates.conoce_nitrox = 'No';
+      updates.ha_usado_nitrox = 'No';
+      updates.calificacion_experiencia_nitrox = 'No aplica';
+      updates.recomendaria_nitrox = 'Probablemente sí';
+    }
+  }
+
+  // 9. Purchase channel / criteria
+  if (sessionData._lastQuestion === 'CANAL_COMPRA' || /distribuidor|directo|barato|almacen/i.test(lower)) {
+    if (/distribuidor|distribuidora|ruta|preventista/i.test(lower)) {
+      updates.canal_compra = 'Distribuidor';
+    } else if (/directo|fabrica|fábrica/i.test(lower)) {
+      updates.canal_compra = 'Directo';
+    } else if (/barato|economico|económico|precio|donde salga/i.test(lower)) {
+      updates.canal_compra = 'Donde salga más barato';
+      updates.criterio_compra = 'Precio';
+    } else if (/almacen|almacenes|repuestera/i.test(lower)) {
+      updates.canal_compra = 'Almacén de repuestos';
+    }
+  }
+
+  return updates;
 }
 
 // Persistent session management via Firestore + RAM cache
@@ -211,7 +235,6 @@ async function getSession(phoneNumber) {
   }
 
   const newSession = {
-    stage: 'INIT',
     data: {},
     history: []
   };
@@ -247,7 +270,6 @@ async function saveMechanicToFirestore(phone, data) {
     origen_registro: 'WhatsApp'
   }, 'WhatsApp');
 
-  // Update in-memory localMecanicosStore without duplicates
   const existingIdx = localMecanicosStore.findIndex(m => m.id_unico === normalized.id_unico || (cleanPhone && m.celular_whatsapp === cleanPhone));
   if (existingIdx >= 0) {
     localMecanicosStore[existingIdx] = Object.assign(localMecanicosStore[existingIdx], normalized);
@@ -257,253 +279,135 @@ async function saveMechanicToFirestore(phone, data) {
 
   try {
     await admin.firestore().collection('mecanicos_red_nitrox').doc(normalized.id_unico).set(normalized, { merge: true });
-    console.log(`[FIRESTORE] Mecánico/Taller "${normalized.nombre_taller || 'En progreso'}" guardado vía WhatsApp con ID: ${normalized.id_unico}`);
   } catch (err) {
     console.warn('[FIRESTORE MECHANIC SAVE (fallback local)]', err.message);
   }
   return normalized;
 }
 
+// Core Prompt Maestro conversational response generator
 async function generateMateoResponse(fromNumber, userText) {
   const session = await getSession(fromNumber);
   session.history = session.history || [];
   session.data = session.data || {};
   session.history.push({ role: 'user', content: userText, timestamp: Date.now() });
 
-  const textLower = userText.toLowerCase().trim();
-  let messagesToSend = [];
+  const data = session.data;
+  const raw = userText.trim();
+  const lower = raw.toLowerCase();
 
-  // Reset ONLY if user explicitly requests another workshop or reset
-  if (session.stage === 'COMPLETED') {
-    if (/(otro taller|nuevo taller|registrar otro|reiniciar|nueva afiliacion|borrar datos)/i.test(textLower)) {
-      session.stage = 'INIT';
-      session.data = {};
-    }
+  // Reset if user requests
+  if (/(otro taller|nuevo taller|registrar otro|reiniciar|borrar datos)/i.test(lower)) {
+    session.data = {};
+    session.history = [];
+    await saveSession(fromNumber, session);
+    const reply = "¡Listo! Empecemos de nuevo. ¿Cómo te llamas y cómo se llama tu taller?";
+    return [reply];
   }
 
-  // --- Conversational Flow (Canal Principal de Registro RED NITROX) ---
-  if (session.stage === 'INIT') {
-    const parsed = parseNameAndWorkshop(userText);
-    if (parsed.name && parsed.workshop) {
-      session.data.nombres_apellidos = parsed.name;
-      session.data.nombre_taller = parsed.workshop;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      const firstName = parsed.name.split(' ')[0];
-      messagesToSend = [
-        '¡Hola! Soy Mateo, asesor de la RED NITROX en Medellín.',
-        `¡Un gusto ${firstName}! Bienvenido a la RED NITROX junto con tu taller "${parsed.workshop}".`,
-        '¿En qué municipio y barrio está ubicado tu taller (ej: Medellín Guayabal, Bello Centro, Itagüí, etc.)?'
-      ];
-      session.stage = 'AWAITING_LOCATION';
-    } else if (parsed.name) {
-      session.data.nombres_apellidos = parsed.name;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      const firstName = parsed.name.split(' ')[0];
-      messagesToSend = [
-        `¡Hola ${firstName}! Soy Mateo, asesor de la RED NITROX en Medellín.`,
-        '¿Cómo se llama tu taller de motos?'
-      ];
-      session.stage = 'AWAITING_WORKSHOP_ONLY';
-    } else if (parsed.workshop) {
-      session.data.nombre_taller = parsed.workshop;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      messagesToSend = [
-        '¡Hola! Soy Mateo, asesor de la RED NITROX en Medellín.',
-        `¡Excelente taller "${parsed.workshop}"! ¿Y cuál es tu nombre completo?`
-      ];
-      session.stage = 'AWAITING_NAME_ONLY';
-    } else {
-      messagesToSend = [
-        '¡Hola! Soy Mateo, asesor de la RED NITROX en Medellín.',
-        '¿Cómo es tu nombre completo y cómo se llama tu taller de motos?'
-      ];
-      session.stage = 'AWAITING_NAME_AND_WORKSHOP';
-    }
+  // 1. Extract newly provided entities
+  const newEntities = extractEntities(userText, data);
+  Object.assign(data, newEntities);
 
-  } else if (session.stage === 'AWAITING_NAME_AND_WORKSHOP') {
-    const parsed = parseNameAndWorkshop(userText);
-    if (parsed.name && parsed.workshop) {
-      session.data.nombres_apellidos = parsed.name;
-      session.data.nombre_taller = parsed.workshop;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      const firstName = parsed.name.split(' ')[0];
-      messagesToSend = [
-        `¡Un gusto ${firstName}! Bienvenido a la RED NITROX junto con tu taller "${parsed.workshop}".`,
-        '¿En qué municipio y barrio está ubicado tu taller (ej: Medellín Guayabal, Bello Centro, Itagüí, etc.)?'
-      ];
-      session.stage = 'AWAITING_LOCATION';
-    } else if (parsed.name) {
-      session.data.nombres_apellidos = parsed.name;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      const firstName = parsed.name.split(' ')[0];
-      messagesToSend = [
-        `¡Un gusto ${firstName}!`,
-        '¿Y cómo se llama tu taller de motos?'
-      ];
-      session.stage = 'AWAITING_WORKSHOP_ONLY';
-    } else if (parsed.workshop) {
-      session.data.nombre_taller = parsed.workshop;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      messagesToSend = [
-        `¡Excelente taller "${parsed.workshop}"!`,
-        '¿Y cuál es tu nombre completo?'
-      ];
-      session.stage = 'AWAITING_NAME_ONLY';
-    } else {
-      messagesToSend = [
-        '¿Cómo es tu nombre completo y cómo se llama tu taller de motos?'
-      ];
-    }
-
-  } else if (session.stage === 'AWAITING_WORKSHOP_ONLY') {
-    const workshop = cleanWorkshopName(userText);
-    session.data.nombre_taller = workshop || userText.trim();
-    await saveMechanicToFirestore(fromNumber, session.data);
-    const firstName = (session.data.nombres_apellidos || '').split(' ')[0] || '';
-    messagesToSend = [
-      `¡Excelente taller "${session.data.nombre_taller}"!`,
-      '¿En qué municipio y barrio está ubicado tu taller (ej: Medellín Guayabal, Bello Centro, Itagüí, etc.)?'
-    ];
-    session.stage = 'AWAITING_LOCATION';
-
-  } else if (session.stage === 'AWAITING_NAME_ONLY') {
-    const name = cleanPersonName(userText);
-    session.data.nombres_apellidos = name || userText.trim();
-    await saveMechanicToFirestore(fromNumber, session.data);
-    const firstName = session.data.nombres_apellidos.split(' ')[0] || '';
-    messagesToSend = [
-      `¡Un gusto ${firstName}!`,
-      '¿En qué municipio y barrio está ubicado tu taller (ej: Medellín Guayabal, Bello Centro, Itagüí, etc.)?'
-    ];
-    session.stage = 'AWAITING_LOCATION';
-
-  } else if (session.stage === 'AWAITING_LOCATION') {
-    const { ciudad, barrio, rol } = extractLocationAndRole(userText);
-    session.data.ciudad_taller = ciudad;
-    session.data.ciudad_residencia = ciudad;
-    session.data.barrio_taller = barrio;
-    if (rol) session.data.relacion_taller = rol;
-    await saveMechanicToFirestore(fromNumber, session.data);
-
-    if (rol) {
-      messagesToSend = [
-        `Anotada la zona en ${ciudad} y tu labor como ${rol.toLowerCase().includes('mecanico') ? 'mecánico' : rol.toLowerCase()}.`,
-        '¿Aproximadamente cuántas motos atienden por semana en el taller?'
-      ];
-      session.stage = 'AWAITING_VOLUME';
-    } else {
-      messagesToSend = [
-        `Anotada la zona en ${ciudad}${barrio && barrio !== 'Sector Principal' ? ', ' + barrio : ''}.`,
-        '¿Y cuál es tu rol en el taller: eres propietario, mecánico o socio?'
-      ];
-      session.stage = 'AWAITING_ROLE';
-    }
-
-  } else if (session.stage === 'AWAITING_ROLE') {
-    const { rol } = extractLocationAndRole(userText);
-    session.data.relacion_taller = rol || (/socio/i.test(userText) ? 'Socio' : /propietario|dueño|dueno/i.test(userText) ? 'Propietario' : 'Mecánico-empleado');
-    await saveMechanicToFirestore(fromNumber, session.data);
-    messagesToSend = [
-      '¡Perfecto!',
-      '¿Aproximadamente cuántas motos atienden por semana en el taller?'
-    ];
-    session.stage = 'AWAITING_VOLUME';
-
-  } else if (session.stage === 'AWAITING_VOLUME') {
-    const { volume, brands, types, hasBrands } = extractVolumeAndBrands(userText);
-    session.data.motos_por_semana = volume;
-    if (hasBrands) {
-      session.data.marcas_motos = brands;
-      session.data.tipo_motos = types;
-      await saveMechanicToFirestore(fromNumber, session.data);
-      messagesToSend = [
-        '¡Buen volumen! Esas marcas representan la mayor parte de las motos en Medellín.',
-        'En tu taller, ¿quién decide generalmente la marca de repuestos a instalar (tú como mecánico o el dueño de la moto)?'
-      ];
-      session.stage = 'AWAITING_DECISION';
-    } else {
-      await saveMechanicToFirestore(fromNumber, session.data);
-      messagesToSend = [
-        'Buen volumen de trabajo.',
-        '¿Y qué marcas o tipos de motos son las que más ingresan a tu taller? (ej: Yamaha, Bajaj, AKT, automáticas/scooter, etc.)'
-      ];
-      session.stage = 'AWAITING_BRANDS';
-    }
-
-  } else if (session.stage === 'AWAITING_BRANDS') {
-    const { brands, types } = extractVolumeAndBrands(userText);
-    session.data.marcas_motos = brands.length > 0 ? brands : ['Yamaha', 'Bajaj', 'AKT'];
-    session.data.tipo_motos = types;
-    await saveMechanicToFirestore(fromNumber, session.data);
-    messagesToSend = [
-      '¡Clave esa rotación!',
-      'En tu taller, ¿quién decide generalmente la marca de repuestos a instalar (tú como mecánico o el dueño de la moto)?'
-    ];
-    session.stage = 'AWAITING_DECISION';
-
-  } else if (session.stage === 'AWAITING_DECISION') {
-    const lower = userText.toLowerCase();
-    if (/yo|sujier|sugier|recomiend|mecanico|mecánico|le digo|ambos|taller/i.test(lower)) {
-      session.data.quien_decide_repuesto = 'Mecánico';
-      session.data.frecuencia_recomendacion = 'Siempre';
-    } else {
-      session.data.quien_decide_repuesto = 'Propietario de la moto';
-      session.data.frecuencia_recomendacion = 'Algunas veces';
-    }
-    session.data.repuestos_frecuentes = extractParts(userText);
-    session.data.marcas_repuestos_usadas = ['NITROX'];
-    await saveMechanicToFirestore(fromNumber, session.data);
-    messagesToSend = [
-      '¡Clave ese criterio! La recomendación del mecánico es lo más importante para la seguridad del cliente.',
-      '¿Ya conoces o has utilizado repuestos de la marca NITROX en tu taller? ¿Qué tal te ha parecido la calidad?'
-    ];
-    session.stage = 'AWAITING_NITROX';
-
-  } else if (session.stage === 'AWAITING_NITROX') {
-    const lower = userText.toLowerCase();
-    if (/si|sí|claro|usado|probado|conozco|buen|excelente/i.test(lower)) {
-      session.data.conoce_nitrox = 'Sí';
-      session.data.ha_usado_nitrox = 'Sí';
-      session.data.calificacion_experiencia_nitrox = /excelente/i.test(lower) ? 'Excelente' : 'Buena';
-      session.data.recomendaria_nitrox = 'Definitivamente sí';
-    } else {
-      session.data.conoce_nitrox = 'No';
-      session.data.ha_usado_nitrox = 'No';
-      session.data.calificacion_experiencia_nitrox = 'No aplica';
-      session.data.recomendaria_nitrox = 'Probablemente sí';
-    }
-
-    const normalized = await saveMechanicToFirestore(fromNumber, session.data);
-    const firstName = (session.data.nombres_apellidos || '').split(' ')[0] || '';
-    const workshopName = session.data.nombre_taller || 'tu taller';
-    const idDisplay = normalized?.id_unico || 'RN-MED-PILOTO';
-    const nivelDisplay = normalized ? `Nivel ${normalized.nivel_relacion_numero}: ${normalized.nivel_relacion_nombre}` : 'Nivel 1: Registrado';
-    const cleanPhone = (fromNumber || '').replace(/\D/g, '');
-
-    messagesToSend = [
-      `¡Listo ${firstName}! Con estos datos ${workshopName} ya quedó 100% REGISTRADO y ACTIVO en la base de datos oficial de RED NITROX (Piloto Medellín).`,
-      `Tu código oficial de aliado es ${idDisplay} (${nivelDisplay}). Ya quedas habilitado para visitas técnicas de ruta, muestras de repuestos y capacitaciones.`,
-      `De forma 100% opcional, si deseas consultar tu ficha completa o elegir temas de cursos técnicos presenciales/virtuales, puedes ingresar aquí: https://webhook-my2e3j2ecq-uc.a.run.app/formulario?id=${idDisplay}&tel=${cleanPhone}`,
-      'Cualquier duda o repuesto me escribes directamente por acá. ¡Bienvenido a RED NITROX!'
-    ];
-    session.stage = 'COMPLETED';
-
-  } else if (session.stage === 'COMPLETED') {
-    const firstName = (session.data.nombres_apellidos || '').split(' ')[0] || '';
-    const workshopName = session.data.nombre_taller || 'Aliado';
-    const idDisplay = session.data.id_unico || 'RN-MED-PILOTO';
-    const cleanPhone = (fromNumber || '').replace(/\D/g, '');
-
-    messagesToSend = [
-      `¡Hola ${firstName}! Tu taller "${workshopName}" ya está 100% registrado y activo con código ${idDisplay}.`,
-      `Si necesitas registrar otro taller o mecánico, me avisas y lo hacemos de una. Y si deseas ver temas de capacitación técnica opcionales: https://webhook-my2e3j2ecq-uc.a.run.app/formulario?id=${idDisplay}&tel=${cleanPhone}`
-    ];
+  // 2. Synchronize progressively to Firestore / CRM
+  if (data.nombres_apellidos || data.nombre_taller) {
+    await saveMechanicToFirestore(fromNumber, data);
   }
 
-  session.history.push({ role: 'assistant', content: messagesToSend.join(' '), timestamp: Date.now() });
+  const firstName = (data.nombres_apellidos || '').split(' ')[0] || '';
+  const workshopName = data.nombre_taller || '';
+
+  // 3. User inquiry interceptor (if user asks what RED NITROX is)
+  if (/(que es red nitrox|de que se trata|para que es|que beneficios|quien es nitrox)/i.test(lower)) {
+    let reply = "Es una red de talleres aliados de NITROX en Medellín con capacitaciones, muestras de repuestos y beneficios directos.";
+    if (!data.nombres_apellidos || !data.nombre_taller) {
+      reply += " ¿Cómo te llamas y cómo se llama tu taller?";
+      data._lastQuestion = 'NOMBRE_Y_TALLER';
+    }
+    session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+    await saveSession(fromNumber, session);
+    return [reply];
+  }
+
+  // 4. Decide the SINGLE logical next response based on memory and context (Prompt Maestro)
+  let reply = '';
+
+  // Initial greeting / Missing both name and workshop
+  if (!data.nombres_apellidos && !data.nombre_taller) {
+    data._lastQuestion = 'NOMBRE_Y_TALLER';
+    reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cómo te llamas y cómo se llama tu taller?";
+  }
+  // Missing workshop
+  else if (data.nombres_apellidos && !data.nombre_taller) {
+    data._lastQuestion = 'TALLER';
+    reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller?`;
+  }
+  // Missing name
+  else if (!data.nombres_apellidos && data.nombre_taller) {
+    data._lastQuestion = 'NOMBRE';
+    reply = `Excelente taller ${workshopName}. ¿Y cuál es tu nombre?`;
+  }
+  // Missing location (municipio)
+  else if (!data.ciudad_taller) {
+    data._lastQuestion = 'UBICACION';
+    reply = `Mucho gusto, ${firstName}. ¿En qué zona está el taller?`;
+  }
+  // Missing role
+  else if (!data.relacion_taller) {
+    data._lastQuestion = 'ROL';
+    reply = `Anotado. ¿Cuál es tu rol en el taller: eres propietario o mecánico?`;
+  }
+  // Missing volume
+  else if (!data.motos_por_semana) {
+    data._lastQuestion = 'VOLUMEN';
+    reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana?`;
+  }
+  // Missing brands
+  else if (!data.marcas_motos || data.marcas_motos.length === 0) {
+    data._lastQuestion = 'MARCAS';
+    reply = `Buen volumen. ¿Qué marcas son las que más te llegan?`;
+  }
+  // Missing frequent parts
+  else if (!data.repuestos_frecuentes || data.repuestos_frecuentes.length === 0) {
+    data._lastQuestion = 'REPUESTOS';
+    reply = `Sí, se mueve de todo entonces. ¿Qué repuestos cambias más seguido?`;
+  }
+  // Missing NITROX experience
+  else if (!data.conoce_nitrox) {
+    data._lastQuestion = 'NITROX_EXP';
+    reply = `Buen dato. ¿Y ya has trabajado con repuestos NITROX?`;
+  }
+  // NITROX answered "Sí" / "Bueno", missing purchase channel
+  else if (data.conoce_nitrox === 'Sí' && !data.canal_compra) {
+    data._lastQuestion = 'CANAL_COMPRA';
+    reply = `Excelente. ¿Los compras directamente o con algún distribuidor?`;
+  }
+  // NITROX answered "No"
+  else if (data.conoce_nitrox === 'No' && !data._ofertaVisita) {
+    data._ofertaVisita = true;
+    reply = `Entendido. En NITROX manejamos muy buena calidad y precios para talleres. ¿Te gustaría recibir muestras y catálogo?`;
+  }
+  // If price / channel was answered
+  else if (data.criterio_compra === 'Precio' && !data._marcaPreguntada) {
+    data._marcaPreguntada = true;
+    reply = `Claro, el precio pesa bastante. ¿Qué marca compras más?`;
+  }
+  // Final closing / Natural human farewell (concise, warm, respectful)
+  else {
+    reply = `Listo ${firstName}, anotado todo. Muy bacano tu taller ${workshopName}. Quedo súper atento por acá para lo que necesites.`;
+  }
+
+  // Word count checklist enforcement
+  const wc = countWords(reply);
+  if (wc > 25) {
+    console.warn(`[WARNING: REPLY OVER 25 WORDS (${wc})]:`, reply);
+  }
+
+  session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
   await saveSession(fromNumber, session);
 
-  return messagesToSend;
+  // Return single clean, natural WhatsApp bubble
+  return [reply];
 }
 
 function resetMemoryCache() {
