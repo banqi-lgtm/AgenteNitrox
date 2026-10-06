@@ -4,6 +4,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
 const { generateMateoResponse, admin, localMecanicosStore, resetMemoryCache } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
+const QRCode = require('qrcode');
 
 const app = express();
 app.use(express.json());
@@ -53,6 +54,38 @@ app.get('/formulario', (req, res) => {
 
 app.get('/registro', (req, res) => {
   res.redirect('/formulario');
+});
+
+// Credencial Digital y Ficha Maestra con QR único
+app.get(['/carnet', '/carnet/:id', '/ficha/:id', '/taller/:id'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'carnet.html'));
+});
+
+// Endpoint generador de imagen PNG para Código QR oficial
+app.get('/api/qr/:id.png', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'webhook-my2e3j2ecq-uc.a.run.app';
+    const targetUrl = `${protocol}://${host}/carnet/${encodeURIComponent(id)}`;
+
+    const qrBuffer = await QRCode.toBuffer(targetUrl, {
+      type: 'png',
+      width: 480,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(qrBuffer);
+  } catch (err) {
+    console.error('Error generando QR PNG:', err);
+    return res.status(500).send('Error generando QR');
+  }
 });
 
 // Auth API
@@ -344,6 +377,35 @@ async function sendWhatsAppMessage(to, text) {
   }
 }
 
+async function sendWhatsAppImage(to, imageUrl, caption) {
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'image',
+        image: {
+          link: imageUrl,
+          caption: caption || ''
+        }
+      })
+    });
+    const data = await res.json();
+    console.log(`[META ENVIO IMAGEN A +${to}]:`, JSON.stringify(data));
+    if (data.error) {
+      console.warn(`[META IMAGE WARN]:`, data.error.message);
+    }
+    return data;
+  } catch (error) {
+    console.warn('Error enviando imagen a', to, error.message);
+  }
+}
+
 // Admin Reset Endpoint: Deletes all conversation sessions and marks Mateo at zero
 app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
   try {
@@ -496,11 +558,16 @@ async function handleIncomingMessage(req, res) {
     // 4. Send bubbles with smooth natural interval (350ms)
     for (let i = 0; i < bubbles.length; i++) {
       const bubble = bubbles[i];
-      console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
-      await sendWhatsAppMessage(from, bubble);
+      if (bubble && typeof bubble === 'object' && bubble.type === 'image') {
+        console.log(`📤 [MATEO ENVIA IMAGEN QR a +${from}]: "${bubble.url}"`);
+        await sendWhatsAppImage(from, bubble.url, bubble.caption);
+      } else if (typeof bubble === 'string' && bubble.trim()) {
+        console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
+        await sendWhatsAppMessage(from, bubble);
+      }
 
       if (i < bubbles.length - 1) {
-        await sleep(350);
+        await sleep(400);
       }
     }
     console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);

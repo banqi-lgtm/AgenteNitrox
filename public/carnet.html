@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credencial Oficial RED NITROX • Taller Aliado</title>
+  <link rel="icon" type="image/png" href="/nitrox-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --nitrox-black: #08080A;
+      --nitrox-card-bg: #121318;
+      --nitrox-gold: #F5A623;
+      --nitrox-gold-light: #FFBA3B;
+      --nitrox-gold-glow: rgba(245, 166, 35, 0.35);
+      --nitrox-white: #FFFFFF;
+      --nitrox-gray-light: #C8CBD5;
+      --nitrox-gray-dark: #242732;
+      --nitrox-border: rgba(245, 166, 35, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 15%, #1d1b15 0%, var(--nitrox-black) 70%);
+      color: var(--nitrox-white);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient motorsport glow effects */
+    body::before {
+      content: '';
+      position: absolute;
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      height: 400px;
+      background: radial-gradient(circle, var(--nitrox-gold-glow) 0%, transparent 70%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Top Brand Bar */
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+    }
+
+    .nitrox-logo {
+      height: 65px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(245, 166, 35, 0.3));
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 166, 35, 0.12);
+      border: 1px solid rgba(245, 166, 35, 0.4);
+      color: var(--nitrox-gold);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .brand-badge i {
+      font-size: 0.65rem;
+      color: #10B981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Credential Card */
+    .credential-card {
+      width: 100%;
+      background: linear-gradient(165deg, #171821 0%, #0d0e13 100%);
+      border: 1.5px solid var(--nitrox-border);
+      border-radius: 24px;
+      padding: 30px 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7), 0 0 35px rgba(245, 166, 35, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Golden decorative top banner */
+    .card-top-stripe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #F5A623, #FFFFFF, #F5A623);
+    }
+
+    /* Workshop Title (Prominent) */
+    .workshop-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--nitrox-gray-light);
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    .workshop-name {
+      font-size: 1.85rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: var(--nitrox-white);
+      margin: 4px 0 10px 0;
+      line-height: 1.2;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #FFFFFF 60%, var(--nitrox-gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      word-break: break-word;
+    }
+
+    .mechanic-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--nitrox-gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .meta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 12px 0 22px 0;
+    }
+
+    .meta-tag {
+      background: var(--nitrox-gray-dark);
+      color: var(--nitrox-gray-light);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .meta-tag i {
+      color: var(--nitrox-gold);
+    }
+
+    /* QR Code Display (Buen Tamaño) */
+    .qr-container-wrapper {
+      position: relative;
+      margin: 6px 0 18px 0;
+      padding: 14px;
+      background: #FFFFFF;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 166, 35, 0.25);
+      border: 3px solid var(--nitrox-gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-code-img {
+      width: 250px;
+      height: 250px;
+      max-width: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: 8px;
+    }
+
+    .qr-badge-inner {
+      position: absolute;
+      bottom: -11px;
+      background: var(--nitrox-black);
+      border: 1px solid var(--nitrox-gold);
+      color: var(--nitrox-gold);
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 12px;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    }
+
+    /* Unique ID box */
+    .id-box {
+      font-family: 'Space Grotesk', monospace;
+      background: rgba(245, 166, 35, 0.08);
+      border: 1px dashed rgba(245, 166, 35, 0.4);
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--nitrox-gold);
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 10px;
+    }
+
+    .id-box:hover {
+      background: rgba(245, 166, 35, 0.15);
+      border-color: var(--nitrox-gold);
+      transform: translateY(-1px);
+    }
+
+    .copy-icon {
+      font-size: 0.85rem;
+      color: var(--nitrox-gray-light);
+    }
+
+    .qr-caption {
+      font-size: 0.78rem;
+      color: var(--nitrox-gray-light);
+      margin-top: 12px;
+      max-width: 320px;
+      line-height: 1.4;
+    }
+
+    /* Action Buttons */
+    .actions-grid {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px 20px;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #FFB800 0%, #E69D00 100%);
+      color: #000000;
+      box-shadow: 0 6px 18px rgba(245, 166, 35, 0.35);
+    }
+
+    .btn-gold:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(245, 166, 35, 0.5);
+    }
+
+    .btn-dark {
+      background: #1C1E26;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--nitrox-white);
+    }
+
+    .btn-dark:hover {
+      background: #252834;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(245, 166, 35, 0.4);
+      color: var(--nitrox-gold);
+    }
+
+    .btn-outline:hover {
+      background: rgba(245, 166, 35, 0.1);
+    }
+
+    /* Trust / Benefits Footer inside Card */
+    .benefits-bar {
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .benefit-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.74rem;
+      color: var(--nitrox-gray-light);
+    }
+
+    .benefit-item i {
+      color: var(--nitrox-gold);
+      font-size: 0.85rem;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10B981;
+      color: #FFFFFF;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 100;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    footer {
+      font-size: 0.75rem;
+      color: #6C7280;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    footer a {
+      color: var(--nitrox-gold);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Brand Header -->
+    <header class="brand-header">
+      <img src="/nitrox-logo.png" alt="NITROX Motorcycle Parts" class="nitrox-logo">
+      <div class="brand-badge">
+        <i class="fas fa-circle"></i> Taller Aliado • Piloto Medellín
+      </div>
+    </header>
+
+    <!-- Credential Card -->
+    <main class="credential-card" id="cardElement">
+      <div class="card-top-stripe"></div>
+
+      <div class="workshop-label">Ficha Maestra • Taller Vinculado</div>
+      <h1 class="workshop-name" id="workshopName">Cargando Taller...</h1>
+      
+      <div class="mechanic-name" id="mechanicContainer">
+        <i class="fas fa-user-circle"></i>
+        <span id="mechanicName">Cargando...</span>
+      </div>
+
+      <div class="meta-tags">
+        <span class="meta-tag">
+          <i class="fas fa-map-marker-alt"></i>
+          <span id="locationText">Medellín, Antioquia</span>
+        </span>
+        <span class="meta-tag">
+          <i class="fas fa-wrench"></i>
+          <span id="roleText">Mecánico</span>
+        </span>
+        <span class="meta-tag">
+          <i class="fas fa-motorcycle"></i>
+          <span id="volumeText">Alto Flujo</span>
+        </span>
+      </div>
+
+      <!-- QR Code (Buen Tamaño: 250x250) -->
+      <div class="qr-container-wrapper">
+        <img id="qrImage" class="qr-code-img" src="" alt="Código QR Único RED NITROX">
+        <div class="qr-badge-inner">QR OFICIAL</div>
+      </div>
+
+      <!-- Unique ID -->
+      <div class="id-box" id="idBox" title="Clic para copiar ID">
+        <span id="uniqueIdText">RN-MED-....</span>
+        <i class="fas fa-copy copy-icon"></i>
+      </div>
+
+      <p class="qr-caption">
+        Escanea este código o comparte el enlace para certificar la vinculación oficial del taller en la RED NITROX Medellín.
+      </p>
+
+      <!-- Benefits -->
+      <div class="benefits-bar">
+        <div class="benefit-item">
+          <i class="fas fa-award"></i>
+          <span>Muestras y Catálogo</span>
+        </div>
+        <div class="benefit-item">
+          <i class="fas fa-graduation-cap"></i>
+          <span>Capacitación Técnica</span>
+        </div>
+        <div class="benefit-item">
+          <i class="fas fa-tags"></i>
+          <span>Precios Especiales</span>
+        </div>
+        <div class="benefit-item">
+          <i class="fas fa-shield-alt"></i>
+          <span>Respaldo de Marca</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Actions -->
+    <div class="actions-grid">
+      <button class="btn btn-gold" id="btnDownloadQr">
+        <i class="fas fa-download"></i> Descargar Código QR (PNG)
+      </button>
+
+      <button class="btn btn-dark" id="btnShareWhatsApp">
+        <i class="fab fa-whatsapp"></i> Compartir en WhatsApp
+      </button>
+
+      <a href="#" class="btn btn-outline" id="btnEditForm">
+        <i class="fas fa-file-alt"></i> Ver o Completar Ficha Técnica
+      </a>
+    </div>
+
+    <footer>
+      RED NITROX Medellín &copy; 2026 • Impulsando los talleres de motos.<br>
+      <a href="/formulario">Formulario de Registro</a> | <a href="/crm">Acceso CRM</a>
+    </footer>
+  </div>
+
+  <div class="toast" id="toastMessage">
+    <i class="fas fa-check-circle"></i>
+    <span id="toastText">¡Copiado con éxito!</span>
+  </div>
+
+  <!-- QR generation helper (client-side fallback) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+  <script>
+    // Extract ID from pathname: /carnet/:id or query param ?id=
+    function getTargetId() {
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      if (pathParts.length >= 2 && ['carnet', 'ficha', 'taller'].includes(pathParts[0].toLowerCase())) {
+        return decodeURIComponent(pathParts[1]);
+      }
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id') || urlParams.get('q') || urlParams.get('tel') || 'RN-MED-PILOTO';
+    }
+
+    const targetId = getTargetId();
+    const currentOrigin = window.location.origin;
+    const uniqueUrl = `${currentOrigin}/carnet/${encodeURIComponent(targetId)}`;
+    const qrImageUrl = `${currentOrigin}/api/qr/${encodeURIComponent(targetId)}.png`;
+
+    // Elements
+    const workshopNameEl = document.getElementById('workshopName');
+    const mechanicNameEl = document.getElementById('mechanicName');
+    const locationTextEl = document.getElementById('locationText');
+    const roleTextEl = document.getElementById('roleText');
+    const volumeTextEl = document.getElementById('volumeText');
+    const uniqueIdTextEl = document.getElementById('uniqueIdText');
+    const qrImageEl = document.getElementById('qrImage');
+    const idBoxEl = document.getElementById('idBox');
+    const btnDownloadQr = document.getElementById('btnDownloadQr');
+    const btnShareWhatsApp = document.getElementById('btnShareWhatsApp');
+    const btnEditForm = document.getElementById('btnEditForm');
+    const toast = document.getElementById('toastMessage');
+
+    uniqueIdTextEl.textContent = targetId;
+    btnEditForm.href = `/formulario?id=${encodeURIComponent(targetId)}`;
+
+    // Set QR Code Image Source (Direct Server PNG + Client Fallback)
+    qrImageEl.src = qrImageUrl;
+    qrImageEl.onerror = function() {
+      if (window.QRCode) {
+        QRCode.toDataURL(uniqueUrl, { width: 300, margin: 2 }, function(err, url) {
+          if (!err) qrImageEl.src = url;
+        });
+      }
+    };
+
+    // Fetch Mechanic Data
+    async function loadMechanicData() {
+      try {
+        const res = await fetch(`/api/formulario/lookup?id=${encodeURIComponent(targetId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.mecanico) {
+            const m = data.mecanico;
+            workshopNameEl.textContent = m.nombre_taller || 'Taller Aliado';
+            mechanicNameEl.textContent = m.nombres_apellidos || 'Mecánico Vinculado';
+            
+            const city = m.ciudad_taller || m.ciudad_residencia || 'Medellín';
+            const barrio = m.barrio_taller || '';
+            locationTextEl.textContent = barrio ? `${barrio}, ${city}` : `${city}, Antioquia`;
+            
+            roleTextEl.textContent = m.relacion_taller || 'Mecánico Aliado';
+            if (m.motos_por_semana) {
+              volumeTextEl.textContent = m.motos_por_semana.includes('motos') ? m.motos_por_semana : `${m.motos_por_semana} motos/sem`;
+            }
+            if (m.id_unico) {
+              uniqueIdTextEl.textContent = m.id_unico;
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Lookup error:', err);
+      }
+
+      // Sensible defaults if not found
+      workshopNameEl.textContent = 'Taller Aliado NITROX';
+      mechanicNameEl.textContent = 'Mecánico Registrado';
+      locationTextEl.textContent = 'Medellín, Antioquia';
+    }
+
+    loadMechanicData();
+
+    // Copy ID Toast
+    function showToast(text) {
+      document.getElementById('toastText').textContent = text;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    idBoxEl.addEventListener('click', () => {
+      navigator.clipboard.writeText(uniqueIdTextEl.textContent).then(() => {
+        showToast('¡ID copiado al portapapeles!');
+      });
+    });
+
+    // Share in WhatsApp
+    btnShareWhatsApp.addEventListener('click', () => {
+      const wName = workshopNameEl.textContent;
+      const text = `🏁 *Credencial Oficial RED NITROX*\nHola! Te comparto la ficha y código QR oficial de *${wName}*:\n👉 ${uniqueUrl}`;
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    });
+
+    // Download QR Code PNG
+    btnDownloadQr.addEventListener('click', async () => {
+      try {
+        const response = await fetch(qrImageEl.src);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        const cleanName = (workshopNameEl.textContent || 'taller').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        a.download = `QR_RED_NITROX_${cleanName}.png`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast('¡Código QR descargado!');
+      } catch (e) {
+        // Fallback direct open
+        window.open(qrImageEl.src, '_blank');
+      }
+    });
+  </script>
+</body>
+</html>

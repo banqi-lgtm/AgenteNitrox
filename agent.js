@@ -478,12 +478,34 @@ async function generateMateoResponse(fromNumber, userText) {
       reply = `Claro, se busca buen margen. ¿Qué marca de repuestos compras más?`;
     }
   }
-  // Final closing / Natural human farewell (concise, warm, respectful)
+  // Final closing / Natural human farewell with unique link and QR code
   else if (!data._finished) {
     data._finished = true;
-    reply = `Listo ${firstName}, anotado todo. Muy bacano tu taller ${workshopName}. Quedo súper atento por acá para lo que necesites.`;
+    const mechanic = await saveMechanicToFirestore(fromNumber, data);
+    const uniqueId = mechanic.id_unico || data.id_unico || (`RN-MED-${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
+    const baseUrl = 'https://webhook-my2e3j2ecq-uc.a.run.app';
+    const cardUrl = `${baseUrl}/carnet/${encodeURIComponent(uniqueId)}`;
+    const qrImageUrl = `${baseUrl}/api/qr/${encodeURIComponent(uniqueId)}.png`;
+
+    const nameLabel = firstName || 'amigo';
+    const workshopLabel = workshopName || 'tu taller';
+
+    const bubble1 = `Listo ${nameLabel}, anotado todo. Muy bacano ${workshopLabel}. Quedo súper atento por acá para lo que necesites.`;
+    const bubble2 = `🏁 *¡Ya haces parte de la RED NITROX!*\n\nAquí tienes tu enlace único y código QR oficial de ${workshopLabel}:\n👉 ${cardUrl}`;
+    const qrBubble = {
+      type: 'image',
+      url: qrImageUrl,
+      caption: `Código QR Oficial RED NITROX • ${workshopLabel}`
+    };
+
+    session.history.push({ role: 'assistant', content: `${bubble1}\n${bubble2}`, timestamp: Date.now() });
+    await saveSession(fromNumber, session);
+
+    return [bubble1, bubble2, qrBubble];
   } else {
-    reply = `¡Con todo el gusto ${firstName}! Por acá a la orden siempre.`;
+    const uniqueId = data.id_unico || '';
+    const linkSuffix = uniqueId ? `\n👉 https://webhook-my2e3j2ecq-uc.a.run.app/carnet/${encodeURIComponent(uniqueId)}` : '';
+    reply = `¡Con todo el gusto ${firstName || ''}! Por acá a la orden siempre.${linkSuffix}`;
   }
 
   // Word count checklist enforcement
