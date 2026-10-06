@@ -136,40 +136,54 @@ function normalizeMechanicData(input, origin = 'Web') {
     barrio_taller: input.barrio_taller || '',
     direccion_taller: input.direccion_taller || input.direccion || '',
     relacion_taller: input.relacion_taller || 'Propietario',
-    antiguedad_taller: input.antiguedad_taller || '1–3 años',
-    personas_taller: input.personas_taller || input.personal || '1–2 personas',
+    antiguedad_taller: input.antiguedad_taller || 'No especificada',
+    personas_taller: input.personas_taller || input.personal || 'No especificado',
 
-    // C. PERFIL PROFESIONAL
-    experiencia_mecanico: input.experiencia_mecanico || '',
-    especialidad: Array.isArray(input.especialidad) ? input.especialidad : [input.especialidad || 'Mecánica general'],
-    tipo_motos: Array.isArray(input.tipo_motos) ? input.tipo_motos : [input.tipo_motos || 'Varias'],
-    marcas_motos: Array.isArray(input.marcas_motos) ? input.marcas_motos : [input.marcas_motos || 'Varias'],
+    // C. PERFIL PROFESIONAL (Datos reales, sin inventar)
+    experiencia_mecanico: input.experiencia_mecanico || 'No especificada',
+    especialidad: Array.isArray(input.especialidad) ? input.especialidad : (input.especialidad ? [input.especialidad] : []),
+    tipo_motos: Array.isArray(input.tipo_motos) ? input.tipo_motos : (input.tipo_motos ? [input.tipo_motos] : []),
+    marcas_motos: Array.isArray(input.marcas_motos) ? input.marcas_motos : (input.marcas_motos ? [input.marcas_motos] : []),
 
     // D. POTENCIAL E INFLUENCIA
-    motos_por_semana: input.motos_por_semana || '11–20',
-    quien_decide_repuesto: input.quien_decide_repuesto || 'Mecánico',
-    frecuencia_recomendacion: input.frecuencia_recomendacion || 'Frecuentemente',
+    motos_por_semana: input.motos_por_semana || 'No especificado',
+    quien_decide_repuesto: input.quien_decide_repuesto || 'No especificado',
+    frecuencia_recomendacion: input.frecuencia_recomendacion || (input.quien_decide_repuesto === 'Mecánico' ? 'Siempre' : 'No especificada'),
 
-    // E. COMPORTAMIENTO DE COMPRA Y MARCAS
-    donde_compra_repuestos: Array.isArray(input.donde_compra_repuestos) ? input.donde_compra_repuestos : [input.donde_compra_repuestos || 'Almacenes'],
-    marcas_repuestos_usadas: Array.isArray(input.marcas_repuestos_usadas) ? input.marcas_repuestos_usadas : [input.marcas_repuestos_usadas || 'NITROX'],
-    factores_eleccion_repuesto: Array.isArray(input.factores_eleccion_repuesto) ? input.factores_eleccion_repuesto : ['Calidad', 'Durabilidad', 'Garantía-respaldo'],
+    // E. COMPORTAMIENTO DE COMPRA Y MARCAS (Datos reales del usuario)
+    donde_compra_repuestos: Array.isArray(input.donde_compra_repuestos)
+      ? input.donde_compra_repuestos
+      : (input.canal_compra ? [input.canal_compra] : (input.donde_compra_repuestos ? [input.donde_compra_repuestos] : [])),
+    marcas_repuestos_usadas: Array.isArray(input.marcas_repuestos_usadas)
+      ? input.marcas_repuestos_usadas
+      : (input.marcas_repuestos_usadas ? [input.marcas_repuestos_usadas] : (input.marca_repuestos ? [input.marca_repuestos] : [])),
+    factores_eleccion_repuesto: Array.isArray(input.factores_eleccion_repuesto)
+      ? input.factores_eleccion_repuesto
+      : (input.criterio_compra ? [input.criterio_compra] : (input.factores_eleccion_repuesto ? [input.factores_eleccion_repuesto] : [])),
 
-    // F. RELACIÓN ACTUAL CON NITROX
-    conoce_nitrox: input.conoce_nitrox || 'Sí',
-    como_conocio_nitrox: input.como_conocio_nitrox || '',
-    ha_usado_nitrox: input.ha_usado_nitrox || 'Sí',
+    // F. RELACIÓN ACTUAL CON NITROX (100% Real, sin respuestas inventadas)
+    conoce_nitrox: input.conoce_nitrox || 'No',
+    como_conocio_nitrox: input.como_conocio_nitrox || (input.conoce_nitrox === 'No' ? 'No aplica' : ''),
+    ha_usado_nitrox: input.ha_usado_nitrox || 'No',
     categorias_nitrox_usadas: Array.isArray(input.categorias_nitrox_usadas) ? input.categorias_nitrox_usadas : [],
-    calificacion_experiencia_nitrox: input.calificacion_experiencia_nitrox || '',
-    recomendaria_nitrox: input.recomendaria_nitrox || 'Definitivamente sí',
+    calificacion_experiencia_nitrox: input.calificacion_experiencia_nitrox || ((input.conoce_nitrox === 'No' || input.ha_usado_nitrox === 'No') ? 'No aplica' : ''),
+    recomendaria_nitrox: input.recomendaria_nitrox || ((input.conoce_nitrox === 'No' || input.ha_usado_nitrox === 'No') ? 'No aplica' : ''),
 
     // G. INTERÉS EN RED NITROX
-    actividades_interes: Array.isArray(input.actividades_interes) ? input.actividades_interes : ['Capacitaciones técnicas', 'Probar productos NITROX', 'Beneficios y premios'],
-    temas_capacitacion: Array.isArray(input.temas_capacitacion) ? input.temas_capacitacion : ['Motor', 'Inyección', 'Diagnóstico'],
+    actividades_interes: Array.isArray(input.actividades_interes)
+      ? input.actividades_interes
+      : (input.actividades_interes ? [input.actividades_interes] : (input.quiere_muestras === 'Sí' ? ['Muestras de repuestos', 'Catálogo'] : [])),
+    temas_capacitacion: Array.isArray(input.temas_capacitacion)
+      ? input.temas_capacitacion
+      : (input.temas_capacitacion ? [input.temas_capacitacion] : []),
 
-    // H. AUTORIZACIONES
-    autorizacion_tratamiento_datos: input.autorizacion_tratamiento_datos !== undefined ? input.autorizacion_tratamiento_datos : true,
-    autorizacion_comunicaciones_comerciales: input.autorizacion_comunicaciones_comerciales !== undefined ? input.autorizacion_comunicaciones_comerciales : true,
+    // H. AUTORIZACIONES (Habeas Data)
+    autorizacion_tratamiento_datos: input.autorizacion_tratamiento_datos !== undefined
+      ? input.autorizacion_tratamiento_datos
+      : Boolean(input.cedula || input.correo || input.acepta_registro || input.autoriza_datos),
+    autorizacion_comunicaciones_comerciales: input.autorizacion_comunicaciones_comerciales !== undefined
+      ? input.autorizacion_comunicaciones_comerciales
+      : Boolean(input.cedula || input.correo || input.acepta_registro || input.autoriza_datos),
 
     notas_seguimiento: input.notas_seguimiento || []
   };

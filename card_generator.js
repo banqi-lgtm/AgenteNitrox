@@ -8,6 +8,8 @@ async function generateCardImage(data) {
   const workshopName = (data.nombre_taller || 'Taller Aliado').toUpperCase();
   const mechanicName = data.nombres_apellidos || 'Mecánico Vinculado';
   const city = data.ciudad_taller || data.ciudad_residencia || 'Medellín';
+  const barrio = data.barrio_taller ? `${data.barrio_taller}` : city;
+  const address = data.direccion_taller || '';
   const role = data.relacion_taller || 'Mecánico';
   const volume = data.motos_por_semana ? (data.motos_por_semana.includes('motos') ? data.motos_por_semana : `${data.motos_por_semana} motos/sem`) : 'Alto Flujo';
 
@@ -46,7 +48,8 @@ async function generateCardImage(data) {
 
   const safeWorkshop = escapeXml(workshopName);
   const safeMechanic = escapeXml(mechanicName);
-  const safeCity = escapeXml(city);
+  const safeLocation = escapeXml(barrio ? `${barrio}, ${city}` : `${city}, Antioquia`);
+  const safeAddress = escapeXml(address);
   const safeRole = escapeXml(role);
   const safeVolume = escapeXml(volume);
   const safeId = escapeXml(uniqueId);
@@ -82,26 +85,31 @@ async function generateCardImage(data) {
     <text x="300" y="192" text-anchor="middle" fill="#8E92A4" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold" letter-spacing="2">FICHA MAESTRA • TALLER VINCULADO</text>
 
     <!-- Workshop Name (Bold Prominent) -->
-    <text x="300" y="234" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900" letter-spacing="0.5">${safeWorkshop}</text>
+    <text x="300" y="232" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900" letter-spacing="0.5">${safeWorkshop}</text>
 
     <!-- Mechanic Name -->
-    <text x="300" y="268" text-anchor="middle" fill="#F5A623" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="bold">${safeMechanic}</text>
+    <text x="300" y="264" text-anchor="middle" fill="#F5A623" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="bold">${safeMechanic}</text>
 
     <!-- Meta Tags -->
-    <g transform="translate(300, 298)">
-      <rect x="-220" y="-12" width="135" height="25" rx="6" fill="#1f212c"/>
-      <text x="-152" y="5" text-anchor="middle" fill="#C8CBD5" font-family="Arial, Helvetica, sans-serif" font-size="11">${safeCity}, Antioquia</text>
+    <g transform="translate(300, 294)">
+      <rect x="-240" y="-12" width="150" height="25" rx="6" fill="#1f212c"/>
+      <text x="-165" y="5" text-anchor="middle" fill="#C8CBD5" font-family="Arial, Helvetica, sans-serif" font-size="10.5">${safeLocation}</text>
 
-      <rect x="-75" y="-12" width="110" height="25" rx="6" fill="#1f212c"/>
-      <text x="-20" y="5" text-anchor="middle" fill="#C8CBD5" font-family="Arial, Helvetica, sans-serif" font-size="11">${safeRole}</text>
+      <rect x="-80" y="-12" width="115" height="25" rx="6" fill="#1f212c"/>
+      <text x="-22" y="5" text-anchor="middle" fill="#C8CBD5" font-family="Arial, Helvetica, sans-serif" font-size="11">${safeRole}</text>
 
-      <rect x="45" y="-12" width="125" height="25" rx="6" fill="#1f212c"/>
-      <text x="107" y="5" text-anchor="middle" fill="#C8CBD5" font-family="Arial, Helvetica, sans-serif" font-size="11">${safeVolume}</text>
+      <rect x="45" y="-12" width="130" height="25" rx="6" fill="#1f212c"/>
+      <text x="110" y="5" text-anchor="middle" fill="#C8CBD5" font-family="Arial, Helvetica, sans-serif" font-size="11">${safeVolume}</text>
     </g>
 
+    ${safeAddress ? `
+    <!-- Address line -->
+    <text x="300" y="332" text-anchor="middle" fill="#A0A5B5" font-family="Arial, Helvetica, sans-serif" font-size="11.5">📍 ${safeAddress}</text>
+    ` : ''}
+
     <!-- QR Box Container -->
-    <rect x="135" y="340" width="330" height="330" rx="22" fill="#FFFFFF" stroke="#F5A623" stroke-width="4"/>
-    <image href="${qrDataUrl}" x="150" y="355" width="300" height="300" preserveAspectRatio="xMidYMid meet"/>
+    <rect x="135" y="348" width="330" height="330" rx="22" fill="#FFFFFF" stroke="#F5A623" stroke-width="4"/>
+    <image href="${qrDataUrl}" x="150" y="363" width="300" height="300" preserveAspectRatio="xMidYMid meet"/>
 
     <!-- QR Badge -->
     <rect x="230" y="656" width="140" height="24" rx="12" fill="#08080A" stroke="#F5A623" stroke-width="1.5"/>

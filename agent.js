@@ -152,7 +152,7 @@ function extractEntities(text, sessionData) {
     }
   }
 
-  // 2. Municipality & Barrio
+  // 2. City / Municipality
   if (/bello/i.test(lower)) updates.ciudad_taller = 'Bello';
   else if (/itagui|itaguí/i.test(lower)) updates.ciudad_taller = 'Itagüí';
   else if (/envigado/i.test(lower)) updates.ciudad_taller = 'Envigado';
@@ -161,130 +161,222 @@ function extractEntities(text, sessionData) {
   else if (/caldas/i.test(lower)) updates.ciudad_taller = 'Caldas';
   else if (/copacabana/i.test(lower)) updates.ciudad_taller = 'Copacabana';
   else if (/girardota/i.test(lower)) updates.ciudad_taller = 'Girardota';
-  else if (/medellin|medellín|guayabal|belen|laureles|castilla|robledo|poblado|manrique|aranjuez|prado|san javier|buenos aires|centro|la 70|la 80|la 33/i.test(lower)) {
-    updates.ciudad_taller = 'Medellín';
-  } else if (sessionData._lastQuestion === 'UBICACION') {
-    updates.ciudad_taller = 'Medellín';
-    updates.barrio_taller = raw;
+  else if (/medellin|medellín/i.test(lower)) updates.ciudad_taller = 'Medellín';
+  else if (sessionData._lastQuestion === 'UBICACION' || sessionData._lastQuestion === 'BARRIO') {
+    if (!sessionData.ciudad_taller && !updates.ciudad_taller) {
+      updates.ciudad_taller = 'Medellín';
+    }
   }
-
   if (updates.ciudad_taller) updates.ciudad_residencia = updates.ciudad_taller;
 
-  // 3. Role
-  if (/mecanico|mecánico|empleado|las arreglo yo|yo arreglo/i.test(lower)) updates.relacion_taller = 'Mecánico';
-  else if (/dueño|dueno|propietario|el taller es mio|es mio|yo lo manejo/i.test(lower)) updates.relacion_taller = 'Propietario';
-  else if (/socio|copropietario/i.test(lower)) updates.relacion_taller = 'Socio';
-  else if (/ambas|las dos|ambos|jefe|admin|encargado/i.test(lower)) updates.relacion_taller = 'Propietario y Mecánico';
-  else if (sessionData._lastQuestion === 'ROL') updates.relacion_taller = raw;
-
-  // 4. Volume (only if asked or explicit volume keywords, never from workshop name)
-  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN';
-  if ((isVolumeQuestion || /muchas|bastantes|un monton|monton|harto|full|motos por semana|por semana/i.test(lower)) && !sessionData.motos_por_semana) {
-    if (/mucha|bastante|harto|montón|monton|full|de todo/i.test(lower)) {
-      updates.motos_por_semana = 'Muchas / Alto flujo';
-    } else {
-      const numMatch = lower.match(/\b\d+\b/);
-      if (numMatch) updates.motos_por_semana = `${numMatch[0]} motos/semana`;
-      else updates.motos_por_semana = raw;
+  // 3. Dirección (Address)
+  const addrMatch = raw.match(/\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|cra\.|cll\.)\b\s+[0-9a-zA-Z#\s\-\.\°]+/i)
+    || raw.match(/\b\d+\s*#\s*\d+[\s\-0-9a-zA-Z]*/i);
+  if (addrMatch) {
+    updates.direccion_taller = addrMatch[0].trim();
+  } else if (sessionData._lastQuestion === 'DIRECCION' && !sessionData.direccion_taller) {
+    if (/\d/.test(raw) || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|esquina|con|frente|cerca)\b/i.test(lower)) {
+      updates.direccion_taller = raw;
     }
   }
 
-  // 5. Brands
-  const brands = [];
-  if (/yamaha/i.test(lower)) brands.push('Yamaha');
-  if (/bajaj|pulsar|boxer|bjaja/i.test(lower)) brands.push('Bajaj');
-  if (/akt|nkd/i.test(lower)) brands.push('AKT');
-  if (/honda/i.test(lower)) brands.push('Honda');
-  if (/suzuki/i.test(lower)) brands.push('Suzuki');
-  if (/tvs/i.test(lower)) brands.push('TVS');
-  if (/hero/i.test(lower)) brands.push('Hero');
-  if (/ktm/i.test(lower)) brands.push('KTM');
-  if (/todas|de todas|variadas|de todo/i.test(lower)) brands.push('Variadas / Todas');
-  if (brands.length > 0) {
-    updates.marcas_motos = brands;
-  } else if (sessionData._lastQuestion === 'MARCAS') {
-    updates.marcas_motos = [raw];
+  // 4. Barrio
+  const barrioMatch = raw.match(/(?:en\s+|barrio\s+)?\b(bel[eé]n|laureles|guayabal|robledo|castilla|aranjuez|manrique|prado|san javier|buenos aires|centro|la am[eé]rica|poblado|floresta|estadio|calasanz|santa cruz|popular|villa hermosa|san crist[oó]bal|san antonio de prado|niqu[ií]a|caba[ñn]as|boston|ditaires|santa mar[ií]a|sim[oó]n bol[ií]var|la castellana)\b/i);
+  if (barrioMatch) {
+    const b = barrioMatch[1];
+    updates.barrio_taller = b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
+  } else if (sessionData._lastQuestion === 'BARRIO' && !sessionData.barrio_taller) {
+    updates.barrio_taller = raw;
+  } else if (sessionData._lastQuestion === 'UBICACION' && !sessionData.barrio_taller && !updates.barrio_taller) {
+    if (!updates.direccion_taller) {
+      updates.barrio_taller = raw.replace(/^(?:en|el|barrio)\s+/i, '').trim();
+    } else if (addrMatch) {
+      const rem = raw.replace(addrMatch[0], '').replace(/^(?:en|el|barrio|,|\s)+/i, '').replace(/[,.\s]+$/, '').trim();
+      if (rem && rem.length > 2) {
+        updates.barrio_taller = rem;
+      }
+    }
   }
 
-  // 6. Frequent parts
-  const parts = [];
-  if (/freno|pastilla|banda|disco/i.test(lower)) parts.push('Frenos');
-  if (/arrastre|kit|cadena|pinon|corona/i.test(lower)) parts.push('Kit de arrastre');
-  if (/motor|valvula|cilindro|piston|ajuste/i.test(lower)) parts.push('Partes de motor');
-  if (/aceite|filtro|lubricante/i.test(lower)) parts.push('Lubricación / Filtros');
-  if (/suspension|amortiguador/i.test(lower)) parts.push('Suspensión');
-  if (/electr|bateria|inyeccion/i.test(lower)) parts.push('Electricidad');
-  if (parts.length > 0) {
-    updates.repuestos_frecuentes = parts;
-  } else if (sessionData._lastQuestion === 'REPUESTOS') {
-    updates.repuestos_frecuentes = [raw];
+  // 5. Role (Relación con el taller)
+  if (/ambas|las dos|ambos|dueño y mecanico|propietario y mecanico|propietario y mecánico/i.test(lower)) {
+    updates.relacion_taller = 'Propietario y Mecánico';
+  } else if (/mecanico|mecánico|empleado|las arreglo yo|yo arreglo|trabajador/i.test(lower)) {
+    updates.relacion_taller = 'Mecánico';
+  } else if (/dueño|dueno|propietario|el taller es mio|es mio|yo lo manejo|patron|patrón/i.test(lower)) {
+    updates.relacion_taller = 'Propietario';
+  } else if (/socio|copropietario/i.test(lower)) {
+    updates.relacion_taller = 'Socio';
   }
 
-  // 7. Decision maker
-  if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|mecanico|mecánico/i.test(lower) && !sessionData.quien_decide_repuesto) {
+  // 6. Professional Specialty (Perfil Profesional y Especialidad)
+  const isSpecQuestion = sessionData._lastQuestion === 'ROL_ESPECIALIDAD';
+  const specs = Array.isArray(sessionData.especialidad) ? [...sessionData.especialidad] : [];
+  if (/motor|motores|ajuste|anillado|culata/i.test(lower) && !specs.includes('Motor / 4T')) specs.push('Motor / 4T');
+  if (/2\s*t|2\s*tiempos/i.test(lower) && !specs.includes('2T')) specs.push('2T');
+  if (/4\s*t|4\s*tiempos/i.test(lower) && !specs.includes('4T') && !specs.includes('Motor / 4T')) specs.push('4T');
+  if (/freno|frenos|pastilla|banda|disco|suspensi[oó]n|amortiguador/i.test(lower) && !specs.includes('Frenos / Suspensión')) specs.push('Frenos / Suspensión');
+  if (/electricidad|el[eé]ctrico|electrico|inyecci[oó]n|inyeccion|electr[oó]nica|bobina|bater[ií]a/i.test(lower) && !specs.includes('Electricidad / Inyección electrónica')) specs.push('Electricidad / Inyección electrónica');
+  if (/general|de todo|todas|mec[aá]nica general|reparaci[oó]n general/i.test(lower) && !specs.includes('Mecánica general')) specs.push('Mecánica general');
+
+  const isAddressString = addrMatch || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida)\b/i.test(raw);
+
+  if (specs.length > 0) {
+    updates.especialidad = specs;
+  } else if (isSpecQuestion && !isAddressString && (!sessionData.especialidad || sessionData.especialidad.length === 0)) {
+    const cleanSpec = raw.replace(/(?:soy|propietario|mecanico|mecánico|dueño|y|,)+/gi, '').trim();
+    if (cleanSpec.length > 3 && !/\d/.test(cleanSpec)) updates.especialidad = [cleanSpec];
+  }
+
+  // Motorcycle types (tipo_motos)
+  const types = Array.isArray(sessionData.tipo_motos) ? [...sessionData.tipo_motos] : [];
+  if (/scooter|automatica|automática/i.test(lower) && !types.includes('Scooter')) types.push('Scooter');
+  if (/alto cilindraje|grande/i.test(lower) && !types.includes('Alto cilindraje')) types.push('Alto cilindraje');
+  if (/bajo cilindraje/i.test(lower) && !types.includes('Bajo cilindraje')) types.push('Bajo cilindraje');
+  if (/4\s*t/i.test(lower) && !types.includes('4T')) types.push('4T');
+  if (/2\s*t/i.test(lower) && !types.includes('2T')) types.push('2T');
+  if (types.length > 0) updates.tipo_motos = types;
+
+  // Years of experience (experiencia_mecanico)
+  const expMatch = raw.match(/\b(\d+)\s*(?:a[ñn]os?|meses)\b/i);
+  if (expMatch && !sessionData.experiencia_mecanico) {
+    updates.experiencia_mecanico = `${expMatch[1]} años`;
+  }
+
+  // 7. Volume (motos_por_semana)
+  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN_MARCAS';
+  if ((isVolumeQuestion || /muchas|bastantes|un monton|monton|harto|full|motos por semana|por semana/i.test(lower)) && !sessionData.motos_por_semana) {
+    if (/mucha|bastante|harto|montón|monton|full/i.test(lower)) {
+      updates.motos_por_semana = 'Alta afluencia (+30 motos/semana)';
+    } else {
+      const numMatch = lower.match(/\b\d+\b/);
+      if (numMatch) updates.motos_por_semana = `${numMatch[0]} motos/semana`;
+      else if (isVolumeQuestion) updates.motos_por_semana = raw;
+    }
+  }
+
+  // 8. Motorcycle Brands (marcas_motos)
+  const brands = Array.isArray(sessionData.marcas_motos) ? [...sessionData.marcas_motos] : [];
+  if (/yamaha/i.test(lower) && !brands.includes('Yamaha')) brands.push('Yamaha');
+  if (/bajaj|pulsar|boxer|bjaja/i.test(lower) && !brands.includes('Bajaj')) brands.push('Bajaj');
+  if (/akt|nkd/i.test(lower) && !brands.includes('AKT')) brands.push('AKT');
+  if (/honda/i.test(lower) && !brands.includes('Honda')) brands.push('Honda');
+  if (/suzuki/i.test(lower) && !brands.includes('Suzuki')) brands.push('Suzuki');
+  if (/tvs/i.test(lower) && !brands.includes('TVS')) brands.push('TVS');
+  if (/hero/i.test(lower) && !brands.includes('Hero')) brands.push('Hero');
+  if (/ktm/i.test(lower) && !brands.includes('KTM')) brands.push('KTM');
+  if (/todas|de todas|variadas|de todo/i.test(lower) && !brands.includes('Variadas / Todas')) brands.push('Variadas / Todas');
+  if (brands.length > 0) updates.marcas_motos = brands;
+
+  // 9. Frequent Parts & Parts Brands & Decision Maker
+  const isPartsQuestion = sessionData._lastQuestion === 'REPUESTOS_Y_MARCA';
+  const hasPartsContext = isPartsQuestion || /(?:cambiamos|cambio|se cambia|repuesto|repuestos|instalamos|instalo|kit|pastilla)/i.test(lower);
+  if (hasPartsContext) {
+    const parts = Array.isArray(sessionData.repuestos_frecuentes) ? [...sessionData.repuestos_frecuentes] : [];
+    if (/freno|pastilla|banda|disco/i.test(lower) && !parts.includes('Frenos')) parts.push('Frenos');
+    if (/arrastre|kit|cadena|piñon|pinon|corona/i.test(lower) && !parts.includes('Kit de arrastre')) parts.push('Kit de arrastre');
+    if (/motor|valvula|válvula|cilindro|piston|pistón|anillos/i.test(lower) && !parts.includes('Partes de motor')) parts.push('Partes de motor');
+    if (/aceite|filtro|lubricante/i.test(lower) && !parts.includes('Lubricación / Filtros')) parts.push('Lubricación / Filtros');
+    if (/suspension|suspensión|amortiguador|retenedor/i.test(lower) && !parts.includes('Suspensión')) parts.push('Suspensión');
+    if (/electr|bateria|batería|inyeccion|inyección/i.test(lower) && !parts.includes('Electricidad')) parts.push('Electricidad');
+    if (parts.length > 0) updates.repuestos_frecuentes = parts;
+  }
+
+  // Parts brands used/recommended
+  const partBrands = Array.isArray(sessionData.marcas_repuestos_usadas) ? [...sessionData.marcas_repuestos_usadas] : [];
+  if (/nitrox/i.test(lower) && !partBrands.includes('NITROX')) partBrands.push('NITROX');
+  if (/ichiban/i.test(lower) && !partBrands.includes('Ichiban')) partBrands.push('Ichiban');
+  if (/revo/i.test(lower) && !partBrands.includes('Revo')) partBrands.push('Revo');
+  if (/original|genuino/i.test(lower) && !partBrands.includes('Originales')) partBrands.push('Originales');
+  if (/yamaha/i.test(lower) && isPartsQuestion && !partBrands.includes('Yamaha')) partBrands.push('Yamaha');
+  if (/bajaj/i.test(lower) && isPartsQuestion && !partBrands.includes('Bajaj')) partBrands.push('Bajaj');
+  if (/akt/i.test(lower) && isPartsQuestion && !partBrands.includes('AKT')) partBrands.push('AKT');
+  if (/brembo/i.test(lower) && !partBrands.includes('Brembo')) partBrands.push('Brembo');
+  if (partBrands.length > 0) updates.marcas_repuestos_usadas = partBrands;
+
+  // Decision maker & Channel from recommendation context
+  if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|el mecanico|el mecánico/i.test(lower) && !sessionData.quien_decide_repuesto) {
     updates.quien_decide_repuesto = 'Mecánico';
     updates.frecuencia_recomendacion = 'Siempre';
-  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen|propietarios/i.test(lower)) {
+  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen|propietarios de los veh[ií]culos|los clientes los traen|traen los repuestos/i.test(lower)) {
     updates.quien_decide_repuesto = 'Cliente';
     updates.frecuencia_recomendacion = 'Algunas veces';
+    updates.canal_compra = 'Los clientes / propietarios los compran';
   }
 
-  // 8. NITROX experience
-  if (sessionData._lastQuestion === 'NITROX_EXP' || /repuestos nitrox|marca nitrox/i.test(lower)) {
-    if (/si|sí|claro|bueno|buenos|excelente|bien|salido buenos/i.test(lower)) {
+  // Why they recommend / Choice factors (factores_eleccion_repuesto)
+  const factors = Array.isArray(sessionData.factores_eleccion_repuesto) ? [...sessionData.factores_eleccion_repuesto] : [];
+  if (/calidad|buena calidad/i.test(lower) && !factors.includes('Calidad')) factors.push('Calidad');
+  if (/duraci[oó]n|durabilidad|duran/i.test(lower) && !factors.includes('Durabilidad')) factors.push('Durabilidad');
+  if (/garant[ií]a|respaldo/i.test(lower) && !factors.includes('Garantía-respaldo')) factors.push('Garantía-respaldo');
+  if (/precio|econ[oó]mico|barato|margen/i.test(lower) && !factors.includes('Precio')) factors.push('Precio');
+  if (/confianza|seguridad/i.test(lower) && !factors.includes('Confianza')) factors.push('Confianza');
+  if (factors.length > 0) {
+    updates.factores_eleccion_repuesto = factors;
+    updates.criterio_compra = factors.join(', ');
+  }
+
+  // 10. Purchase Channel (where mechanic buys)
+  const isChannelQuestion = sessionData._lastQuestion === 'CANAL_COMPRA';
+  if (isChannelQuestion || /(?:distribuidor|directo de fabrica|almacen de repuestos|donde salga mas barato)/i.test(lower)) {
+    if (/distrib/i.test(lower)) updates.canal_compra = 'Distribuidor';
+    else if (/direct/i.test(lower)) updates.canal_compra = 'Directo';
+    else if (/almacen|almacenes|repuestera/i.test(lower)) updates.canal_compra = 'Almacén de repuestos';
+    else if (/barato|economico|económico|precio/i.test(lower)) updates.canal_compra = 'Donde salga más barato';
+    else if (isChannelQuestion) updates.canal_compra = raw;
+  }
+
+  // 11. NITROX Experience & Interest (Strictly real data!)
+  if (sessionData._lastQuestion === 'NITROX_EXP_INTERES' || /repuestos nitrox|marca nitrox/i.test(lower)) {
+    if (/no\b|nunca|todavia no|todavía no|no los conozco|no he trabajado/i.test(lower)) {
+      updates.conoce_nitrox = 'No';
+      updates.ha_usado_nitrox = 'No';
+      updates.calificacion_experiencia_nitrox = 'No aplica';
+      updates.recomendaria_nitrox = 'No aplica';
+    } else if (/si\b|sí\b|claro|bueno|buenos|excelente|salido buenos|los he usado/i.test(lower)) {
       updates.conoce_nitrox = 'Sí';
       updates.ha_usado_nitrox = 'Sí';
       updates.calificacion_experiencia_nitrox = /excelente/i.test(lower) ? 'Excelente' : 'Buena';
       updates.recomendaria_nitrox = 'Definitivamente sí';
-    } else if (/no|nunca|todavia no|todavía no/i.test(lower)) {
-      updates.conoce_nitrox = 'No';
-      updates.ha_usado_nitrox = 'No';
-      updates.calificacion_experiencia_nitrox = 'No aplica';
-      updates.recomendaria_nitrox = 'Probablemente sí';
-    } else if (/poco|apenas|mas o menos|más o menos|regular|algo/i.test(lower)) {
-      updates.conoce_nitrox = 'Sí';
-      updates.ha_usado_nitrox = 'Sí';
-      updates.calificacion_experiencia_nitrox = 'Regular';
-      updates.recomendaria_nitrox = 'Probablemente sí';
-    } else {
-      updates.conoce_nitrox = 'Sí';
-      updates.ha_usado_nitrox = 'Sí';
-      updates.calificacion_experiencia_nitrox = 'Buena';
+    }
+
+    // Samples / Capacitaciones interest
+    if (/muestras|capacitaci[oó]n|capacitaciones|cat[aá]logo|interes|interesa|me gustar[ií]a|de una/i.test(lower)) {
+      updates.quiere_muestras = 'Sí';
+      const acts = [];
+      if (/muestra/i.test(lower) || !sessionData.actividades_interes) acts.push('Muestras de repuestos');
+      if (/capacita/i.test(lower)) acts.push('Capacitaciones técnicas');
+      if (/cat[aá]logo/i.test(lower)) acts.push('Catálogo físico/digital');
+      updates.actividades_interes = acts.length > 0 ? acts : ['Muestras de repuestos', 'Capacitaciones técnicas'];
     }
   }
 
-  // 8B. Samples & Catalog offer response
-  if (sessionData._lastQuestion === 'OFERTA_MUESTRAS') {
-    if (/si|sí|claro|bueno|de una|por favor|me gustaria|me gustaría|bien/i.test(lower)) {
-      updates.quiere_muestras = 'Sí';
-      updates.interes_catalogo = 'Sí';
-    } else if (/no|gracias|luego|despues|después/i.test(lower)) {
-      updates.quiere_muestras = 'No';
-      updates.interes_catalogo = 'No';
-    } else {
-      updates.quiere_muestras = 'Sí';
-    }
+  // 12. Benefits Contact Info (Email, Cedula, NIT)
+  const isBenefitsQuestion = sessionData._lastQuestion === 'BENEFICIOS_DATOS';
+  const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) {
+    updates.correo = emailMatch[0].toLowerCase();
+    updates.autorizacion_tratamiento_datos = true;
+    updates.autorizacion_comunicaciones_comerciales = true;
+    updates.acepta_registro = true;
   }
 
-  // 9. Purchase channel / criteria
-  const isChannelQuestion = sessionData._lastQuestion === 'CANAL_COMPRA';
-  const hasExplicitChannelPhrase = /(?:distribuidor|directo de fabrica|almacen de repuestos|donde salga mas barato|donde salga más barato|(?:cliente|propietario|dueño)\s+(?:lo|los|las)\s+(?:compra|trae|lleva)|propietarios de los veh[ií]culos|los clientes los traen)/i.test(lower);
+  const idMatch = raw.match(/(?:nit|cedula|c\.c\.|cc)?\s*(\b\d{7,10}(?:-\d)?\b)/i);
+  if (idMatch && (!updates.correo || !idMatch[1].includes('@'))) {
+    updates.cedula = idMatch[1];
+    updates.autorizacion_tratamiento_datos = true;
+    updates.autorizacion_comunicaciones_comerciales = true;
+    updates.acepta_registro = true;
+  }
 
-  if (isChannelQuestion || hasExplicitChannelPhrase) {
-    if (/(?:propietario|cliente|dueño|ellos)\s+(?:lo|los|las)\s+(?:compran?|traen?|llevan?)|traen los repuestos|propietarios de los veh[ií]culos|los clientes los traen/i.test(lower)) {
-      updates.canal_compra = 'Los clientes / propietarios los compran';
-      updates.quien_decide_repuesto = 'Cliente';
-    } else if (/distrib/i.test(lower)) {
-      updates.canal_compra = 'Distribuidor';
-    } else if (/direct/i.test(lower)) {
-      updates.canal_compra = 'Directo';
-    } else if (/barato|economico|económico|precio|donde salga/i.test(lower)) {
-      updates.canal_compra = 'Donde salga más barato';
-      updates.criterio_compra = 'Precio';
-    } else if (/almacen|almacenes|repuestera/i.test(lower)) {
-      updates.canal_compra = 'Almacén de repuestos';
-    } else if (isChannelQuestion) {
-      updates.canal_compra = raw; // Always consume whatever the user answered to prevent looping!
+  if (isBenefitsQuestion) {
+    sessionData._datosBeneficiosSolicitados = true;
+    if (/no tengo|no gracias|despu[eé]s|solo whatsapp|ninguno|no me gustar[ií]a/i.test(lower)) {
+      if (!updates.correo && !sessionData.correo) updates.correo = 'No especificado';
+      if (!updates.cedula && !sessionData.cedula) updates.cedula = 'No especificada';
+      updates.autorizacion_tratamiento_datos = true;
+      updates.autorizacion_comunicaciones_comerciales = true;
+      updates.acepta_registro = true;
     }
   }
 
@@ -424,78 +516,70 @@ async function generateMateoResponse(fromNumber, userText) {
     return [reply];
   }
 
-  // 5. Decide the SINGLE logical next response based on memory and context (Prompt Maestro)
+  // 5. Decide the SINGLE logical next response based on memory and context
   let reply = '';
 
-  // Initial prompt if user didn't start with pure greeting
+  // Turn: Name & Workshop
   if (!data.nombres_apellidos && !data.nombre_taller) {
     data._lastQuestion = 'NOMBRE_Y_TALLER';
     reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cómo te llamas y cómo se llama tu taller?";
-  }
-  // Missing workshop
-  else if (data.nombres_apellidos && !data.nombre_taller) {
+  } else if (data.nombres_apellidos && !data.nombre_taller) {
     data._lastQuestion = 'TALLER';
     reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller?`;
-  }
-  // Missing name
-  else if (!data.nombres_apellidos && data.nombre_taller) {
+  } else if (!data.nombres_apellidos && data.nombre_taller) {
     data._lastQuestion = 'NOMBRE';
     reply = `Excelente taller ${workshopName}. ¿Y cuál es tu nombre?`;
   }
-  // Missing location (municipio)
-  else if (!data.ciudad_taller) {
-    data._lastQuestion = 'UBICACION';
-    reply = `Mucho gusto, ${firstName}. ¿En qué zona está el taller?`;
-  }
-  // Missing role
-  else if (!data.relacion_taller) {
-    data._lastQuestion = 'ROL';
-    reply = `Anotado. ¿Cuál es tu rol en el taller: eres propietario o mecánico?`;
-  }
-  // Missing volume
-  else if (!data.motos_por_semana) {
-    data._lastQuestion = 'VOLUMEN';
-    reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana?`;
-  }
-  // Missing brands
-  else if (!data.marcas_motos || data.marcas_motos.length === 0) {
-    data._lastQuestion = 'MARCAS';
-    reply = `Buen volumen. ¿Qué marcas son las que más te llegan?`;
-  }
-  // Missing frequent parts
-  else if (!data.repuestos_frecuentes || data.repuestos_frecuentes.length === 0) {
-    data._lastQuestion = 'REPUESTOS';
-    reply = `Sí, se mueve de todo entonces. ¿Qué repuestos cambias más seguido?`;
-  }
-  // Missing NITROX experience
-  else if (!data.conoce_nitrox) {
-    data._lastQuestion = 'NITROX_EXP';
-    reply = `Buen dato. ¿Y ya has trabajado con repuestos NITROX?`;
-  }
-  // NITROX answered "Sí" / "Bueno", missing purchase channel
-  else if (data.conoce_nitrox === 'Sí' && !data.canal_compra) {
-    data._lastQuestion = 'CANAL_COMPRA';
-    reply = `Excelente. ¿Los compras directamente o con algún distribuidor?`;
-  }
-  // NITROX answered "No"
-  else if (data.conoce_nitrox === 'No' && !data._ofertaVisita) {
-    data._ofertaVisita = true;
-    data._lastQuestion = 'OFERTA_MUESTRAS';
-    reply = `Entendido. En NITROX manejamos muy buena calidad y precios para talleres. ¿Te gustaría recibir muestras y catálogo?`;
-  }
-  // If purchase channel was answered
-  else if (data.canal_compra && !data._repuestosComprados) {
-    data._repuestosComprados = true;
-    data._lastQuestion = 'MARCA_REPUESTOS';
-    if (/cliente|propietario|ellos/i.test(data.canal_compra)) {
-      reply = `Entiendo, el cliente los lleva. ¿Y qué marcas de repuestos te llevan más a instalar?`;
-    } else if (/direct/i.test(data.canal_compra)) {
-      reply = `Buenísimo directo. ¿Y qué marcas o repuestos compras con más frecuencia?`;
-    } else {
-      reply = `Claro, se busca buen margen. ¿Qué marca de repuestos compras más?`;
+  // Turn: Location (Barrio & Address obligatory!)
+  else if (!data._askedUbicacion && (!data.barrio_taller || !data.direccion_taller)) {
+    if (!data.barrio_taller && !data.direccion_taller) {
+      data._lastQuestion = 'UBICACION';
+      reply = `Mucho gusto, ${firstName}. ¿En qué barrio y en qué dirección queda tu taller?`;
+    } else if (data.barrio_taller && !data.direccion_taller) {
+      data._lastQuestion = 'DIRECCION';
+      reply = `Listo en ${data.barrio_taller}. ¿Y cuál es la dirección exacta del taller?`;
+    } else if (!data.barrio_taller && data.direccion_taller) {
+      data._lastQuestion = 'BARRIO';
+      reply = `Anotada la dirección. ¿Y en qué barrio o municipio queda?`;
     }
   }
-  // Final closing / Natural human farewell with unique link and QR code
+  // Turn: Role & Specialty (Perfil Profesional)
+  else if (!data._askedRolEspecialidad && (!data.relacion_taller || !data.especialidad || data.especialidad.length === 0)) {
+    data._askedRolEspecialidad = true;
+    data._lastQuestion = 'ROL_ESPECIALIDAD';
+    reply = `Anotado. ¿Eres propietario o mecánico, y cuál es tu especialidad en el taller?`;
+  }
+  // Turn: Volume & Moto Brands
+  else if (!data._askedVolumenMarcas && (!data.motos_por_semana || !data.marcas_motos || data.marcas_motos.length === 0)) {
+    data._askedVolumenMarcas = true;
+    data._lastQuestion = 'VOLUMEN_MARCAS';
+    reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana y qué marcas te llegan más?`;
+  }
+  // Turn: Frequent Parts & Recommendation / Brands
+  else if (!data._askedRepuestos) {
+    data._askedRepuestos = true;
+    data._lastQuestion = 'REPUESTOS_Y_MARCA';
+    reply = `Buen flujo. ¿Qué repuestos cambias más seguido y qué marca sueles recomendar y por qué?`;
+  }
+  // Turn: NITROX Experience & Interest
+  else if (!data._askedNitrox && !data.conoce_nitrox) {
+    data._askedNitrox = true;
+    data._lastQuestion = 'NITROX_EXP_INTERES';
+    reply = `Buen dato. ¿Has trabajado antes con repuestos NITROX, o te interesaría recibir muestras y capacitaciones para el taller?`;
+  }
+  // Turn: Purchase Channel (if knows Nitrox and channel missing)
+  else if (data.conoce_nitrox === 'Sí' && !data._askedCanal && !data.canal_compra) {
+    data._askedCanal = true;
+    data._lastQuestion = 'CANAL_COMPRA';
+    reply = `Excelente. ¿Y dónde compras los repuestos normalmente?`;
+  }
+  // Turn: Pre-QR Benefits Contact Info (Correo, Cédula o NIT)
+  else if (!data._datosBeneficiosSolicitados && !data.correo && !data.cedula) {
+    data._datosBeneficiosSolicitados = true;
+    data._lastQuestion = 'BENEFICIOS_DATOS';
+    reply = `¡De una! Para enviarte los beneficios oficiales y activar tu vinculación, ¿me regalas tu Correo y tu Cédula o NIT?`;
+  }
+  // Turn: Final QR Delivery
   else if (!data._finished) {
     data._finished = true;
     const mechanic = await saveMechanicToFirestore(fromNumber, data);
@@ -512,17 +596,17 @@ async function generateMateoResponse(fromNumber, userText) {
       : 'Quedo súper atento por acá para lo que necesites.';
 
     const bubble1 = `Listo ${nameLabel}, anotado todo. ${sampleNote} Muy bacano ${workshopLabel}.`;
-    const bubble2 = `🏁 *¡Ya haces parte de la RED NITROX!*\n\nAquí tienes tu enlace único y código QR oficial de ${workshopLabel}:\n👉 ${cardUrl}`;
     const qrBubble = {
       type: 'image',
       url: cardImageUrl,
       caption: `Credencial Oficial y Código QR RED NITROX • ${workshopLabel}`
     };
+    const bubble2 = `🏁 *¡Ya haces parte de la RED NITROX!*\n\nAquí tienes tu enlace y credencial digital oficial de ${workshopLabel}:\n👉 ${cardUrl}\n\n¡Bienvenido a la red de talleres aliados!`;
 
     session.history.push({ role: 'assistant', content: `${bubble1}\n${bubble2}`, timestamp: Date.now() });
     await saveSession(fromNumber, session);
 
-    return [bubble1, bubble2, qrBubble];
+    return [bubble1, qrBubble, bubble2];
   } else {
     const uniqueId = data.id_unico || '';
     const linkSuffix = uniqueId ? `\n👉 https://webhook-my2e3j2ecq-uc.a.run.app/carnet/${encodeURIComponent(uniqueId)}` : '';
