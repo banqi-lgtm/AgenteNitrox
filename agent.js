@@ -39,6 +39,9 @@ function isGreeting(text) {
   return isPureGreeting(text) || isGreetingResponse(text) || /^(?:info|informacion|afiliacion|afiliar|red nitrox)[\s.,!]*$/i.test((text || '').trim());
 }
 
+const commonFirstNames = /^(?:carlos|juan|walter|luis|andres|andrés|jose|josé|pedro|jorge|mario|diego|david|daniel|alexander|javier|fernando|wilson|cristian|camilo|sebastian|sebastián|santiago|felipe|mateo|julian|julián|victor|víctor|gabriel|oscar|óscar|miguel|alvaro|álvaro|john|jhon|fabio|rodrigo|hernan|hernán|jaime|gustavo|miller|edison|edwin|fredy|freddy|hector|héctor|yeison|jhonatan|brayan|kevin|faber|robinson|mauricio|guillermo|alejandro|esteban|stiven|duvan|duván|leonardo|cesar|césar|raul|raúl|nelson|humberto|alonso|orlando|ricardo|sergio|manuel|albeiro|dario|darío)\b/i;
+const workshopKeywords = /\b(?:taller|moto taller|motos|moto|repuestos|racing|serviteca|servi|garage|mecanica|mecánica)\b/i;
+
 // Helper to count words
 function countWords(str) {
   if (!str) return 0;
@@ -50,7 +53,7 @@ function cleanPersonName(str) {
   if (!str) return '';
   let s = str.trim();
   if (isPureGreeting(s) || isGreetingResponse(s)) return '';
-  s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es)\s+/gi, '');
+  s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es|yo soy|yo me llamo)\s+/gi, '');
   s = s.replace(/(?:taller|motos|repuestos).*$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
   if (isPureGreeting(s) || isGreetingResponse(s)) return '';
@@ -62,9 +65,9 @@ function cleanPersonName(str) {
 // Helper to extract and clean workshop name
 function cleanWorkshopName(str) {
   if (!str) return '';
-  let s = str.replace(/^(?:y mi taller es|mi taller se llama|el taller es|el taller se llama|el taller|taller:\s*)\s*/gi, '').trim();
+  let s = str.replace(/^(?:y mi taller es|mi taller se llama|el taller es|el taller se llama|el taller|taller:\s*|es el taller|del taller)\s+/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
-  if (!/taller|motos|garage|repuestos/i.test(s)) {
+  if (!workshopKeywords.test(s)) {
     s = 'Taller ' + s;
   }
   return s.split(/\s+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
@@ -72,70 +75,87 @@ function cleanWorkshopName(str) {
 
 // Helper to parse Name & Workshop if provided together or separately
 function parseNameAndWorkshop(raw) {
-  let name = '';
-  let workshop = '';
   const clean = (raw || '').trim();
-
-  if (isGreeting(clean)) return { name: '', workshop: '' };
+  if (isGreeting(clean)) return { name: '', workshop: '', ambiguous: null };
 
   const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (lines.length >= 2) {
-    const isW0 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(lines[0]);
-    const isW1 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(lines[1]);
+    const isW0 = workshopKeywords.test(lines[0]);
+    const isW1 = workshopKeywords.test(lines[1]);
     if (isW1 && !isW0) {
-      name = cleanPersonName(lines[0]);
-      workshop = cleanWorkshopName(lines[1]);
+      return { name: cleanPersonName(lines[0]), workshop: cleanWorkshopName(lines[1]), ambiguous: null };
     } else if (isW0 && !isW1) {
-      workshop = cleanWorkshopName(lines[0]);
-      name = cleanPersonName(lines[1]);
-    } else {
-      name = cleanPersonName(lines[0]);
-      workshop = cleanWorkshopName(lines[1]);
+      return { name: cleanPersonName(lines[1]), workshop: cleanWorkshopName(lines[0]), ambiguous: null };
     }
-    return { name, workshop };
   }
 
   if (clean.includes(',') || /\s+y\s+/i.test(clean)) {
     const parts = clean.split(/,|\s+y\s+/i).map(p => p.trim()).filter(Boolean);
     if (parts.length >= 2) {
-      const isW0 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(parts[0]);
-      const isW1 = /(?:taller|motos|moto|repuestos|racing|servi|garage|motor)/i.test(parts[1]);
+      const isW0 = workshopKeywords.test(parts[0]);
+      const isW1 = workshopKeywords.test(parts[1]);
       if (isW1 && !isW0) {
-        name = cleanPersonName(parts[0]);
-        workshop = cleanWorkshopName(parts[1]);
+        return { name: cleanPersonName(parts[0]), workshop: cleanWorkshopName(parts[1]), ambiguous: null };
       } else if (isW0 && !isW1) {
-        workshop = cleanWorkshopName(parts[0]);
-        name = cleanPersonName(parts[1]);
+        return { name: cleanPersonName(parts[1]), workshop: cleanWorkshopName(parts[0]), ambiguous: null };
       }
-      return { name, workshop };
     }
   }
 
-  const deMatch = clean.match(/(?:soy|me llamo|mi nombre es)?\s*([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del|y mi taller es|y el taller es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)/i);
+  const deMatch = clean.match(/^(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del|y mi taller es|y el taller es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)$/i);
   if (deMatch && deMatch[1].trim() && deMatch[2].trim()) {
-    name = cleanPersonName(deMatch[1]);
-    workshop = cleanWorkshopName(deMatch[2]);
-    return { name, workshop };
+    return { name: cleanPersonName(deMatch[1]), workshop: cleanWorkshopName(deMatch[2]), ambiguous: null };
   }
 
-  if (/^(?:taller|el taller|moto taller|motos|repuestos|garage)\s+[A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+$/i.test(clean) || (/(?:taller|repuestos|garage)/i.test(clean) && clean.split(/\s+/).length <= 4)) {
-    workshop = cleanWorkshopName(clean);
-    return { name: '', workshop };
+  // If two parts separated by 'de' or 'del' without 'soy/me llamo', check if part1 is a known person name AND part2 has workshop word
+  const deParts = clean.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)$/i);
+  if (deParts && commonFirstNames.test(deParts[1].trim().split(/\s+/)[0]) && workshopKeywords.test(deParts[2])) {
+    return { name: cleanPersonName(deParts[1]), workshop: cleanWorkshopName(deParts[2]), ambiguous: null };
   }
 
-  if (!isGreeting(clean) && clean.split(/\s+/).length <= 4 && !/(?:bello|itagui|medellin|mecanico|dueño|motos|akt|repuestos)/i.test(clean)) {
-    name = cleanPersonName(clean);
-    return { name, workshop: '' };
+  // Single entity check
+  const lower = clean.toLowerCase();
+  if (workshopKeywords.test(lower)) {
+    return { name: '', workshop: cleanWorkshopName(clean), ambiguous: null };
   }
 
-  return { name: '', workshop: '' };
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (commonFirstNames.test(words[0]) && words.length <= 3 && !/(?:dorado|racing|garage|motor|repuestos|leon|león)/i.test(lower)) {
+    return { name: cleanPersonName(clean), workshop: '', ambiguous: null };
+  }
+
+  // Ambiguous single entity (like "León Del Dorado")
+  return { name: '', workshop: '', ambiguous: clean };
 }
 
-// Semantic entity extractor for real-world messages, typos and Colombian mechanic slang
 function extractEntities(text, sessionData) {
   const raw = (text || '').trim();
-  const lower = raw.toLowerCase();
+  const lower = raw.toLowerCase().replace(/[.,!¡?¿]+/g, ' ');
   const updates = {};
+
+  // Handling clarification of ambiguous name/workshop
+  if (sessionData._lastQuestion === 'CLARIFY_NOMBRE_O_TALLER') {
+    const amb = sessionData._ambiguousName || '';
+    if (/(?:del taller|el taller|taller|nombre del taller|es el taller)/i.test(lower)) {
+      updates.nombre_taller = cleanWorkshopName(amb);
+      delete sessionData._ambiguousName;
+      const namePart = raw.replace(/(?:es\s+el\s+nombre\s+del\s+taller|es\s+el\s+taller|del\s+taller|el\s+taller|taller|nombre\s+del\s+taller|es\s+de\s+mi\s+taller|de\s+mi\s+taller)[,;.\s]*/gi, '')
+                          .replace(/^(?:yo\s+soy|yo\s+me\s+llamo|me\s+llamo|soy|mi\s+nombre\s+es|y\s+yo|y|mi\s+nombre)\s+/gi, '')
+                          .trim();
+      if (namePart && namePart.length >= 2 && !/(?:si|sí|ok|listo|no)/i.test(namePart)) {
+        updates.nombres_apellidos = cleanPersonName(namePart);
+      }
+    } else if (/(?:mi nombre|es mi nombre|soy yo|el mio|el mío|nombre mío|nombre personal)/i.test(lower)) {
+      updates.nombres_apellidos = cleanPersonName(amb);
+      delete sessionData._ambiguousName;
+      const workshopPart = raw.replace(/(?:es\s+mi\s+nombre|mi\s+nombre|soy\s+yo|el\s+mio|el\s+mío)[,;.\s]*/gi, '')
+                              .replace(/^(?:y\s+el\s+taller\s+es|el\s+taller\s+es|mi\s+taller\s+es|taller|y)\s+/gi, '')
+                              .trim();
+      if (workshopPart && workshopPart.length >= 2 && !/(?:si|sí|ok|listo|no)/i.test(workshopPart)) {
+        updates.nombre_taller = cleanWorkshopName(workshopPart);
+      }
+    }
+  }
 
   // 1. Name & Workshop if missing
   if (!sessionData.nombres_apellidos || !sessionData.nombre_taller) {
@@ -145,10 +165,14 @@ function extractEntities(text, sessionData) {
     } else if (sessionData._lastQuestion === 'TALLER' && !sessionData.nombre_taller) {
       const w = cleanWorkshopName(raw);
       if (w) updates.nombre_taller = w;
-    } else {
-      const { name, workshop } = parseNameAndWorkshop(raw);
-      if (name && !sessionData.nombres_apellidos) updates.nombres_apellidos = name;
-      if (workshop && !sessionData.nombre_taller) updates.nombre_taller = workshop;
+    } else if (sessionData._lastQuestion === 'NOMBRE_Y_TALLER' || !sessionData._lastQuestion) {
+      const parsed = parseNameAndWorkshop(raw);
+      if (parsed.ambiguous) {
+        updates._ambiguousName = parsed.ambiguous;
+      } else {
+        if (parsed.name && !sessionData.nombres_apellidos) updates.nombres_apellidos = parsed.name;
+        if (parsed.workshop && !sessionData.nombre_taller) updates.nombre_taller = parsed.workshop;
+      }
     }
   }
 
@@ -180,20 +204,25 @@ function extractEntities(text, sessionData) {
     }
   }
 
-  // 4. Barrio
-  const barrioMatch = raw.match(/(?:en\s+|barrio\s+)?\b(bel[eé]n|laureles|guayabal|robledo|castilla|aranjuez|manrique|prado|san javier|buenos aires|centro|la am[eé]rica|poblado|floresta|estadio|calasanz|santa cruz|popular|villa hermosa|san crist[oó]bal|san antonio de prado|niqu[ií]a|caba[ñn]as|boston|ditaires|santa mar[ií]a|sim[oó]n bol[ií]var|la castellana)\b/i);
-  if (barrioMatch) {
-    const b = barrioMatch[1];
-    updates.barrio_taller = b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
-  } else if (sessionData._lastQuestion === 'BARRIO' && !sessionData.barrio_taller) {
-    updates.barrio_taller = raw;
-  } else if (sessionData._lastQuestion === 'UBICACION' && !sessionData.barrio_taller && !updates.barrio_taller) {
-    if (!updates.direccion_taller) {
-      updates.barrio_taller = raw.replace(/^(?:en|el|barrio)\s+/i, '').trim();
-    } else if (addrMatch) {
-      const rem = raw.replace(addrMatch[0], '').replace(/^(?:en|el|barrio|,|\s)+/i, '').replace(/[,.\s]+$/, '').trim();
-      if (rem && rem.length > 2) {
-        updates.barrio_taller = rem;
+  // 4. Barrio (Only if asked or explicit 'barrio' keyword, NEVER during NOMBRE_Y_TALLER)
+  const isLocationTurn = sessionData._lastQuestion === 'UBICACION' || sessionData._lastQuestion === 'BARRIO';
+  const hasExplicitBarrioWord = /\b(?:barrio|en el barrio)\b/i.test(lower);
+  if (isLocationTurn || hasExplicitBarrioWord) {
+    const barrioMatch = raw.match(/(?:en\s+|barrio\s+)?\b(bel[eé]n|laureles|guayabal|robledo|castilla|aranjuez|manrique|prado|san javier|buenos aires|centro|la am[eé]rica|poblado|floresta|estadio|calasanz|santa cruz|popular|villa hermosa|san crist[oó]bal|san antonio de prado|niqu[ií]a|caba[ñn]as|boston|ditaires|santa mar[ií]a|sim[oó]n bol[ií]var|la castellana|el dorado|dorado)\b/i);
+    if (barrioMatch) {
+      const b = barrioMatch[1];
+      updates.barrio_taller = b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
+      if (updates.barrio_taller.toLowerCase() === 'dorado') updates.barrio_taller = 'El Dorado';
+    } else if (sessionData._lastQuestion === 'BARRIO' && !sessionData.barrio_taller) {
+      updates.barrio_taller = raw;
+    } else if (sessionData._lastQuestion === 'UBICACION' && !sessionData.barrio_taller && !updates.barrio_taller) {
+      if (!updates.direccion_taller) {
+        updates.barrio_taller = raw.replace(/^(?:en|el|barrio)\s+/i, '').trim();
+      } else if (addrMatch) {
+        const rem = raw.replace(addrMatch[0], '').replace(/^(?:en|el|barrio|,|\s)+/i, '').replace(/[,.\s]+$/, '').trim();
+        if (rem && rem.length > 2) {
+          updates.barrio_taller = rem;
+        }
       }
     }
   }
@@ -207,10 +236,13 @@ function extractEntities(text, sessionData) {
     updates.relacion_taller = 'Propietario';
   } else if (/socio|copropietario/i.test(lower)) {
     updates.relacion_taller = 'Socio';
+  } else if (sessionData._lastQuestion === 'ROL' && !sessionData.relacion_taller) {
+    if (/propietario|dueño/i.test(lower)) updates.relacion_taller = 'Propietario';
+    else if (/mecanico|mecánico/i.test(lower)) updates.relacion_taller = 'Mecánico';
   }
 
   // 6. Professional Specialty (Perfil Profesional y Especialidad)
-  const isSpecQuestion = sessionData._lastQuestion === 'ROL_ESPECIALIDAD';
+  const isSpecQuestion = sessionData._lastQuestion === 'ESPECIALIDAD' || sessionData._lastQuestion === 'ROL_Y_ESPECIALIDAD';
   const specs = Array.isArray(sessionData.especialidad) ? [...sessionData.especialidad] : [];
   if (/motor|motores|ajuste|anillado|culata/i.test(lower) && !specs.includes('Motor / 4T')) specs.push('Motor / 4T');
   if (/2\s*t|2\s*tiempos/i.test(lower) && !specs.includes('2T')) specs.push('2T');
@@ -244,7 +276,7 @@ function extractEntities(text, sessionData) {
   }
 
   // 7. Volume (motos_por_semana)
-  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN_MARCAS';
+  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN' || sessionData._lastQuestion === 'VOLUMEN_Y_MARCAS';
   if ((isVolumeQuestion || /muchas|bastantes|un monton|monton|harto|full|motos por semana|por semana/i.test(lower)) && !sessionData.motos_por_semana) {
     if (/mucha|bastante|harto|montón|monton|full/i.test(lower)) {
       updates.motos_por_semana = 'Alta afluencia (+30 motos/semana)';
@@ -255,7 +287,8 @@ function extractEntities(text, sessionData) {
     }
   }
 
-  // 8. Motorcycle Brands (marcas_motos)
+  // 8. Motorcycle Brands (marcas_motos - ONLY when asked or explicit moto brand names!)
+  const isMotoBrandQuestion = sessionData._lastQuestion === 'MARCAS_MOTOS' || sessionData._lastQuestion === 'VOLUMEN_Y_MARCAS';
   const brands = Array.isArray(sessionData.marcas_motos) ? [...sessionData.marcas_motos] : [];
   if (/yamaha/i.test(lower) && !brands.includes('Yamaha')) brands.push('Yamaha');
   if (/bajaj|pulsar|boxer|bjaja/i.test(lower) && !brands.includes('Bajaj')) brands.push('Bajaj');
@@ -265,12 +298,14 @@ function extractEntities(text, sessionData) {
   if (/tvs/i.test(lower) && !brands.includes('TVS')) brands.push('TVS');
   if (/hero/i.test(lower) && !brands.includes('Hero')) brands.push('Hero');
   if (/ktm/i.test(lower) && !brands.includes('KTM')) brands.push('KTM');
-  if (/todas|de todas|variadas|de todo/i.test(lower) && !brands.includes('Variadas / Todas')) brands.push('Variadas / Todas');
+  if (isMotoBrandQuestion && /todas|de todas|variadas|de todo/i.test(lower) && !brands.includes('Variadas / Todas')) {
+    brands.push('Variadas / Todas');
+  }
   if (brands.length > 0) updates.marcas_motos = brands;
 
   // 9. Frequent Parts & Parts Brands & Decision Maker
-  const isPartsQuestion = sessionData._lastQuestion === 'REPUESTOS_Y_MARCA';
-  const hasPartsContext = isPartsQuestion || /(?:cambiamos|cambio|se cambia|repuesto|repuestos|instalamos|instalo|kit|pastilla)/i.test(lower);
+  const isPartsQuestion = sessionData._lastQuestion === 'REPUESTOS' || sessionData._lastQuestion === 'REPUESTOS_Y_MARCA';
+  const hasPartsContext = isPartsQuestion || /(?:cambiamos|cambio|se cambia|repuesto|repuestos|instalamos|instalo|kit|pastilla|arrastre)/i.test(lower);
   if (hasPartsContext) {
     const parts = Array.isArray(sessionData.repuestos_frecuentes) ? [...sessionData.repuestos_frecuentes] : [];
     if (/freno|pastilla|banda|disco/i.test(lower) && !parts.includes('Frenos')) parts.push('Frenos');
@@ -283,14 +318,15 @@ function extractEntities(text, sessionData) {
   }
 
   // Parts brands used/recommended
+  const isPartBrandQuestion = sessionData._lastQuestion === 'MARCA_RECOMENDADA' || sessionData._lastQuestion === 'REPUESTOS_Y_MARCA';
   const partBrands = Array.isArray(sessionData.marcas_repuestos_usadas) ? [...sessionData.marcas_repuestos_usadas] : [];
   if (/nitrox/i.test(lower) && !partBrands.includes('NITROX')) partBrands.push('NITROX');
   if (/ichiban/i.test(lower) && !partBrands.includes('Ichiban')) partBrands.push('Ichiban');
   if (/revo/i.test(lower) && !partBrands.includes('Revo')) partBrands.push('Revo');
   if (/original|genuino/i.test(lower) && !partBrands.includes('Originales')) partBrands.push('Originales');
-  if (/yamaha/i.test(lower) && isPartsQuestion && !partBrands.includes('Yamaha')) partBrands.push('Yamaha');
-  if (/bajaj/i.test(lower) && isPartsQuestion && !partBrands.includes('Bajaj')) partBrands.push('Bajaj');
-  if (/akt/i.test(lower) && isPartsQuestion && !partBrands.includes('AKT')) partBrands.push('AKT');
+  if (/yamaha/i.test(lower) && isPartBrandQuestion && !partBrands.includes('Yamaha')) partBrands.push('Yamaha');
+  if (/bajaj/i.test(lower) && isPartBrandQuestion && !partBrands.includes('Bajaj')) partBrands.push('Bajaj');
+  if (/akt/i.test(lower) && isPartBrandQuestion && !partBrands.includes('AKT')) partBrands.push('AKT');
   if (/brembo/i.test(lower) && !partBrands.includes('Brembo')) partBrands.push('Brembo');
   if (partBrands.length > 0) updates.marcas_repuestos_usadas = partBrands;
 
@@ -298,10 +334,13 @@ function extractEntities(text, sessionData) {
   if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|el mecanico|el mecánico/i.test(lower) && !sessionData.quien_decide_repuesto) {
     updates.quien_decide_repuesto = 'Mecánico';
     updates.frecuencia_recomendacion = 'Siempre';
-  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen|propietarios de los veh[ií]culos|los clientes los traen|traen los repuestos/i.test(lower)) {
+  } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen|propietarios de los veh[ií]culos|los clientes los traen|traen los repuestos|la que traiga/i.test(lower)) {
     updates.quien_decide_repuesto = 'Cliente';
     updates.frecuencia_recomendacion = 'Algunas veces';
     updates.canal_compra = 'Los clientes / propietarios los compran';
+    if (!updates.marcas_repuestos_usadas && (!sessionData.marcas_repuestos_usadas || sessionData.marcas_repuestos_usadas.length === 0)) {
+      updates.marcas_repuestos_usadas = ['La que traiga el cliente'];
+    }
   }
 
   // Why they recommend / Choice factors (factores_eleccion_repuesto)
@@ -327,8 +366,8 @@ function extractEntities(text, sessionData) {
   }
 
   // 11. NITROX Experience & Interest (Strictly real data!)
-  if (sessionData._lastQuestion === 'NITROX_EXP_INTERES' || /repuestos nitrox|marca nitrox/i.test(lower)) {
-    if (/no\b|nunca|todavia no|todavía no|no los conozco|no he trabajado/i.test(lower)) {
+  if (sessionData._lastQuestion === 'NITROX_EXP_INTERES' || sessionData._lastQuestion === 'OFERTA_MUESTRAS' || /repuestos nitrox|marca nitrox/i.test(lower)) {
+    if (/no\b|nunca|todavia no|todavía no|no la conozco|no lo conozco|no los conozco|no he trabajado|no la conoco/i.test(lower)) {
       updates.conoce_nitrox = 'No';
       updates.ha_usado_nitrox = 'No';
       updates.calificacion_experiencia_nitrox = 'No aplica';
@@ -519,67 +558,82 @@ async function generateMateoResponse(fromNumber, userText) {
   // 5. Decide the SINGLE logical next response based on memory and context
   let reply = '';
 
-  // Turn: Name & Workshop
-  if (!data.nombres_apellidos && !data.nombre_taller) {
+  // 1. Ambiguity resolution for Name vs Workshop
+  if (data._ambiguousName) {
+    data._lastQuestion = 'CLARIFY_NOMBRE_O_TALLER';
+    reply = `¿${data._ambiguousName} es tu nombre o el nombre de tu taller? Si quieres me los puedes enviar por separado.`;
+  }
+  // 2. Missing Name or Workshop
+  else if (!data.nombres_apellidos && !data.nombre_taller) {
     data._lastQuestion = 'NOMBRE_Y_TALLER';
     reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cómo te llamas y cómo se llama tu taller?";
-  } else if (data.nombres_apellidos && !data.nombre_taller) {
-    data._lastQuestion = 'TALLER';
-    reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller?`;
-  } else if (!data.nombres_apellidos && data.nombre_taller) {
+  } else if (data.nombre_taller && !data.nombres_apellidos) {
     data._lastQuestion = 'NOMBRE';
     reply = `Excelente taller ${workshopName}. ¿Y cuál es tu nombre?`;
+  } else if (data.nombres_apellidos && !data.nombre_taller) {
+    data._lastQuestion = 'TALLER';
+    reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller de motos?`;
   }
-  // Turn: Location (Barrio & Address obligatory!)
-  else if (!data._askedUbicacion && (!data.barrio_taller || !data.direccion_taller)) {
-    if (!data.barrio_taller && !data.direccion_taller) {
-      data._lastQuestion = 'UBICACION';
-      reply = `Mucho gusto, ${firstName}. ¿En qué barrio y en qué dirección queda tu taller?`;
-    } else if (data.barrio_taller && !data.direccion_taller) {
-      data._lastQuestion = 'DIRECCION';
-      reply = `Listo en ${data.barrio_taller}. ¿Y cuál es la dirección exacta del taller?`;
-    } else if (!data.barrio_taller && data.direccion_taller) {
-      data._lastQuestion = 'BARRIO';
-      reply = `Anotada la dirección. ¿Y en qué barrio o municipio queda?`;
-    }
+  // 3. Location (Barrio & Address obligatory!)
+  else if (!data.barrio_taller && !data.direccion_taller) {
+    data._lastQuestion = 'UBICACION';
+    reply = `Mucho gusto, ${firstName}. ¿En qué barrio y en qué dirección queda ${workshopName}?`;
+  } else if (data.barrio_taller && !data.direccion_taller) {
+    data._lastQuestion = 'DIRECCION';
+    reply = `Listo en ${data.barrio_taller}. ¿Y cuál es la dirección exacta del taller?`;
+  } else if (!data.barrio_taller && data.direccion_taller) {
+    data._lastQuestion = 'BARRIO';
+    reply = `Anotada la dirección. ¿Y en qué barrio o municipio queda el taller?`;
   }
-  // Turn: Role & Specialty (Perfil Profesional)
-  else if (!data._askedRolEspecialidad && (!data.relacion_taller || !data.especialidad || data.especialidad.length === 0)) {
-    data._askedRolEspecialidad = true;
-    data._lastQuestion = 'ROL_ESPECIALIDAD';
+  // 4. Role & Specialty (Perfil Profesional)
+  else if (!data.relacion_taller && (!data.especialidad || data.especialidad.length === 0)) {
+    data._lastQuestion = 'ROL_Y_ESPECIALIDAD';
     reply = `Anotado. ¿Eres propietario o mecánico, y cuál es tu especialidad en el taller?`;
+  } else if (data.relacion_taller && (!data.especialidad || data.especialidad.length === 0)) {
+    data._lastQuestion = 'ESPECIALIDAD';
+    reply = `Listo, ${data.relacion_taller.toLowerCase()}. ¿Y cuál es tu especialidad en el taller: motor, frenos, electricidad o de todo?`;
+  } else if (!data.relacion_taller && (data.especialidad && data.especialidad.length > 0)) {
+    data._lastQuestion = 'ROL';
+    reply = `Buen trabajo con ${data.especialidad.join(' y ')}. ¿Y eres el propietario o mecánico del taller?`;
   }
-  // Turn: Volume & Moto Brands
-  else if (!data._askedVolumenMarcas && (!data.motos_por_semana || !data.marcas_motos || data.marcas_motos.length === 0)) {
-    data._askedVolumenMarcas = true;
-    data._lastQuestion = 'VOLUMEN_MARCAS';
+  // 5. Volume & Motorcycle Brands
+  else if (!data.motos_por_semana && (!data.marcas_motos || data.marcas_motos.length === 0)) {
+    data._lastQuestion = 'VOLUMEN_Y_MARCAS';
     reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana y qué marcas te llegan más?`;
+  } else if (data.motos_por_semana && (!data.marcas_motos || data.marcas_motos.length === 0)) {
+    data._lastQuestion = 'MARCAS_MOTOS';
+    reply = `Buen flujo de ${data.motos_por_semana}. ¿Y qué marcas son las que más te llegan al taller?`;
+  } else if (!data.motos_por_semana && (data.marcas_motos && data.marcas_motos.length > 0)) {
+    data._lastQuestion = 'VOLUMEN';
+    reply = `Se mueve bastante ${data.marcas_motos.join(' y ')}. ¿Y más o menos cuántas motos atiendes por semana?`;
   }
-  // Turn: Frequent Parts & Recommendation / Brands
-  else if (!data._askedRepuestos) {
-    data._askedRepuestos = true;
+  // 6. Frequent Parts & Recommended Brand
+  else if (!data.repuestos_frecuentes || data.repuestos_frecuentes.length === 0) {
     data._lastQuestion = 'REPUESTOS_Y_MARCA';
     reply = `Buen flujo. ¿Qué repuestos cambias más seguido y qué marca sueles recomendar y por qué?`;
+  } else if (data.repuestos_frecuentes && data.repuestos_frecuentes.length > 0 && (!data.marcas_repuestos_usadas || data.marcas_repuestos_usadas.length === 0)) {
+    data._lastQuestion = 'MARCA_RECOMENDADA';
+    reply = `El ${data.repuestos_frecuentes.join(' y ')} se mueve bastante. ¿Y qué marca de repuestos prefieres recomendar a tus clientes y por qué?`;
   }
-  // Turn: NITROX Experience & Interest
-  else if (!data._askedNitrox && !data.conoce_nitrox) {
-    data._askedNitrox = true;
+  // 7. NITROX Experience & Samples Offer
+  else if (!data.conoce_nitrox) {
     data._lastQuestion = 'NITROX_EXP_INTERES';
     reply = `Buen dato. ¿Has trabajado antes con repuestos NITROX, o te interesaría recibir muestras y capacitaciones para el taller?`;
-  }
-  // Turn: Purchase Channel (if knows Nitrox and channel missing)
-  else if (data.conoce_nitrox === 'Sí' && !data._askedCanal && !data.canal_compra) {
-    data._askedCanal = true;
+  } else if (data.conoce_nitrox === 'No' && !data.quiere_muestras && !data._ofertaMuestrasHecha) {
+    data._ofertaMuestrasHecha = true;
+    data._lastQuestion = 'OFERTA_MUESTRAS';
+    reply = `Entendido. En NITROX manejamos excelente calidad y precios directos para talleres. ¿Te gustaría recibir muestras y catálogo?`;
+  } else if (data.conoce_nitrox === 'Sí' && !data.canal_compra) {
     data._lastQuestion = 'CANAL_COMPRA';
-    reply = `Excelente. ¿Y dónde compras los repuestos normalmente?`;
+    reply = `Excelente. ¿Y dónde compras los repuestos normalmente: distribuidor, almacén o directo?`;
   }
-  // Turn: Pre-QR Benefits Contact Info (Correo, Cédula o NIT)
+  // 8. Contact Info for Benefits (Pre-QR)
   else if (!data._datosBeneficiosSolicitados && !data.correo && !data.cedula) {
     data._datosBeneficiosSolicitados = true;
     data._lastQuestion = 'BENEFICIOS_DATOS';
     reply = `¡De una! Para enviarte los beneficios oficiales y activar tu vinculación, ¿me regalas tu Correo y tu Cédula o NIT?`;
   }
-  // Turn: Final QR Delivery
+  // 9. Final Delivery (QR & Credential)
   else if (!data._finished) {
     data._finished = true;
     const mechanic = await saveMechanicToFirestore(fromNumber, data);
