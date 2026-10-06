@@ -1,17 +1,14 @@
-﻿# Agente NITROX - WhatsApp Bot (Mateo)
+# Agente NITROX - WhatsApp Bot (Mateo) [v5.1.0]
 
-Agente de Inteligencia Artificial para atención y afiliación de talleres aliados en WhatsApp para **NITROX**.
+Agente de Inteligencia Artificial para caracterización, scoring y afiliación de talleres aliados en WhatsApp para **RED NITROX**.
 
-## Características
-- Integración oficial con **Meta WhatsApp Cloud API**.
-- Personalidad paisa, natural, relajada y humana (**Mateo, Asesor Comercial**).
-- Flujo interactivo paso a paso para afiliación de talleres:
-  - Nombre del taller
-  - Ciudad y dirección
-  - Cantidad de personal/mecánicos
-  - Maquinaria y equipos
-- Simulación de ritmo humano: confirmación de lectura y pausas naturales de escritura (5-7 segundos).
-- Arquitectura lista para despliegue 24/7 en la nube (Firebase Functions / Render / Railway).
+## Novedades en v5.1.0
+- **Diferenciación y resolución de ambigüedad**: Distinción inteligente entre nombre de la persona y nombre del taller (repregunta natural en casos dudosos).
+- **Seguimiento dinámico a respuestas parciales**: Validación campo a campo sin asumir respuestas ante preguntas compuestas.
+- **Captura territorial fidedigna**: Barrio y dirección física obligatorios.
+- **Generación de credenciales digitales con código QR**: Imagen PNG en alta resolución y carnet web interactivo 3D.
+- **Captura legal previa**: Correo, Cédula/NIT y autorización explícita de Habeas Data antes de la entrega del QR.
+- **CRM y Exportación**: Panel administrativo con filtros y exportación CSV con codificación UTF-8 BOM para Excel.
 
 ## Instalación
 
