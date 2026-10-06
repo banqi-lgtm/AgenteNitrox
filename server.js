@@ -5,6 +5,7 @@ const path = require('path');
 const { generateMateoResponse, admin, localMecanicosStore, resetMemoryCache } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
+const { generateCardImage } = require('./card_generator');
 
 const app = express();
 app.use(express.json());
@@ -85,6 +86,46 @@ app.get('/api/qr/:id.png', async (req, res) => {
   } catch (err) {
     console.error('Error generando QR PNG:', err);
     return res.status(500).send('Error generando QR');
+  }
+});
+
+// Endpoint generador de la Credencial Completa Oficial con QR en formato imagen PNG
+app.get('/api/card-image/:id.png', async (req, res) => {
+  try {
+    const id = req.params.id;
+    let mechanic = (localMecanicosCache || []).find(m => m.id_unico === id);
+
+    if (!mechanic) {
+      try {
+        const doc = await admin.firestore().collection('mecanicos_red_nitrox').doc(id).get();
+        if (doc.exists) {
+          mechanic = doc.data();
+        } else {
+          const snap = await admin.firestore().collection('mecanicos_red_nitrox').where('id_unico', '==', id).get();
+          if (!snap.empty) mechanic = snap.docs[0].data();
+        }
+      } catch (e) {
+        console.warn('[CARD IMAGE LOOKUP ERROR]:', e.message);
+      }
+    }
+
+    const mechanicData = mechanic || {
+      id_unico: id,
+      nombre_taller: 'Taller Aliado',
+      nombres_apellidos: 'Mecánico Vinculado',
+      ciudad_taller: 'Medellín',
+      relacion_taller: 'Mecánico',
+      motos_por_semana: 'Alto Flujo'
+    };
+
+    const imageBuffer = await generateCardImage(mechanicData);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', imageBuffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(imageBuffer);
+  } catch (err) {
+    console.error('Error generando imagen de credencial:', err);
+    return res.status(500).send('Error generando imagen');
   }
 });
 
@@ -379,6 +420,7 @@ async function sendWhatsAppMessage(to, text) {
 
 async function sendWhatsAppImage(to, imageUrl, caption) {
   try {
+    const cleanTo = String(to || '').replace(/\D/g, '');
     const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
       headers: {
@@ -387,7 +429,8 @@ async function sendWhatsAppImage(to, imageUrl, caption) {
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: to,
+        recipient_type: 'individual',
+        to: cleanTo,
         type: 'image',
         image: {
           link: imageUrl,
@@ -396,7 +439,7 @@ async function sendWhatsAppImage(to, imageUrl, caption) {
       })
     });
     const data = await res.json();
-    console.log(`[META ENVIO IMAGEN A +${to}]:`, JSON.stringify(data));
+    console.log(`[META ENVIO IMAGEN A +${cleanTo}]:`, JSON.stringify(data));
     if (data.error) {
       console.warn(`[META IMAGE WARN]:`, data.error.message);
     }

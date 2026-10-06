@@ -253,9 +253,25 @@ function extractEntities(text, sessionData) {
     }
   }
 
+  // 8B. Samples & Catalog offer response
+  if (sessionData._lastQuestion === 'OFERTA_MUESTRAS') {
+    if (/si|sí|claro|bueno|de una|por favor|me gustaria|me gustaría|bien/i.test(lower)) {
+      updates.quiere_muestras = 'Sí';
+      updates.interes_catalogo = 'Sí';
+    } else if (/no|gracias|luego|despues|después/i.test(lower)) {
+      updates.quiere_muestras = 'No';
+      updates.interes_catalogo = 'No';
+    } else {
+      updates.quiere_muestras = 'Sí';
+    }
+  }
+
   // 9. Purchase channel / criteria
-  if (sessionData._lastQuestion === 'CANAL_COMPRA' || /distrib|direct|barato|almacen|propietario|cliente|ellos|vehiculo|vehículo/i.test(lower)) {
-    if (/propietario|cliente|ellos lo compran|ellos los traen|traen los repuestos|vehiculo|vehículo/i.test(lower)) {
+  const isChannelQuestion = sessionData._lastQuestion === 'CANAL_COMPRA';
+  const hasExplicitChannelPhrase = /(?:distribuidor|directo de fabrica|almacen de repuestos|donde salga mas barato|donde salga más barato|(?:cliente|propietario|dueño)\s+(?:lo|los|las)\s+(?:compra|trae|lleva)|propietarios de los veh[ií]culos|los clientes los traen)/i.test(lower);
+
+  if (isChannelQuestion || hasExplicitChannelPhrase) {
+    if (/(?:propietario|cliente|dueño|ellos)\s+(?:lo|los|las)\s+(?:compran?|traen?|llevan?)|traen los repuestos|propietarios de los veh[ií]culos|los clientes los traen/i.test(lower)) {
       updates.canal_compra = 'Los clientes / propietarios los compran';
       updates.quien_decide_repuesto = 'Cliente';
     } else if (/distrib/i.test(lower)) {
@@ -267,7 +283,7 @@ function extractEntities(text, sessionData) {
       updates.criterio_compra = 'Precio';
     } else if (/almacen|almacenes|repuestera/i.test(lower)) {
       updates.canal_compra = 'Almacén de repuestos';
-    } else {
+    } else if (isChannelQuestion) {
       updates.canal_compra = raw; // Always consume whatever the user answered to prevent looping!
     }
   }
@@ -464,6 +480,7 @@ async function generateMateoResponse(fromNumber, userText) {
   // NITROX answered "No"
   else if (data.conoce_nitrox === 'No' && !data._ofertaVisita) {
     data._ofertaVisita = true;
+    data._lastQuestion = 'OFERTA_MUESTRAS';
     reply = `Entendido. En NITROX manejamos muy buena calidad y precios para talleres. ¿Te gustaría recibir muestras y catálogo?`;
   }
   // If purchase channel was answered
@@ -485,17 +502,21 @@ async function generateMateoResponse(fromNumber, userText) {
     const uniqueId = mechanic.id_unico || data.id_unico || (`RN-MED-${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
     const baseUrl = 'https://webhook-my2e3j2ecq-uc.a.run.app';
     const cardUrl = `${baseUrl}/carnet/${encodeURIComponent(uniqueId)}`;
-    const qrImageUrl = `${baseUrl}/api/qr/${encodeURIComponent(uniqueId)}.png`;
+    const cardImageUrl = `${baseUrl}/api/card-image/${encodeURIComponent(uniqueId)}.png`;
 
     const nameLabel = firstName || 'amigo';
     const workshopLabel = workshopName || 'tu taller';
 
-    const bubble1 = `Listo ${nameLabel}, anotado todo. Muy bacano ${workshopLabel}. Quedo súper atento por acá para lo que necesites.`;
+    const sampleNote = data.quiere_muestras === 'Sí'
+      ? 'Te tendremos súper en cuenta para hacerte llegar las muestras y el catálogo.'
+      : 'Quedo súper atento por acá para lo que necesites.';
+
+    const bubble1 = `Listo ${nameLabel}, anotado todo. ${sampleNote} Muy bacano ${workshopLabel}.`;
     const bubble2 = `🏁 *¡Ya haces parte de la RED NITROX!*\n\nAquí tienes tu enlace único y código QR oficial de ${workshopLabel}:\n👉 ${cardUrl}`;
     const qrBubble = {
       type: 'image',
-      url: qrImageUrl,
-      caption: `Código QR Oficial RED NITROX • ${workshopLabel}`
+      url: cardImageUrl,
+      caption: `Credencial Oficial y Código QR RED NITROX • ${workshopLabel}`
     };
 
     session.history.push({ role: 'assistant', content: `${bubble1}\n${bubble2}`, timestamp: Date.now() });
