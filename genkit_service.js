@@ -9,7 +9,7 @@ if (!process.env.GOOGLE_GENAI_API_KEY && process.env.GEMINI_API_KEY) {
 
 const ai = genkit({
   plugins: [googleAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY })],
-  model: gemini15Flash,
+  model: 'googleai/gemini-flash-latest',
 });
 
 // Flow example
