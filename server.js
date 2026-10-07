@@ -506,14 +506,11 @@ app.post('/api/ml/analizar-todas', requireAuth, async (req, res) => {
 app.get('/api/crm/conversacion/:phone', requireAuth, async (req, res) => {
   try {
     const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
-    let session = memoryCache[cleanPhone];
-    if (!session) {
-      const doc = await admin.firestore().collection('sesiones_mateo').doc(cleanPhone).get();
-      if (doc.exists) session = doc.data();
-    }
-    if (!session) {
+    const doc = await admin.firestore().collection('sesiones_mateo').doc(cleanPhone).get();
+    if (!doc.exists) {
       return res.status(404).json({ success: false, message: `No se encontró sesión para +${cleanPhone}` });
     }
+    const session = doc.data();
     return res.json({ success: true, phone: cleanPhone, session });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
