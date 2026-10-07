@@ -326,7 +326,6 @@ function extractEntities(text, sessionData) {
       }
     }
   }
-  }
 
   // 6. Professional Specialty (Perfil Profesional y Especialidad)
   const isSpecQuestion = sessionData._lastQuestion === 'ESPECIALIDAD' || sessionData._lastQuestion === 'ROL_Y_ESPECIALIDAD';
