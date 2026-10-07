@@ -502,6 +502,39 @@ app.post('/api/ml/analizar-todas', requireAuth, async (req, res) => {
   }
 });
 
+// Get full session conversation history for a specific phone
+app.get('/api/crm/conversacion/:phone', requireAuth, async (req, res) => {
+  try {
+    const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
+    let session = memoryCache[cleanPhone];
+    if (!session) {
+      const doc = await admin.firestore().collection('sesiones_mateo').doc(cleanPhone).get();
+      if (doc.exists) session = doc.data();
+    }
+    if (!session) {
+      return res.status(404).json({ success: false, message: `No se encontró sesión para +${cleanPhone}` });
+    }
+    return res.json({ success: true, phone: cleanPhone, session });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Admin manual message dispatch via WhatsApp Cloud API
+app.post('/api/admin/send-whatsapp', requireAuth, async (req, res) => {
+  try {
+    const { to, text } = req.body;
+    if (!to || !text) {
+      return res.status(400).json({ success: false, message: 'Falta to o text en el cuerpo de la solicitud' });
+    }
+    const cleanTo = String(to).replace(/\D/g, '');
+    const metaRes = await sendWhatsAppMessage(cleanTo, text);
+    return res.json({ success: true, to: cleanTo, metaResponse: metaRes });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Admin Reset Endpoint: Deletes all conversation sessions and marks Mateo at zero
 app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
   try {

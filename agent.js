@@ -282,6 +282,8 @@ function extractEntities(text, sessionData) {
   } else if (sessionData._lastQuestion === 'DIRECCION' && !sessionData.direccion_taller) {
     if (/\d/.test(raw) || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|esquina|con|frente|cerca)\b/i.test(lower)) {
       updates.direccion_taller = raw;
+    } else if (isProtest || /no\s*(?:me\s*la\s*s[eé]|s[eé]|me\s*acuerdo|tengo)|por\s+el|cerca|parque/i.test(lower) || raw.trim().length >= 2) {
+      updates.direccion_taller = raw.trim().length >= 2 ? raw.trim() : `Sector ${sessionData.barrio_taller || 'Medellín'}`;
     }
   }
 
