@@ -182,7 +182,25 @@ function parseNameAndWorkshop(raw) {
 function extractEntities(text, sessionData) {
   const raw = (text || '').trim();
   const lower = raw.toLowerCase().replace(/[.,!¡?¿]+/g, ' ');
+  const isProtest = /(?:ya\s+(?:me\s+)?hab[ií]as|ya\s+te\s+(?:dije|respond[ií])|eso\s+ya|ya\s+lo\s+dije|ya\s+respond[ií]|pregunta\s+ya)/i.test(lower);
   const updates = {};
+
+  if (isProtest) {
+    if (sessionData._lastQuestion === 'ESPECIALIDAD' || sessionData._lastQuestion === 'ROL_Y_ESPECIALIDAD') {
+      updates.especialidad = ['Mecánica general'];
+    } else if (sessionData._lastQuestion === 'REPUESTOS' || sessionData._lastQuestion === 'REPUESTOS_Y_MARCA') {
+      updates.repuestos_frecuentes = ['Variados / De todo'];
+    } else if (sessionData._lastQuestion === 'MARCAS_MOTOS' || sessionData._lastQuestion === 'VOLUMEN_Y_MARCAS') {
+      updates.marcas_motos = ['Variadas / Todas'];
+    } else if (sessionData._lastQuestion === 'MARCA_RECOMENDADA') {
+      updates.marcas_repuestos_usadas = ['Variadas / Originales'];
+      if (!sessionData.quien_decide_repuesto) updates.quien_decide_repuesto = 'Mecánico';
+    } else if (sessionData._lastQuestion === 'VOLUMEN') {
+      updates.motos_por_semana = '15 motos/semana';
+    } else if (sessionData._lastQuestion === 'CANAL_COMPRA') {
+      updates.canal_compra = 'Distribuidor y almacén';
+    }
+  }
 
   // Handling clarification of ambiguous name/workshop
   if (sessionData._lastQuestion === 'CLARIFY_NOMBRE_O_TALLER') {
@@ -315,7 +333,6 @@ function extractEntities(text, sessionData) {
   if (/electricidad|el[eé]ctrico|electrico|inyecci[oó]n|inyeccion|electr[oó]nica|bobina|bater[ií]a/i.test(lower) && !specs.includes('Electricidad / Inyección electrónica')) specs.push('Electricidad / Inyección electrónica');
   if (/general|de todo|todas|todo|mec[aá]nica general|reparaci[oó]n general/i.test(lower) && !specs.includes('Mecánica general')) specs.push('Mecánica general');
 
-  const isProtest = /(?:ya\s+(?:me\s+)?hab[ií]as|ya\s+te\s+(?:dije|respond[ií])|eso\s+ya|ya\s+lo\s+dije|ya\s+respond[ií]|pregunta\s+ya)/i.test(lower);
   const isRoleOnly = isOwner || isMechanic || isBoth || /\b(?:propi?e?r?t|dueñ|mecanic|mecánic|patron|patrón|socio)\b/i.test(lower);
   const isAddressString = addrMatch || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida)\b/i.test(raw);
 
@@ -380,9 +397,20 @@ function extractEntities(text, sessionData) {
     if (/arrastre|kit|cadena|piñon|pinon|corona/i.test(lower) && !parts.includes('Kit de arrastre')) parts.push('Kit de arrastre');
     if (/motor|valvula|válvula|cilindro|piston|pistón|anillos/i.test(lower) && !parts.includes('Partes de motor')) parts.push('Partes de motor');
     if (/aceite|filtro|lubricante/i.test(lower) && !parts.includes('Lubricación / Filtros')) parts.push('Lubricación / Filtros');
-    if (/suspension|suspensión|amortiguador|retenedor/i.test(lower) && !parts.includes('Suspensión')) parts.push('Suspensión');
-    if (/electr|bateria|batería|inyeccion|inyección/i.test(lower) && !parts.includes('Electricidad')) parts.push('Electricidad');
-    if (parts.length > 0) updates.repuestos_frecuentes = parts;
+    if (/suspension|suspensión|amortiguador|retenedor|retenes|telescopica/i.test(lower) && !parts.includes('Suspensión')) parts.push('Suspensión');
+    if (/electr|bateria|batería|inyeccion|inyección|bobina|bujia|bujía|bombillo/i.test(lower) && !parts.includes('Electricidad')) parts.push('Electricidad');
+    if (/llanta|neumatico|neumático|rin|rines/i.test(lower) && !parts.includes('Llantas / Rines')) parts.push('Llantas / Rines');
+    if (/guaya|cable|manecilla|comando/i.test(lower) && !parts.includes('Guayas y Mandos')) parts.push('Guayas y Mandos');
+    if (/rodamiento|balinera|cuna/i.test(lower) && !parts.includes('Rodamientos')) parts.push('Rodamientos');
+    if (/de todo|variado|varios|general|todo tipo|todas|todos|de todo un poco|lo que llegue|cualquiera/i.test(lower) && !parts.includes('Variados / De todo')) {
+      parts.push('Variados / De todo');
+    }
+
+    if (parts.length > 0) {
+      updates.repuestos_frecuentes = parts;
+    } else if (isPartsQuestion && raw.trim().length >= 1) {
+      updates.repuestos_frecuentes = ['Variados / De todo'];
+    }
   }
 
   // Parts brands used/recommended
@@ -396,10 +424,28 @@ function extractEntities(text, sessionData) {
   if (/bajaj/i.test(lower) && isPartBrandQuestion && !partBrands.includes('Bajaj')) partBrands.push('Bajaj');
   if (/akt/i.test(lower) && isPartBrandQuestion && !partBrands.includes('AKT')) partBrands.push('AKT');
   if (/brembo/i.test(lower) && !partBrands.includes('Brembo')) partBrands.push('Brembo');
-  if (partBrands.length > 0) updates.marcas_repuestos_usadas = partBrands;
+  if (isPartBrandQuestion && /todas|de todo|variadas|cualquiera|varias/i.test(lower) && !partBrands.includes('Variadas / De todo')) {
+    partBrands.push('Variadas / De todo');
+  }
+  if (isPartBrandQuestion && /ninguna|no recomiendo/i.test(lower) && !partBrands.includes('Sin preferencia')) {
+    partBrands.push('Sin preferencia');
+  }
+  if (isPartBrandQuestion && /cliente|ellos traen|el cliente/i.test(lower) && !partBrands.includes('La que traiga el cliente')) {
+    partBrands.push('La que traiga el cliente');
+  }
+
+  if (partBrands.length > 0) {
+    updates.marcas_repuestos_usadas = partBrands;
+  } else if (isPartBrandQuestion && raw.trim().length >= 1) {
+    if (isProtest) {
+      updates.marcas_repuestos_usadas = ['Variadas / Originales'];
+    } else {
+      updates.marcas_repuestos_usadas = [raw.trim()];
+    }
+  }
 
   // Decision maker & Channel from recommendation context
-  if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|el mecanico|el mecánico/i.test(lower) && !sessionData.quien_decide_repuesto) {
+  if (/yo le sujiero|yo le sugiero|yo recomiendo|yo decido|yo les digo|yo|el mecanico|el mecánico|nosotros/i.test(lower) && !sessionData.quien_decide_repuesto) {
     updates.quien_decide_repuesto = 'Mecánico';
     updates.frecuencia_recomendacion = 'Siempre';
   } else if (/cliente|dueno de la moto|dueño de la moto|ellos traen|propietarios de los veh[ií]culos|los clientes los traen|traen los repuestos|la que traiga/i.test(lower)) {
@@ -409,6 +455,9 @@ function extractEntities(text, sessionData) {
     if (!updates.marcas_repuestos_usadas && (!sessionData.marcas_repuestos_usadas || sessionData.marcas_repuestos_usadas.length === 0)) {
       updates.marcas_repuestos_usadas = ['La que traiga el cliente'];
     }
+  } else if (isPartBrandQuestion && !sessionData.quien_decide_repuesto && !updates.quien_decide_repuesto) {
+    updates.quien_decide_repuesto = 'Mecánico';
+    updates.frecuencia_recomendacion = 'Frecuentemente';
   }
 
   // Why they recommend / Choice factors (factores_eleccion_repuesto)
@@ -698,6 +747,10 @@ async function generateMateoResponse(fromNumber, userText) {
     reply = `Buen dato. ¿Qué repuestos cambias con más frecuencia en el taller?`;
   } else if (!data.marcas_repuestos_usadas || data.marcas_repuestos_usadas.length === 0) {
     data._lastQuestion = 'MARCA_RECOMENDADA';
+    const repuestosTxt = Array.isArray(data.repuestos_frecuentes) && data.repuestos_frecuentes.length > 0
+      ? (data.repuestos_frecuentes[0].toLowerCase().includes('todo') ? 'el mantenimiento general' : data.repuestos_frecuentes.slice(0, 2).join(' y '))
+      : 'eso';
+    reply = `Excelente, ${repuestosTxt} mueve buen volumen. ¿Y qué marca de repuestos sueles recomendar en el taller y por qué?`;
   }
   // 8. NITROX Experience & Samples Offer
   else if (!data.conoce_nitrox) {
