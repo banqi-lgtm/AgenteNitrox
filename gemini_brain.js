@@ -96,10 +96,18 @@ function cleanResponseText(rawText) {
  * Calcula los temas de vinculación aún pendientes en orden lógico de conversación amena.
  */
 function getPendingTopics(data) {
+  // Si el mecánico ya fue finalizado o ya tiene ID de carnet, NO hay temas pendientes de registro.
+  if (data._finished || data.id_unico) {
+    return [];
+  }
+
   const pending = [];
   if (!data.nombres_apellidos) pending.push('Nombre del mecánico');
   if (!data.nombre_taller) pending.push('Nombre del taller de motos');
-  if (!data.barrio_taller && !data.direccion_taller) pending.push('Ubicación (barrio o dirección aproximada)');
+  // Si ya tenemos ciudad_taller, barrio_taller o direccion_taller, la ubicación ya se conoce.
+  if (!data.barrio_taller && !data.direccion_taller && !data.ciudad_taller) {
+    pending.push('Ubicación (barrio, municipio o dirección aproximada)');
+  }
   if (!data.relacion_taller) pending.push('Rol en el taller (dueño, mecánico o ambos)');
   if (!data.especialidad || data.especialidad.length === 0) pending.push('Especialidad técnica (motor, frenos, electricidad o general)');
   if (!data.motos_por_semana) pending.push('Flujo de motos atendidas por semana');
@@ -122,12 +130,56 @@ async function processGeminiBrainTurn(session, userText) {
   const currentData = session.data || {};
   const history = session.history || [];
 
-  // Tomamos los últimos 8 mensajes para contexto conversacional óptimo
-  const recentHistory = history.slice(-8);
+  // Tomamos los últimos 10 mensajes para contexto conversacional óptimo
+  const recentHistory = history.slice(-10);
+  const isAlreadyRegistered = Boolean(currentData._finished || currentData.id_unico);
   const pendingTopics = getPendingTopics(currentData);
-  const nextTargetTopic = pendingTopics[0] || 'Cierre cordial de vinculación';
+  const nextTargetTopic = pendingTopics[0] || null;
 
-  const contextPrompt = `HISTORIAL RECIENTE DE LA CONVERSACIÓN:
+  let contextPrompt;
+
+  if (isAlreadyRegistered) {
+    const workshop = currentData.nombre_taller || 'tu taller';
+    const name = currentData.nombres_apellidos || 'Mecánico';
+    const city = currentData.barrio_taller || currentData.ciudad_taller || 'Medellín';
+    const idUnico = currentData.id_unico || '';
+
+    contextPrompt = `HISTORIAL RECIENTE DE LA CONVERSACIÓN:
+${recentHistory.length > 0 
+  ? recentHistory.map(m => `${m.role === 'user' ? 'Mecánico' : 'Mateo'}: "${m.content}"`).join('\n')
+  : '(Inicio de la conversación)'}
+
+DATOS DEL MECÁNICO YA REGISTRADO EN LA RED NITROX:
+- Nombre: ${name}
+- Taller: ${workshop}
+- Ubicación: ${city}
+- Rol: ${currentData.relacion_taller || 'Propietario / Mecánico'}
+- Carnet Digital / ID Único: ${idUnico}
+- Correo: ${currentData.correo || 'No especificado'} | Cédula: ${currentData.cedula || 'No especificada'}
+- Muestras gratis: ${currentData.quiere_muestras === 'Sí' || currentData.quiere_muestras === true ? 'Sí solicitadas' : 'Pendientes'}
+- ESTADO: ¡VINCULACIÓN COMPLETADA Y ACTIVA!
+
+REGLAS ABSOLUTAS PARA ESTE TURNO (MECÁNICO YA REGISTRADO):
+1. EL MECÁNICO YA HACE PARTE DE LA RED NITROX. YA TIENE SU CARNET Y SU REGISTRO LISTO.
+2. PROHIBIDO TERMINANTEMENTE: NO hagas preguntas de registro, NO preguntes por el nombre del taller, NO preguntes dónde queda ubicado, NO preguntes cuántas motos atiende, ni pidas cédula o correo. ESO YA ESTÁ RESUELTO.
+3. Si solo saluda ("hola", "buenas", "qué más", "epa"):
+   - Salúdalo con calidez paisa y entusiasmo motero, reconociéndolo a él o a su taller.
+   - Ejemplo: "¡Qué más ${name}, hermano! ¿Cómo van las cosas por ${workshop}? ¿En qué te colaboro hoy?"
+4. Si pregunta por sus muestras gratis o catálogo:
+   - Infórmale que el equipo de logística las tiene en alistamiento para despacho directo a ${workshop}.
+5. Si pregunta por su carnet o credencial:
+   - Recuérdale que su credencial está activa en https://webhook-my2e3j2ecq-uc.a.run.app/carnet/${idUnico}
+6. Si hace consultas técnicas de motos, fallas, repuestos o marcas:
+   - Responde con conocimiento motero experto y amabilidad.
+7. Longitud estricta: ENTRE 5 Y 20 PALABRAS (máximo 25 palabras). Estilo WhatsApp real.
+8. En el JSON de salida, deja "listo_para_finalizar": false (ya está finalizado).
+
+ÚLTIMO MENSAJE ENTRANTE DEL MECÁNICO:
+"${userText}"
+
+Genera la respuesta más amena, humana y contextual de Mateo.`;
+  } else {
+    contextPrompt = `HISTORIAL RECIENTE DE LA CONVERSACIÓN:
 ${recentHistory.length > 0 
   ? recentHistory.map(m => `${m.role === 'user' ? 'Mecánico' : 'Mateo'}: "${m.content}"`).join('\n')
   : '(Inicio de la conversación)'}
@@ -136,20 +188,22 @@ DATOS YA CONOCIDOS DEL MECÁNICO Y TALLER:
 ${JSON.stringify(currentData, null, 2)}
 
 TEMAS AÚN PENDIENTES POR CONOCER (EN ORDEN):
-${pendingTopics.length > 0 ? pendingTopics.map((t, idx) => `${idx + 1}. ${t}`).join('\n') : '(Todos los temas han sido abordados)'}
+${pendingTopics.length > 0 ? pendingTopics.map((t, idx) => `${idx + 1}. ${t}`).join('\n') : '(Todos los temas esenciales han sido abordados)'}
 
 OBJETIVO AMENO DE ESTE TURNO:
-- Siguiente tema prioritario a indagar con amabilidad: "${nextTargetTopic}"
-- Conversa de forma amena, cercana, cálida y motera (estilo paisa parceril).
-- Si el mecánico te cuenta algo, haz un comentario ameno sobre lo que dijo y luego indaga con naturalidad el siguiente tema pendiente.
+${nextTargetTopic ? `- Siguiente tema prioritario a indagar con amabilidad si el flujo lo permite: "${nextTargetTopic}"` : '- Todos los temas están completos. Procede con el cierre ameno y confirma autorización de datos si no se ha hecho.'}
+- CONTINUIDAD CONVERSACIONAL: Lee atentamente lo que dijo el mecánico en su último mensaje y en el historial.
+- Si el mecánico te cuenta algo, comenta primero sobre eso de forma amena y luego conecta con naturalidad.
 - Si el mecánico hace una pregunta, respóndela PRIMERO con claridad y amabilidad.
+- NUNCA hagas preguntas repetitivas sobre datos que ya te dio o mencionó.
 - NUNCA hagas más de una pregunta por mensaje.
-- NO declares "listo_para_finalizar": true si aún quedan temas pendientes por indagar.
+- NO declares "listo_para_finalizar": true si aún quedan temas esenciales pendientes por indagar.
 
 ÚLTIMO MENSAJE ENTRANTE DEL MECÁNICO:
 "${userText}"
 
 Analiza profundamente el mensaje, actualiza los datos conocidos y genera la respuesta más amena, natural y breve de Mateo (5 a 20 palabras, máximo 25 palabras).`;
+  }
 
   try {
     const response = await ai.generate({

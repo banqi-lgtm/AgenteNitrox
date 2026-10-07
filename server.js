@@ -560,6 +560,18 @@ function computeSessionTokenStats(session) {
 // 1. Resumen global de tokens y costos económicos
 app.get('/api/crm/tokens-resumen', requireAuth, async (req, res) => {
   try {
+    // Si corre en localhost, consultar en vivo a producción para paridad total e inmediata con WhatsApp
+    if (!process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
+      try {
+        const prodRes = await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/tokens-resumen', {
+          headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+        });
+        if (prodRes.ok) return res.json(await prodRes.json());
+      } catch (e) {
+        // Fallback a cálculo local si no hay internet
+      }
+    }
+
     const allSessions = await getAllSessions();
     let totalInput = 0;
     let totalOutput = 0;
@@ -616,6 +628,18 @@ app.get('/api/crm/tokens-resumen', requireAuth, async (req, res) => {
 // 2. Lista de conversaciones en vivo con métricas de tokens y costos
 app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
   try {
+    // Si corre en localhost, consultar en vivo a producción
+    if (!process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
+      try {
+        const prodRes = await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/conversaciones-en-vivo', {
+          headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+        });
+        if (prodRes.ok) return res.json(await prodRes.json());
+      } catch (e) {
+        // Fallback
+      }
+    }
+
     const allSessions = await getAllSessions();
 
     const list = allSessions.map(sess => {
@@ -658,6 +682,19 @@ app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
 app.get('/api/crm/conversacion-en-vivo/:phone', requireAuth, async (req, res) => {
   try {
     const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
+
+    // Si corre en localhost, consultar en vivo a producción
+    if (!process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
+      try {
+        const prodRes = await fetch(`https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/conversacion-en-vivo/${cleanPhone}`, {
+          headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+        });
+        if (prodRes.ok) return res.json(await prodRes.json());
+      } catch (e) {
+        // Fallback
+      }
+    }
+
     const allSessions = await getAllSessions();
     const sess = allSessions.find(s => String(s.phone).replace(/\D/g, '') === cleanPhone);
 
@@ -794,8 +831,8 @@ app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
   }
 });
 
-// Mark message as read
-async function markMessageAsRead(messageId) {
+// Mark message as read and show 3 dots typing indicator ("escribiendo...") in WhatsApp
+async function markMessageAsReadAndTyping(messageId) {
   try {
     const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
@@ -806,13 +843,33 @@ async function markMessageAsRead(messageId) {
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         status: 'read',
-        message_id: messageId
+        message_id: messageId,
+        typing_indicator: {
+          type: 'text'
+        }
       })
     });
     const d = await res.json();
-    if (d.error) console.warn('[META READ STATUS]:', d.error.message);
+    if (d.error) {
+      console.warn('[META TYPING NOTICE]:', d.error.message);
+      // Fallback: send standard read status without typing_indicator if needed
+      await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          status: 'read',
+          message_id: messageId
+        })
+      });
+    } else {
+      console.log(`💬 [META TYPING ACTIVADO] 3 puntos "escribiendo..." en WhatsApp para mensaje ${messageId}`);
+    }
   } catch (err) {
-    // ignore
+    console.warn('[META READ/TYPING CATCH]:', err.message);
   }
 }
 
@@ -882,12 +939,12 @@ async function handleIncomingMessage(req, res) {
   console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
 
   try {
-    // 1. Mark message as read
-    await markMessageAsRead(messageId);
+    // 1. Mark message as read and show 3 dots typing indicator in WhatsApp
+    await markMessageAsReadAndTyping(messageId);
 
-    // 2. Natural human pause: 800ms - 1200ms
-    const initialDelay = Math.floor(Math.random() * 400) + 800;
-    console.log(`⏳ [ESCRIBIENDO...] Pausa de ${(initialDelay / 1000).toFixed(1)}s...`);
+    // 2. Natural human pause: 1000ms - 1500ms while user sees 3 dots "escribiendo..." in WhatsApp
+    const initialDelay = Math.floor(Math.random() * 500) + 1000;
+    console.log(`⏳ [ESCRIBIENDO...] Mostrando 3 puntos en WhatsApp por ${(initialDelay / 1000).toFixed(1)}s...`);
     await sleep(initialDelay);
 
     // 3. Generate response bubbles

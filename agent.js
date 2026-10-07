@@ -552,18 +552,24 @@ function extractEntities(text, sessionData) {
 
 // Persistent session management via Firestore + RAM cache
 async function getSession(phoneNumber) {
-  if (memoryCache[phoneNumber]) {
-    return memoryCache[phoneNumber];
-  }
-
   try {
     const doc = await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).get();
     if (doc.exists) {
-      memoryCache[phoneNumber] = doc.data();
-      return memoryCache[phoneNumber];
+      const fsData = doc.data();
+      const local = memoryCache[phoneNumber];
+      // Si Firestore tiene historial igual o más largo, o no hay local, tomamos Firestore
+      if (!local || (fsData.history && fsData.history.length >= (local.history?.length || 0))) {
+        memoryCache[phoneNumber] = fsData;
+        return fsData;
+      }
+      return local;
     }
   } catch (e) {
-    console.warn('[FIRESTORE GET SESSION]', e.message);
+    // Si no hay Firestore o falla credencial (ej. local), fallback a memoria
+  }
+
+  if (memoryCache[phoneNumber]) {
+    return memoryCache[phoneNumber];
   }
 
   const newSession = {
@@ -740,24 +746,30 @@ async function generateMateoResponse(fromNumber, userText) {
 }
 
 async function getAllSessions() {
-  const sessions = [];
+  const sessionsMap = new Map();
+
+  // 1. Cargar caché de memoria primero
   for (const [phone, sess] of Object.entries(memoryCache)) {
-    sessions.push({ phone, ...sess });
+    sessionsMap.set(phone, { phone, ...sess });
   }
 
+  // 2. Sobreponer datos de Firestore (fuente de verdad oficial)
   try {
-    const snap = await admin.firestore().collection('sesiones_mateo').limit(50).get();
+    const snap = await admin.firestore().collection('sesiones_mateo').limit(100).get();
     snap.forEach(doc => {
       const phone = doc.id;
-      if (!sessions.some(s => s.phone === phone)) {
-        sessions.push({ phone, ...doc.data() });
+      const fsData = doc.data();
+      const existing = sessionsMap.get(phone);
+      if (!existing || (fsData.history && fsData.history.length >= (existing.history?.length || 0))) {
+        sessionsMap.set(phone, { phone, ...fsData });
+        memoryCache[phone] = fsData;
       }
     });
   } catch (e) {
-    // Ignore fallback
+    // Ignore fallback en local
   }
 
-  return sessions;
+  return Array.from(sessionsMap.values());
 }
 
 function resetMemoryCache() {
