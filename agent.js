@@ -274,20 +274,37 @@ function extractEntities(text, sessionData) {
   }
   if (updates.ciudad_taller) updates.ciudad_residencia = updates.ciudad_taller;
 
-  // 3. Dirección (Address)
+  // 3. Role detection (Relación con el taller)
+  const isOwner = /\b(?:propi?e?r?t[a-z]*|duen[a-z]*|dueñ[a-z]*|patr[oó]n|socio|creador|fundador|el taller es m[ií]o|es m[ií]o|yo lo manejo)\b/i.test(lower);
+  const isMechanic = /\b(?:mec[aá]nic[a-z]*|mecanic[a-z]*|emplead[a-z]*|trabajad[a-z]*|t[eé]cnic[a-z]*|las arreglo yo|yo arreglo)\b/i.test(lower);
+  const isBoth = /\b(?:ambas|las dos|ambos|ambas cosas|las 2)\b/i.test(lower) || (isOwner && isMechanic);
+
+  if (isBoth) {
+    updates.relacion_taller = 'Propietario y Mecánico';
+  } else if (isOwner) {
+    updates.relacion_taller = 'Propietario';
+  } else if (isMechanic) {
+    updates.relacion_taller = 'Mecánico';
+  } else if (/socio|copropietario/i.test(lower)) {
+    updates.relacion_taller = 'Socio';
+  }
+
+  // 4. Dirección (Address)
   const addrMatch = raw.match(/\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|cra\.|cll\.)\b\s+[0-9a-zA-Z#\s\-\.\°]+/i)
     || raw.match(/\b\d+\s*#\s*\d+[\s\-0-9a-zA-Z]*/i);
   if (addrMatch) {
     updates.direccion_taller = addrMatch[0].trim();
   } else if (sessionData._lastQuestion === 'DIRECCION' && !sessionData.direccion_taller) {
-    if (/\d/.test(raw) || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|esquina|con|frente|cerca)\b/i.test(lower)) {
+    if (isOwner || isMechanic || isBoth) {
+      updates.direccion_taller = `Sector ${sessionData.barrio_taller || 'Medellín'}`;
+    } else if (/\d/.test(raw) || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|esquina|con|frente|cerca)\b/i.test(lower)) {
       updates.direccion_taller = raw;
     } else if (isProtest || /no\s*(?:me\s*la\s*s[eé]|s[eé]|me\s*acuerdo|tengo)|por\s+el|cerca|parque/i.test(lower) || raw.trim().length >= 2) {
       updates.direccion_taller = raw.trim().length >= 2 ? raw.trim() : `Sector ${sessionData.barrio_taller || 'Medellín'}`;
     }
   }
 
-  // 4. Barrio (Only if asked or explicit 'barrio' keyword, NEVER during NOMBRE_Y_TALLER)
+  // 5. Barrio (Only if asked or explicit 'barrio' keyword, NEVER during NOMBRE_Y_TALLER)
   const isLocationTurn = sessionData._lastQuestion === 'UBICACION' || sessionData._lastQuestion === 'BARRIO';
   const hasExplicitBarrioWord = /\b(?:barrio|en el barrio)\b/i.test(lower);
   if (isLocationTurn || hasExplicitBarrioWord) {
@@ -309,20 +326,6 @@ function extractEntities(text, sessionData) {
       }
     }
   }
-
-  // 5. Role (Relación con el taller)
-  const isOwner = /\b(?:propi?e?r?t[a-z]*|duen[a-z]*|dueñ[a-z]*|patr[oó]n|socio|creador|fundador|el taller es m[ií]o|es m[ií]o|yo lo manejo)\b/i.test(lower);
-  const isMechanic = /\b(?:mec[aá]nic[a-z]*|mecanic[a-z]*|emplead[a-z]*|trabajad[a-z]*|t[eé]cnic[a-z]*|las arreglo yo|yo arreglo)\b/i.test(lower);
-  const isBoth = /\b(?:ambas|las dos|ambos|ambas cosas|las 2)\b/i.test(lower) || (isOwner && isMechanic);
-
-  if (isBoth) {
-    updates.relacion_taller = 'Propietario y Mecánico';
-  } else if (isOwner) {
-    updates.relacion_taller = 'Propietario';
-  } else if (isMechanic) {
-    updates.relacion_taller = 'Mecánico';
-  } else if (/socio|copropietario/i.test(lower)) {
-    updates.relacion_taller = 'Socio';
   }
 
   // 6. Professional Specialty (Perfil Profesional y Especialidad)

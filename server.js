@@ -532,6 +532,35 @@ app.post('/api/admin/send-whatsapp', requireAuth, async (req, res) => {
   }
 });
 
+// Admin Update Session Endpoint
+app.post('/api/admin/actualizar-sesion/:phone', requireAuth, async (req, res) => {
+  try {
+    const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
+    const { dataUpdates, addHistoryMessage } = req.body;
+    const docRef = admin.firestore().collection('sesiones_mateo').doc(cleanPhone);
+    const doc = await docRef.get();
+    let session = doc.exists ? doc.data() : { data: {}, history: [] };
+    if (!session.data) session.data = {};
+    if (!session.history) session.history = [];
+
+    if (dataUpdates) {
+      Object.assign(session.data, dataUpdates);
+    }
+    if (addHistoryMessage) {
+      session.history.push({
+        role: addHistoryMessage.role || 'assistant',
+        content: addHistoryMessage.content,
+        timestamp: addHistoryMessage.timestamp || Date.now()
+      });
+    }
+
+    await docRef.set(session, { merge: true });
+    return res.json({ success: true, phone: cleanPhone, session });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Admin Reset Endpoint: Deletes all conversation sessions and marks Mateo at zero
 app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
   try {
