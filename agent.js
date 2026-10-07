@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const { normalizeMechanicData, calculateMechanicScore, calculateNitroxLevel } = require('./scoring');
+const { processGeminiBrainTurn } = require('./gemini_brain');
 
 function triggerMlAnalysis(phoneNumber, session) {
   setImmediate(async () => {
@@ -616,194 +617,86 @@ async function saveMechanicToFirestore(phone, data) {
   return normalized;
 }
 
-// Core Prompt Maestro conversational response generator
+// Core Conversational Brain: 100% of user messages are processed by Gemini first
 async function generateMateoResponse(fromNumber, userText) {
   const session = await getSession(fromNumber);
   session.history = session.history || [];
   session.data = session.data || {};
-  session.history.push({ role: 'user', content: userText, timestamp: Date.now() });
 
-  const data = session.data;
-  const raw = userText.trim();
+  const raw = (userText || '').trim();
   const lower = raw.toLowerCase();
 
-  // Reset if user requests
-  if (/(otro taller|nuevo taller|registrar otro|reiniciar|borrar datos)/i.test(lower)) {
+  // Reset session if user explicitly requests to start over
+  if (/(?:otro taller|nuevo taller|registrar otro|reiniciar|borrar datos)/i.test(lower)) {
     session.data = {};
     session.history = [];
-    await saveSession(fromNumber, session);
-    const reply = "¡Listo! Empecemos de nuevo. ¿Cuál es tu nombre?";
-    return [reply];
   }
 
-  // 1. Pure greeting check: if user sends only a greeting first (Requirement: primero saludar, esperar que salude)
-  if (!data._initialGreetingSent && isPureGreeting(raw)) {
-    data._initialGreetingSent = true;
-    data._lastQuestion = 'WAITING_GREETING_REPLY';
-    const reply = "¡Hola! ¿Cómo estás? Soy Mateo, asesor de la RED NITROX en Medellín.";
-    session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
-    await saveSession(fromNumber, session);
-    return [reply];
-  }
+  // 1. Send turn to Gemini Conversational Brain (Gemini analyzes context, user intent, history & generates the natural reply)
+  const brainResult = await processGeminiBrainTurn(session, raw);
 
-  // 2. Extract newly provided entities
-  const newEntities = extractEntities(userText, data);
-  Object.assign(data, newEntities);
-
-  // Protest / Already Answered Handler
-  if (/(?:ya\s+(?:me\s+)?hab[ií]as\s+(?:echo|hecho|preguntado)|ya\s+te\s+(?:dije|respond[ií])|eso\s+ya\s+te\s+lo\s+(?:dije|respond[ií])|ya\s+lo\s+dije|ya\s+respond[ií]|esa\s+pregunta\s+ya)/i.test(lower)) {
-    if (data._lastQuestion === 'ROL' || data._lastQuestion === 'ESPECIALIDAD' || data._lastQuestion === 'ROL_Y_ESPECIALIDAD') {
-      if (!data.relacion_taller) data.relacion_taller = 'Propietario';
-      if (!data.especialidad || data.especialidad.length === 0) data.especialidad = ['Mecánica general'];
-    } else if (data._lastQuestion === 'UBICACION' || data._lastQuestion === 'DIRECCION' || data._lastQuestion === 'BARRIO') {
-      if (!data.direccion_taller) data.direccion_taller = 'Registrada en taller';
-      if (!data.barrio_taller) data.barrio_taller = data.ciudad_taller || 'Medellín';
-    } else if (data._lastQuestion === 'VOLUMEN' || data._lastQuestion === 'VOLUMEN_Y_MARCAS' || data._lastQuestion === 'MARCAS_MOTOS') {
-      if (!data.motos_por_semana) data.motos_por_semana = '15–20 motos/semana';
-      if (!data.marcas_motos || data.marcas_motos.length === 0) data.marcas_motos = ['Variadas / Todas'];
-    }
-    delete data._lastQuestion;
-  }
-
-  // If user was answering the initial greeting:
-  if (data._lastQuestion === 'WAITING_GREETING_REPLY') {
-    delete data._lastQuestion;
-    if (!data.nombres_apellidos) {
-      data._lastQuestion = 'NOMBRE';
-      const reply = "Me alegra. ¿Cuál es tu nombre?";
-      session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
-      await saveSession(fromNumber, session);
-      return [reply];
+  // 2. Merge extracted semantic data from Gemini Brain
+  if (brainResult.updates && typeof brainResult.updates === 'object') {
+    for (const [key, val] of Object.entries(brainResult.updates)) {
+      if (val !== null && val !== undefined && val !== '') {
+        if (Array.isArray(val) && val.length === 0) continue;
+        session.data[key] = val;
+      }
     }
   }
 
-  // 3. Synchronize progressively to Firestore / CRM
-  if (data.nombres_apellidos || data.nombre_taller) {
-    await saveMechanicToFirestore(fromNumber, data);
-  }
-
-  const firstName = (data.nombres_apellidos || '').split(' ')[0] || '';
-  const workshopName = data.nombre_taller || '';
-
-  // 4. User inquiry interceptor (if user asks what RED NITROX is)
-  if (/(que es red nitrox|de que se trata|para que es|que beneficios|quien es nitrox)/i.test(lower)) {
-    let reply = "Es una red de talleres aliados de NITROX en Medellín con capacitaciones, muestras de repuestos y beneficios directos.";
-    if (!data.nombres_apellidos) {
-      reply += " ¿Cuál es tu nombre?";
-      data._lastQuestion = 'NOMBRE';
-    } else if (!data.nombre_taller) {
-      reply += " ¿Cómo se llama tu taller de motos?";
-      data._lastQuestion = 'TALLER';
+  // 3. Fallback deterministic regex extraction for high-precision entities (email, cedula/nit, phone)
+  const regexEntities = extractEntities(raw, session.data);
+  for (const [key, val] of Object.entries(regexEntities)) {
+    if (val !== null && val !== undefined && val !== '' && !session.data[key]) {
+      session.data[key] = val;
     }
-    session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+  }
+
+  // Clean formatting for workshop and personal names
+  if (session.data.nombre_taller) {
+    session.data.nombre_taller = cleanWorkshopName(session.data.nombre_taller);
+  }
+  if (session.data.nombres_apellidos) {
+    session.data.nombres_apellidos = cleanPersonName(session.data.nombres_apellidos) || session.data.nombres_apellidos;
+  }
+
+  // Check Habeas Data resolution
+  if (session.data.autorizacion_tratamiento_datos !== undefined && session.data.autorizacion_tratamiento_datos !== null) {
+    session.data._habeasDataRespondido = true;
+  }
+
+  // Progressive sync with Firestore / CRM
+  if (session.data.nombres_apellidos || session.data.nombre_taller) {
+    await saveMechanicToFirestore(fromNumber, session.data);
+  }
+
+  // 4. Update session history
+  session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
+  session.history.push({ role: 'assistant', content: brainResult.reply, timestamp: Date.now() });
+
+  // 5. Final Delivery Check (QR Credential & Digital Carnet)
+  const isFinished = Boolean(brainResult.isFinished || (session.data._habeasDataRespondido && session.data.nombre_taller));
+
+  if (isFinished && !session.data._finished) {
+    session.data._finished = true;
+    const mechanic = await saveMechanicToFirestore(fromNumber, session.data);
     await saveSession(fromNumber, session);
-    return [reply];
-  }
+    triggerMlAnalysis(fromNumber, session);
 
-  // 5. Decide the SINGLE logical next response based on memory and context
-  let reply = '';
+    // If mechanic declined Habeas Data
+    if (session.data.autorizacion_tratamiento_datos === false) {
+      return [brainResult.reply];
+    }
 
-  // 1. Ambiguity resolution for Name vs Workshop
-  if (data._ambiguousName) {
-    data._lastQuestion = 'CLARIFY_NOMBRE_O_TALLER';
-    reply = `¿${data._ambiguousName} es tu nombre o el nombre de tu taller? Si quieres me los puedes enviar por separado.`;
-  }
-  // 2. Step 1: Missing Person Name
-  else if (!data.nombres_apellidos) {
-    data._lastQuestion = 'NOMBRE';
-    reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cuál es tu nombre?";
-  }
-  // 3. Step 2: Missing Workshop Name
-  else if (!data.nombre_taller) {
-    data._lastQuestion = 'TALLER';
-    reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller de motos?`;
-  }
-  // 4. Location (Barrio & Address obligatory!)
-  else if (!data.barrio_taller && !data.direccion_taller) {
-    data._lastQuestion = 'UBICACION';
-    reply = `Mucho gusto, ${firstName}. ¿En qué barrio y en qué dirección queda ${workshopName}?`;
-  } else if (data.barrio_taller && !data.direccion_taller) {
-    data._lastQuestion = 'DIRECCION';
-    reply = `Listo en ${data.barrio_taller}. ¿Y cuál es la dirección exacta del taller?`;
-  } else if (!data.barrio_taller && data.direccion_taller) {
-    data._lastQuestion = 'BARRIO';
-    reply = `Anotada la dirección. ¿Y en qué barrio o municipio queda el taller?`;
-  }
-  // 5. Role & Specialty (Perfil Profesional) - Strictly 1 question at a time!
-  else if (!data.relacion_taller) {
-    data._lastQuestion = 'ROL';
-    reply = `Anotado. ¿Eres el propietario o el mecánico del taller?`;
-  } else if (!data.especialidad || data.especialidad.length === 0) {
-    data._lastQuestion = 'ESPECIALIDAD';
-    reply = `Listo, ${data.relacion_taller.toLowerCase()}. ¿Y cuál es tu especialidad en el taller: motor, frenos, electricidad o de todo?`;
-  }
-  // 6. Volume & Motorcycle Brands
-  else if (!data.motos_por_semana) {
-    data._lastQuestion = 'VOLUMEN';
-    reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana en el taller?`;
-  } else if (!data.marcas_motos || data.marcas_motos.length === 0) {
-    data._lastQuestion = 'MARCAS_MOTOS';
-    reply = `Buen flujo de ${data.motos_por_semana}. ¿Y qué marcas son las que más te llegan al taller?`;
-  }
-  // 7. Frequent Parts & Recommended Brand
-  else if (!data.repuestos_frecuentes || data.repuestos_frecuentes.length === 0) {
-    data._lastQuestion = 'REPUESTOS';
-    reply = `Buen dato. ¿Qué repuestos cambias con más frecuencia en el taller?`;
-  } else if (!data.marcas_repuestos_usadas || data.marcas_repuestos_usadas.length === 0) {
-    data._lastQuestion = 'MARCA_RECOMENDADA';
-    const repuestosTxt = Array.isArray(data.repuestos_frecuentes) && data.repuestos_frecuentes.length > 0
-      ? (data.repuestos_frecuentes[0].toLowerCase().includes('todo') ? 'el mantenimiento general' : data.repuestos_frecuentes.slice(0, 2).join(' y '))
-      : 'eso';
-    reply = `Excelente, ${repuestosTxt} mueve buen volumen. ¿Y qué marca de repuestos sueles recomendar en el taller y por qué?`;
-  }
-  // 8. NITROX Experience & Samples Offer
-  else if (!data.conoce_nitrox) {
-    data._lastQuestion = 'NITROX_EXP_INTERES';
-    reply = `Buen dato. ¿Has trabajado antes con repuestos NITROX, o te interesaría recibir muestras y capacitaciones para el taller?`;
-  } else if (data.conoce_nitrox === 'No' && !data.quiere_muestras && !data._ofertaMuestrasHecha) {
-    data._ofertaMuestrasHecha = true;
-    data._lastQuestion = 'OFERTA_MUESTRAS';
-    reply = `Entendido. En NITROX manejamos excelente calidad y precios directos para talleres. ¿Te gustaría recibir muestras y catálogo?`;
-  } else if (data.conoce_nitrox === 'Sí' && !data.canal_compra) {
-    data._lastQuestion = 'CANAL_COMPRA';
-    reply = `Excelente. ¿Y dónde compras los repuestos normalmente: distribuidor, almacén o directo?`;
-  }
-  // 8. Contact Info for Benefits (Pre-QR)
-  else if (!data._datosBeneficiosSolicitados && !data.correo && !data.cedula) {
-    data._datosBeneficiosSolicitados = true;
-    data._lastQuestion = 'BENEFICIOS_DATOS';
-    reply = `¡De una! Para enviarte los beneficios oficiales y activar tu vinculación, ¿me regalas tu Correo y tu Cédula o NIT?`;
-  }
-  // 9. Habeas Data / Legal Data Treatment Acceptance
-  else if (!data._habeasDataRespondido) {
-    data._lastQuestion = 'HABEAS_DATA';
-    reply = `Para registrar tu taller y enviarte beneficios oficiales, ¿autorizas a RED NITROX el tratamiento de tus datos? (Responde Sí o No)`;
-  }
-  // 10. Final Delivery (QR & Credential)
-  else if (!data._finished) {
-    data._finished = true;
-    const mechanic = await saveMechanicToFirestore(fromNumber, data);
-    const uniqueId = mechanic.id_unico || data.id_unico || (`RN-MED-${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
+    // Mechanic accepted Habeas Data -> Deliver QR card image + digital carnet link
+    const cleanPhone = (fromNumber || '').replace(/\D/g, '');
+    const uniqueId = mechanic.id_unico || session.data.id_unico || (`RN-MED-${(cleanPhone.slice(-4) || 'RN') + Math.random().toString(36).substring(2, 6).toUpperCase()}`);
     const baseUrl = 'https://webhook-my2e3j2ecq-uc.a.run.app';
     const cardUrl = `${baseUrl}/carnet/${encodeURIComponent(uniqueId)}`;
     const cardImageUrl = `${baseUrl}/api/card-image/${encodeURIComponent(uniqueId)}.png`;
+    const workshopLabel = session.data.nombre_taller || 'tu taller';
 
-    const nameLabel = firstName || 'amigo';
-    const workshopLabel = workshopName || 'tu taller';
-
-    if (data.autorizacion_tratamiento_datos === false) {
-      const bubble1 = `Entendido, ${nameLabel}. Respetamos tu decisión. Registramos tu taller sin enviar comunicaciones comerciales. ¡A la orden siempre!`;
-      session.history.push({ role: 'assistant', content: bubble1, timestamp: Date.now() });
-      await saveSession(fromNumber, session);
-      triggerMlAnalysis(fromNumber, session);
-      return [bubble1];
-    }
-
-    const sampleNote = data.quiere_muestras === 'Sí'
-      ? 'Te tendremos súper en cuenta para hacerte llegar las muestras y el catálogo.'
-      : 'Quedo súper atento por acá para lo que necesites.';
-
-    const bubble1 = `Listo ${nameLabel}, anotado todo. ${sampleNote} Muy bacano ${workshopLabel}.`;
     const qrBubble = {
       type: 'image',
       url: cardImageUrl,
@@ -811,28 +704,13 @@ async function generateMateoResponse(fromNumber, userText) {
     };
     const bubble2 = `🏁 *¡Ya haces parte de la RED NITROX!*\n\nAquí tienes tu enlace y credencial digital oficial de ${workshopLabel}:\n👉 ${cardUrl}\n\n¡Bienvenido a la red de talleres aliados!`;
 
-    session.history.push({ role: 'assistant', content: `${bubble1}\n${bubble2}`, timestamp: Date.now() });
-    await saveSession(fromNumber, session);
-    triggerMlAnalysis(fromNumber, session);
-
-    return [bubble1, qrBubble, bubble2];
-  } else {
-    const uniqueId = data.id_unico || '';
-    const linkSuffix = uniqueId ? `\n👉 https://webhook-my2e3j2ecq-uc.a.run.app/carnet/${encodeURIComponent(uniqueId)}` : '';
-    reply = `¡Con todo el gusto ${firstName || ''}! Por acá a la orden siempre.${linkSuffix}`;
+    return [brainResult.reply, qrBubble, bubble2];
   }
 
-  // Word count checklist enforcement
-  const wc = countWords(reply);
-  if (wc > 25) {
-    console.warn(`[WARNING: REPLY OVER 25 WORDS (${wc})]:`, reply);
-  }
-
-  session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+  // Normal turn or post-registration follow up
   await saveSession(fromNumber, session);
 
-  // Return single clean, natural WhatsApp bubble
-  return [reply];
+  return [brainResult.reply];
 }
 
 function resetMemoryCache() {
