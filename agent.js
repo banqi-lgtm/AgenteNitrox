@@ -771,5 +771,7 @@ module.exports = {
   admin,
   localMecanicosStore,
   getAllSessions,
+  saveSession,
+  memoryCache,
   resetMemoryCache
 };

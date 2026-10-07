@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
-const { generateMateoResponse, admin, localMecanicosStore, getAllSessions, resetMemoryCache } = require('./agent');
+const { generateMateoResponse, admin, localMecanicosStore, getAllSessions, saveSession, memoryCache, resetMemoryCache } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
 const { generateCardImage } = require('./card_generator');
@@ -943,8 +943,67 @@ exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res
   }
 });
 
+// Local Development Sync: Automatically sync production data to RAM when running on localhost
+async function syncFromProductionIfLocal() {
+  if (process.env.FUNCTION_TARGET || process.env.K_SERVICE) {
+    return;
+  }
+  try {
+    const prodBase = 'https://webhook-my2e3j2ecq-uc.a.run.app';
+    const authHeaders = { 'Authorization': `Bearer ${ADMIN_TOKEN}` };
+
+    console.log('🔄 [LOCALHOST SYNC] Sincronizando datos de talleres y tokens desde producción...');
+    
+    // 1. Sync mechanics
+    const mecsRes = await fetch(`${prodBase}/api/crm/mecanicos`, { headers: authHeaders });
+    if (mecsRes.ok) {
+      const mecsData = await mecsRes.json();
+      if (Array.isArray(mecsData.mecanicos) && mecsData.mecanicos.length > 0) {
+        localMecanicosStore.length = 0;
+        mecsData.mecanicos.forEach(m => localMecanicosStore.push(m));
+        console.log(`✅ [LOCALHOST SYNC] ${localMecanicosStore.length} mecánicos sincronizados.`);
+      }
+    }
+
+    // 2. Sync conversations & sessions
+    const convsRes = await fetch(`${prodBase}/api/crm/conversaciones-en-vivo`, { headers: authHeaders });
+    if (convsRes.ok) {
+      const convsData = await convsRes.json();
+      if (Array.isArray(convsData.conversaciones)) {
+        for (const conv of convsData.conversaciones) {
+          const detailRes = await fetch(`${prodBase}/api/crm/conversacion-en-vivo/${conv.phone}`, { headers: authHeaders });
+          if (detailRes.ok) {
+            const detail = await detailRes.json();
+            if (detail.success) {
+              const session = {
+                data: detail.data || {},
+                history: detail.history || [],
+                tokenStats: detail.tokenStats || {}
+              };
+              await saveSession(conv.phone, session);
+            }
+          }
+        }
+        console.log(`✅ [LOCALHOST SYNC] Conversaciones y tokens sincronizados.`);
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ [LOCALHOST SYNC WARNING]:', err.message);
+  }
+}
+
+app.post('/api/crm/sync-production', requireAuth, async (req, res) => {
+  try {
+    await syncFromProductionIfLocal();
+    return res.json({ success: true, count: localMecanicosStore.length });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 if (require.main === module && !process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`🚀 Servidor Mateo NITROX activo en el puerto ${PORT}`);
+    await syncFromProductionIfLocal();
   });
 }
