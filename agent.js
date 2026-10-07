@@ -671,9 +671,35 @@ async function generateMateoResponse(fromNumber, userText) {
     await saveMechanicToFirestore(fromNumber, session.data);
   }
 
-  // 4. Update session history
+  // Token usage tracking and economics calculation
+  session.tokenStats = session.tokenStats || {
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalTokens: 0,
+    totalCostUsd: 0,
+    totalCostCop: 0,
+    turnsCount: 0
+  };
+
+  if (brainResult.tokenUsage) {
+    const tu = brainResult.tokenUsage;
+    session.tokenStats.totalInputTokens += (tu.inputTokens || 0);
+    session.tokenStats.totalOutputTokens += (tu.outputTokens || 0);
+    session.tokenStats.totalTokens += (tu.totalTokens || 0);
+    session.tokenStats.totalCostUsd = Number((session.tokenStats.totalCostUsd + (tu.costUsd || 0)).toFixed(7));
+    session.tokenStats.totalCostCop = Number((session.tokenStats.totalCostCop + (tu.costCop || 0)).toFixed(4));
+    session.tokenStats.turnsCount += 1;
+    session.tokenStats.lastUpdated = new Date().toISOString();
+  }
+
+  // 4. Update session history with token metrics
   session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
-  session.history.push({ role: 'assistant', content: brainResult.reply, timestamp: Date.now() });
+  session.history.push({
+    role: 'assistant',
+    content: brainResult.reply,
+    timestamp: Date.now(),
+    tokens: brainResult.tokenUsage
+  });
 
   // 5. Final Delivery Check (QR Credential & Digital Carnet)
   const isFinished = Boolean(brainResult.isFinished || (session.data._habeasDataRespondido && session.data.nombre_taller));
@@ -713,6 +739,27 @@ async function generateMateoResponse(fromNumber, userText) {
   return [brainResult.reply];
 }
 
+async function getAllSessions() {
+  const sessions = [];
+  for (const [phone, sess] of Object.entries(memoryCache)) {
+    sessions.push({ phone, ...sess });
+  }
+
+  try {
+    const snap = await admin.firestore().collection('sesiones_mateo').limit(50).get();
+    snap.forEach(doc => {
+      const phone = doc.id;
+      if (!sessions.some(s => s.phone === phone)) {
+        sessions.push({ phone, ...doc.data() });
+      }
+    });
+  } catch (e) {
+    // Ignore fallback
+  }
+
+  return sessions;
+}
+
 function resetMemoryCache() {
   for (const k in memoryCache) {
     delete memoryCache[k];
@@ -723,5 +770,6 @@ module.exports = {
   generateMateoResponse,
   admin,
   localMecanicosStore,
+  getAllSessions,
   resetMemoryCache
 };

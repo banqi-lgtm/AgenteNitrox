@@ -651,11 +651,330 @@
       border-radius: 20px;
       letter-spacing: 0.5px;
       box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
-      animation: pulse-glow 2s infinite;
+    .live-badge-pulse {
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+      animation: pulse-glow-green 2s infinite;
     }
-    @keyframes pulse-glow {
+    @keyframes pulse-glow-green {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.85; transform: scale(1.05); }
+    }
+
+    .tokens-header-banner {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(20, 23, 33, 0.9));
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 14px;
+      padding: 22px 26px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .tokens-banner-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .tokens-banner-desc {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      max-width: 780px;
+      line-height: 1.5;
+    }
+    .tokens-banner-rates {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .rate-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .rate-pill strong {
+      color: #10B981;
+    }
+
+    /* Tokens & Live Chat Split Layout */
+    .tokens-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      height: 720px;
+      margin-bottom: 40px;
+    }
+    @media (max-width: 1024px) {
+      .tokens-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+
+    .conv-list-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .conv-list-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .conv-search-input {
+      width: 100%;
+      background: #0B0E14;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 0.88rem;
+    }
+    .conv-search-input:focus {
+      outline: none;
+      border-color: #10B981;
+    }
+    .conv-items-container {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .conv-card {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .conv-card:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .conv-card.active {
+      background: rgba(16, 185, 129, 0.08);
+      border-left: 3px solid #10B981;
+    }
+    .conv-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .conv-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+    }
+    .conv-time {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+    .conv-workshop {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .conv-last-msg {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .conv-meta-badges {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .token-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10B981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .cost-badge {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .status-badge-live {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10B981;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .status-badge-done {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3B82F6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .conv-chat-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .chat-header-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10B981, #059669);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      font-size: 1.1rem;
+    }
+    .chat-header-stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-stat-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      text-align: right;
+    }
+    .chat-stat-val {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #10B981;
+    }
+    .chat-stat-sub {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .chat-live-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .chat-body {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: #0B0E14;
+    }
+    .chat-bubble-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 75%;
+    }
+    .chat-bubble-row.user {
+      align-self: flex-start;
+    }
+    .chat-bubble-row.assistant {
+      align-self: flex-end;
+    }
+    .chat-bubble {
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      position: relative;
+    }
+    .chat-bubble-row.user .chat-bubble {
+      background: #1B2130;
+      color: #fff;
+      border: 1px solid #2B3347;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-bubble-row.assistant .chat-bubble {
+      background: #142328;
+      color: #E2E8F0;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-bottom-right-radius: 4px;
+    }
+    .chat-bubble-author {
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .chat-bubble-row.user .chat-bubble-author {
+      color: #60A5FA;
+    }
+    .chat-bubble-row.assistant .chat-bubble-author {
+      color: #10B981;
+    }
+    .chat-bubble-tokens-footer {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      color: #10B981;
+    }
+    .chat-bubble-time {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      align-self: flex-end;
+      margin-top: 2px;
     }
 
     /* ML Banner */
@@ -887,6 +1206,11 @@
         <span>Machine Learning</span>
         <span class="ai-badge-pulse">AI LIVE</span>
       </button>
+      <button class="nav-tab" id="tabBtnTokens">
+        <span class="tab-icon">💬</span>
+        <span>Tokens y Conversaciones</span>
+        <span class="live-badge-pulse">LIVE</span>
+      </button>
     </div>
   </div>
 
@@ -1082,6 +1406,101 @@
       </div>
     </div>
     <!-- End View: Machine Learning -->
+
+    <!-- View: Tokens y Conversaciones en Vivo -->
+    <div id="viewTokens" style="display: none;">
+      <!-- Banner -->
+      <div class="tokens-header-banner">
+        <div>
+          <div class="tokens-banner-title">
+            <span>🪙 Motor Conversacional Gemini • Monitor de Tokens y Costos</span>
+            <span class="live-badge-pulse">LIVE</span>
+          </div>
+          <p class="tokens-banner-desc">
+            Supervisión en tiempo real de tokens consumidos e inversión económica por cada turno de Mateo. El 100% de las interacciones pasan por Gemini para entender contexto, eliminar fricciones y responder en tiempo récord.
+          </p>
+        </div>
+        <div class="tokens-banner-rates">
+          <div class="rate-pill">Tarifa Prompt: <strong>$0.075 USD / 1M</strong></div>
+          <div class="rate-pill">Tarifa Respuesta: <strong>$0.30 USD / 1M</strong></div>
+          <div class="rate-pill">Tasa de Cambio: <strong>$4,000 COP / USD</strong></div>
+        </div>
+      </div>
+
+      <!-- KPI Grid Tokens -->
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-left: 4px solid #10B981;">
+          <span class="kpi-label">🪙 Total Tokens Gastados</span>
+          <div class="kpi-value" id="tokKpiTotal">0</div>
+          <span class="kpi-sub" id="tokKpiBreakdown">0 Prompt • 0 Respuesta</span>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #F59E0B;">
+          <span class="kpi-label">💵 Inversión Económica Real</span>
+          <div class="kpi-value" id="tokKpiCostCop" style="color: #F59E0B;">$0 COP</div>
+          <span class="kpi-sub" id="tokKpiCostUsd">$0.0000 USD</span>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
+          <span class="kpi-label">⚡ Costo Promedio / Chat</span>
+          <div class="kpi-value" id="tokKpiAvgCop" style="color: #3B82F6;">$0 COP</div>
+          <span class="kpi-sub" id="tokKpiAvgTokens">0 tokens / taller</span>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #8B5CF6;">
+          <span class="kpi-label">💬 Conversaciones y Turnos</span>
+          <div class="kpi-value" id="tokKpiConvs">0</div>
+          <span class="kpi-sub" id="tokKpiTurns">0 turnos interactivos</span>
+        </div>
+      </div>
+
+      <!-- Split Layout: Conversation List + Live Chat Viewer -->
+      <div class="tokens-layout">
+        <!-- Columna Izquierda: Lista de Conversaciones -->
+        <div class="conv-list-panel">
+          <div class="conv-list-header">
+            <input type="text" id="convSearchInput" class="conv-search-input" placeholder="🔍 Buscar por nombre, taller o teléfono...">
+          </div>
+          <div class="conv-items-container" id="convItemsList">
+            <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+              Cargando conversaciones...
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Visor de Chat en Vivo -->
+        <div class="conv-chat-panel">
+          <div class="chat-header" id="chatHeaderBox">
+            <div class="chat-header-info">
+              <div class="chat-avatar" id="chatAvatar">M</div>
+              <div>
+                <h3 id="chatMechanicName" style="color: #fff; font-size: 1.05rem;">Selecciona una conversación</h3>
+                <p id="chatWorkshopSubtitle" style="font-size: 0.8rem; color: var(--text-muted);">Haz clic en cualquier conversación de la izquierda para ver el chat en vivo y sus costos</p>
+              </div>
+            </div>
+            <div class="chat-header-stats" id="chatHeaderStats" style="display: none;">
+              <div class="chat-stat-box">
+                <div class="chat-stat-val" id="chatTokensVal">0</div>
+                <div class="chat-stat-sub">Tokens del chat</div>
+              </div>
+              <div class="chat-stat-box">
+                <div class="chat-stat-val" id="chatCostVal" style="color: #F59E0B;">$0 COP</div>
+                <div class="chat-stat-sub" id="chatCostUsdVal">$0.00 USD</div>
+              </div>
+              <label class="chat-live-toggle">
+                <input type="checkbox" id="liveRefreshToggle" checked>
+                <span>🔴 En Vivo (4s)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="chat-body" id="chatMessagesContainer">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); gap: 10px;">
+              <span style="font-size: 2.5rem;">💬</span>
+              <p>Selecciona un chat en la lista para inspeccionar los mensajes y los tokens consumidos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End View: Tokens y Conversaciones -->
 
   <!-- Modal Ficha Maestra -->
   <div class="modal-overlay" id="sheetModal">
@@ -1595,23 +2014,32 @@
     // ==========================================
     const tabBtnMechanics = document.getElementById('tabBtnMechanics');
     const tabBtnMl = document.getElementById('tabBtnMl');
+    const tabBtnTokens = document.getElementById('tabBtnTokens');
     const viewMechanics = document.getElementById('viewMechanics');
     const viewMl = document.getElementById('viewMl');
+    const viewTokens = document.getElementById('viewTokens');
 
-    tabBtnMechanics.addEventListener('click', () => {
-      tabBtnMechanics.classList.add('active');
-      tabBtnMl.classList.remove('active');
-      viewMechanics.style.display = 'block';
-      viewMl.style.display = 'none';
-    });
+    function switchTab(activeTab) {
+      tabBtnMechanics.classList.toggle('active', activeTab === 'mechanics');
+      tabBtnMl.classList.toggle('active', activeTab === 'ml');
+      tabBtnTokens.classList.toggle('active', activeTab === 'tokens');
 
-    tabBtnMl.addEventListener('click', () => {
-      tabBtnMl.classList.add('active');
-      tabBtnMechanics.classList.remove('active');
-      viewMechanics.style.display = 'none';
-      viewMl.style.display = 'block';
-      loadMlLearnings();
-    });
+      viewMechanics.style.display = activeTab === 'mechanics' ? 'block' : 'none';
+      viewMl.style.display = activeTab === 'ml' ? 'block' : 'none';
+      viewTokens.style.display = activeTab === 'tokens' ? 'block' : 'none';
+
+      if (activeTab === 'ml') loadMlLearnings();
+      if (activeTab === 'tokens') {
+        loadTokensData();
+        startTokensLiveAutoRefresh();
+      } else {
+        stopTokensLiveAutoRefresh();
+      }
+    }
+
+    tabBtnMechanics.addEventListener('click', () => switchTab('mechanics'));
+    tabBtnMl.addEventListener('click', () => switchTab('ml'));
+    tabBtnTokens.addEventListener('click', () => switchTab('tokens'));
 
     let allMlLearnings = [];
 
@@ -1855,6 +2283,228 @@
 
     document.getElementById('mlSearchInput').addEventListener('input', renderMlTable);
     document.getElementById('mlSentimentFilter').addEventListener('change', renderMlTable);
+
+    // ==========================================
+    // TOKENS & LIVE CONVERSATIONS LOGIC
+    // ==========================================
+    let allLiveConversations = [];
+    let selectedPhone = null;
+    let tokensLiveTimer = null;
+
+    async function loadTokensData() {
+      await Promise.all([
+        loadTokensResumen(),
+        loadLiveConversationsList()
+      ]);
+    }
+
+    async function loadTokensResumen() {
+      try {
+        const res = await fetch('/api/crm/tokens-resumen', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          localStorage.removeItem('nitrox_admin_token');
+          window.location.href = '/login';
+          return;
+        }
+        const data = await res.json();
+        if (data.success && data.metricas) {
+          const m = data.metricas;
+          document.getElementById('tokKpiTotal').textContent = m.totalTokens.toLocaleString();
+          document.getElementById('tokKpiBreakdown').textContent = `${m.totalInputTokens.toLocaleString()} Prompt • ${m.totalOutputTokens.toLocaleString()} Respuesta`;
+          document.getElementById('tokKpiCostCop').textContent = `$${m.totalCostCop.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
+          document.getElementById('tokKpiCostUsd').textContent = `$${m.totalCostUsd.toFixed(4)} USD`;
+          document.getElementById('tokKpiAvgCop').textContent = `$${m.promedioCostoCopPorConversacion.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
+          document.getElementById('tokKpiAvgTokens').textContent = `${m.promedioTokensPorConversacion.toLocaleString()} tokens / taller`;
+          document.getElementById('tokKpiConvs').textContent = m.totalConversaciones;
+          document.getElementById('tokKpiTurns').textContent = `${m.totalTurnosInteractivos} turnos interactivos`;
+        }
+      } catch (err) {
+        console.warn('Error cargando resumen de tokens:', err);
+      }
+    }
+
+    async function loadLiveConversationsList() {
+      const container = document.getElementById('convItemsList');
+      try {
+        const res = await fetch('/api/crm/conversaciones-en-vivo', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) return;
+        const data = await res.json();
+        allLiveConversations = data.conversaciones || [];
+        renderConversationsList();
+
+        // Si hay una seleccionada, refrescar su chat
+        if (selectedPhone) {
+          refreshSelectedChat(selectedPhone, false);
+        } else if (allLiveConversations.length > 0) {
+          // Seleccionar la primera por defecto
+          selectConversation(allLiveConversations[0].phone);
+        }
+      } catch (err) {
+        container.innerHTML = `<div style="padding: 20px; color: var(--accent); text-align: center;">Error al cargar conversaciones: ${err.message}</div>`;
+      }
+    }
+
+    function renderConversationsList() {
+      const container = document.getElementById('convItemsList');
+      const filter = (document.getElementById('convSearchInput').value || '').toLowerCase().trim();
+
+      const filtered = allLiveConversations.filter(c => {
+        const matchName = (c.nombres_apellidos || '').toLowerCase().includes(filter);
+        const matchWorkshop = (c.nombre_taller || '').toLowerCase().includes(filter);
+        const matchPhone = (c.phone || '').includes(filter);
+        const matchBarrio = (c.barrio_taller || '').toLowerCase().includes(filter);
+        return matchName || matchWorkshop || matchPhone || matchBarrio;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted);">No se encontraron conversaciones que coincidan.</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(c => {
+        const isAct = c.phone === selectedPhone ? 'active' : '';
+        const isLive = c.estado !== 'finalizada';
+        const statusBadge = isLive 
+          ? `<span class="status-badge-live">🟢 En Vivo</span>` 
+          : `<span class="status-badge-done">🏁 Finalizada</span>`;
+        
+        const lastMsgTxt = c.ultimoMensaje ? c.ultimoMensaje.content : 'Sin mensajes aún';
+        const timeStr = c.ultimoMensaje && c.ultimoMensaje.timestamp 
+          ? new Date(c.ultimoMensaje.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : '';
+
+        const tok = c.tokens || {};
+        const totalTok = tok.totalTokens || 0;
+        const costCop = tok.totalCostCop ? `$${tok.totalCostCop.toFixed(1)} COP` : '$0 COP';
+
+        return `
+          <div class="conv-card ${isAct}" onclick="selectConversation('${c.phone}')">
+            <div class="conv-card-top">
+              <span class="conv-name">${escapeHtml(c.nombres_apellidos || 'Mecánico')}</span>
+              <span class="conv-time">${timeStr}</span>
+            </div>
+            <div class="conv-workshop">
+              <span>🔧 ${escapeHtml(c.nombre_taller || 'Taller')}</span>
+              <span>· ${escapeHtml(c.barrio_taller || 'Medellín')}</span>
+            </div>
+            <div class="conv-last-msg">${escapeHtml(lastMsgTxt)}</div>
+            <div class="conv-meta-badges">
+              ${statusBadge}
+              <span class="token-badge">🪙 ${totalTok.toLocaleString()} tok</span>
+              <span class="cost-badge">💵 ${costCop}</span>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">💬 ${c.mensajesTotales} msgs</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function selectConversation(phone) {
+      selectedPhone = phone;
+      document.querySelectorAll('.conv-card').forEach(el => el.classList.remove('active'));
+      const activeCard = Array.from(document.querySelectorAll('.conv-card')).find(el => el.getAttribute('onclick')?.includes(phone));
+      if (activeCard) activeCard.classList.add('active');
+
+      await refreshSelectedChat(phone, true);
+    }
+
+    async function refreshSelectedChat(phone, shouldScroll = false) {
+      if (!phone) return;
+      try {
+        const res = await fetch(`/api/crm/conversacion-en-vivo/${phone}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) return;
+        const data = await res.json();
+        if (!data.success) return;
+
+        const d = data.data || {};
+        const tok = data.tokenStats || {};
+        const history = data.history || [];
+
+        // Header
+        const name = d.nombres_apellidos || 'Mecánico WhatsApp';
+        const workshop = d.nombre_taller || 'Taller sin nombre';
+        const barrio = d.barrio_taller || d.ciudad_taller || 'Medellín';
+        const initial = name.charAt(0).toUpperCase() || 'M';
+
+        document.getElementById('chatAvatar').textContent = initial;
+        document.getElementById('chatMechanicName').textContent = `${name} (+${phone})`;
+        document.getElementById('chatWorkshopSubtitle').textContent = `🔧 ${workshop} · 📍 ${barrio} · Rol: ${d.relacion_taller || 'Mecánico'}`;
+
+        document.getElementById('chatHeaderStats').style.display = 'flex';
+        document.getElementById('chatTokensVal').textContent = (tok.totalTokens || 0).toLocaleString();
+        document.getElementById('chatCostVal').textContent = `$${(tok.totalCostCop || 0).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
+        document.getElementById('chatCostUsdVal').textContent = `$${(tok.totalCostUsd || 0).toFixed(5)} USD`;
+
+        // Body
+        const container = document.getElementById('chatMessagesContainer');
+        if (history.length === 0) {
+          container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-dim);">No hay mensajes en esta conversación.</div>`;
+          return;
+        }
+
+        container.innerHTML = history.map(msg => {
+          const isUser = msg.role === 'user';
+          const author = isUser ? `👤 ${name.split(' ')[0] || 'Mecánico'} (+${phone})` : `⚡ Mateo NITROX`;
+          const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          
+          let tokenPill = '';
+          if (!isUser && msg.tokens && msg.tokens.totalTokens) {
+            const t = msg.tokens;
+            tokenPill = `
+              <div class="chat-bubble-tokens-footer">
+                <span>🪙 <strong>${t.totalTokens} tokens</strong> (${t.inputTokens} prompt / ${t.outputTokens} gen)</span>
+                <span>💵 $${(t.costCop || 0).toFixed(2)} COP &bull; $${(t.costUsd || 0).toFixed(5)} USD</span>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="chat-bubble-row ${isUser ? 'user' : 'assistant'}">
+              <div class="chat-bubble">
+                <div class="chat-bubble-author">
+                  <span>${author}</span>
+                  <span style="opacity: 0.6; font-size: 0.7rem;">${time}</span>
+                </div>
+                <div style="white-space: pre-wrap;">${escapeHtml(msg.content)}</div>
+                ${tokenPill}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        if (shouldScroll) {
+          container.scrollTop = container.scrollHeight;
+        }
+      } catch (err) {
+        console.warn('Error refrescando chat en vivo:', err);
+      }
+    }
+
+    function startTokensLiveAutoRefresh() {
+      if (tokensLiveTimer) clearInterval(tokensLiveTimer);
+      tokensLiveTimer = setInterval(() => {
+        const toggle = document.getElementById('liveRefreshToggle');
+        if (toggle && toggle.checked) {
+          loadTokensResumen();
+          loadLiveConversationsList();
+        }
+      }, 4000);
+    }
+
+    function stopTokensLiveAutoRefresh() {
+      if (tokensLiveTimer) {
+        clearInterval(tokensLiveTimer);
+        tokensLiveTimer = null;
+      }
+    }
+
+    document.getElementById('convSearchInput').addEventListener('input', renderConversationsList);
 
     // Init
     loadMechanics();

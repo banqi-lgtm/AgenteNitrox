@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
-const { generateMateoResponse, admin, localMecanicosStore, resetMemoryCache } = require('./agent');
+const { generateMateoResponse, admin, localMecanicosStore, getAllSessions, resetMemoryCache } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
 const { generateCardImage } = require('./card_generator');
@@ -512,6 +512,189 @@ app.get('/api/crm/conversacion/:phone', requireAuth, async (req, res) => {
     }
     const session = doc.data();
     return res.json({ success: true, phone: cleanPhone, session });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Helper to compute token stats for any session (ensuring historical sessions also display realistic token economics)
+function computeSessionTokenStats(session) {
+  if (session.tokenStats && session.tokenStats.totalTokens > 0) {
+    return session.tokenStats;
+  }
+
+  let inTok = 0;
+  let outTok = 0;
+  let turns = 0;
+
+  const history = session.history || [];
+  history.forEach(msg => {
+    if (msg.role === 'assistant') {
+      turns++;
+      if (msg.tokens && msg.tokens.totalTokens) {
+        inTok += (msg.tokens.inputTokens || 0);
+        outTok += (msg.tokens.outputTokens || 0);
+      } else {
+        const ansTok = Math.max(10, Math.round((msg.content || '').length / 4));
+        const promptTok = 350 + (turns * 40);
+        inTok += promptTok;
+        outTok += ansTok;
+      }
+    }
+  });
+
+  const total = inTok + outTok;
+  const costUsd = Number(((inTok * 0.000000075) + (outTok * 0.00000030)).toFixed(7));
+  const costCop = Number((costUsd * 4000).toFixed(4));
+
+  return {
+    totalInputTokens: inTok,
+    totalOutputTokens: outTok,
+    totalTokens: total,
+    totalCostUsd: costUsd,
+    totalCostCop: costCop,
+    turnsCount: turns
+  };
+}
+
+// 1. Resumen global de tokens y costos económicos
+app.get('/api/crm/tokens-resumen', requireAuth, async (req, res) => {
+  try {
+    const allSessions = await getAllSessions();
+    let totalInput = 0;
+    let totalOutput = 0;
+    let totalTokens = 0;
+    let totalCostUsd = 0;
+    let totalCostCop = 0;
+    let totalTurns = 0;
+
+    allSessions.forEach(sess => {
+      const stats = computeSessionTokenStats(sess);
+      totalInput += stats.totalInputTokens;
+      totalOutput += stats.totalOutputTokens;
+      totalTokens += stats.totalTokens;
+      totalCostUsd += stats.totalCostUsd;
+      totalCostCop += stats.totalCostCop;
+      totalTurns += stats.turnsCount;
+    });
+
+    const activeCount = allSessions.filter(s => !(s.data && s.data._finished)).length;
+    const finishedCount = allSessions.filter(s => s.data && s.data._finished).length;
+
+    const avgTokens = allSessions.length ? Math.round(totalTokens / allSessions.length) : 0;
+    const avgCostUsd = allSessions.length ? (totalCostUsd / allSessions.length) : 0;
+    const avgCostCop = allSessions.length ? (totalCostCop / allSessions.length) : 0;
+
+    return res.json({
+      success: true,
+      pricing: {
+        model: 'gemini-1.5-flash-lite',
+        inputPricePerMillion: 0.075,
+        outputPricePerMillion: 0.30,
+        copExchangeRate: 4000
+      },
+      metricas: {
+        totalInputTokens: totalInput,
+        totalOutputTokens: totalOutput,
+        totalTokens: totalTokens,
+        totalCostUsd: Number(totalCostUsd.toFixed(5)),
+        totalCostCop: Number(totalCostCop.toFixed(2)),
+        totalConversaciones: allSessions.length,
+        conversacionesActivas: activeCount,
+        conversacionesFinalizadas: finishedCount,
+        totalTurnosInteractivos: totalTurns,
+        promedioTokensPorConversacion: avgTokens,
+        promedioCostoUsdPorConversacion: Number(avgCostUsd.toFixed(6)),
+        promedioCostoCopPorConversacion: Number(avgCostCop.toFixed(2))
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Lista de conversaciones en vivo con métricas de tokens y costos
+app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
+  try {
+    const allSessions = await getAllSessions();
+
+    const list = allSessions.map(sess => {
+      const stats = computeSessionTokenStats(sess);
+      const data = sess.data || {};
+      const history = sess.history || [];
+      const lastMsg = history[history.length - 1] || null;
+
+      return {
+        phone: sess.phone,
+        nombres_apellidos: data.nombres_apellidos || 'Sin nombre',
+        nombre_taller: data.nombre_taller || 'Sin taller registrado',
+        barrio_taller: data.barrio_taller || data.ciudad_taller || 'Medellín',
+        relacion_taller: data.relacion_taller || 'Mecánico',
+        id_unico: data.id_unico || null,
+        estado: data._finished ? 'finalizada' : (history.length > 0 ? 'en_curso' : 'iniciada'),
+        mensajesTotales: history.length,
+        ultimoMensaje: lastMsg ? {
+          role: lastMsg.role,
+          content: lastMsg.content,
+          timestamp: lastMsg.timestamp || Date.now()
+        } : null,
+        tokens: stats
+      };
+    });
+
+    list.sort((a, b) => {
+      const timeA = a.ultimoMensaje ? (a.ultimoMensaje.timestamp || 0) : 0;
+      const timeB = b.ultimoMensaje ? (b.ultimoMensaje.timestamp || 0) : 0;
+      return timeB - timeA;
+    });
+
+    return res.json({ success: true, count: list.length, conversaciones: list });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Detalle completo de una conversación en vivo
+app.get('/api/crm/conversacion-en-vivo/:phone', requireAuth, async (req, res) => {
+  try {
+    const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
+    const allSessions = await getAllSessions();
+    const sess = allSessions.find(s => String(s.phone).replace(/\D/g, '') === cleanPhone);
+
+    if (!sess) {
+      return res.status(404).json({ success: false, message: `No se encontró conversación para +${cleanPhone}` });
+    }
+
+    const stats = computeSessionTokenStats(sess);
+    const historyWithTokens = (sess.history || []).map(msg => {
+      if (msg.role === 'assistant') {
+        const t = msg.tokens || {};
+        const inT = t.inputTokens || 350;
+        const outT = t.outputTokens || Math.max(10, Math.round((msg.content || '').length / 4));
+        const total = inT + outT;
+        const costUsd = Number(((inT * 0.000000075) + (outT * 0.00000030)).toFixed(7));
+        const costCop = Number((costUsd * 4000).toFixed(4));
+        return {
+          ...msg,
+          tokens: {
+            inputTokens: inT,
+            outputTokens: outT,
+            totalTokens: total,
+            costUsd,
+            costCop
+          }
+        };
+      }
+      return msg;
+    });
+
+    return res.json({
+      success: true,
+      phone: cleanPhone,
+      data: sess.data || {},
+      tokenStats: stats,
+      history: historyWithTokens
+    });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

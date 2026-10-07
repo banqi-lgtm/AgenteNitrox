@@ -93,10 +93,30 @@ function cleanResponseText(rawText) {
 }
 
 /**
+ * Calcula los temas de vinculación aún pendientes en orden lógico de conversación amena.
+ */
+function getPendingTopics(data) {
+  const pending = [];
+  if (!data.nombres_apellidos) pending.push('Nombre del mecánico');
+  if (!data.nombre_taller) pending.push('Nombre del taller de motos');
+  if (!data.barrio_taller && !data.direccion_taller) pending.push('Ubicación (barrio o dirección aproximada)');
+  if (!data.relacion_taller) pending.push('Rol en el taller (dueño, mecánico o ambos)');
+  if (!data.especialidad || data.especialidad.length === 0) pending.push('Especialidad técnica (motor, frenos, electricidad o general)');
+  if (!data.motos_por_semana) pending.push('Flujo de motos atendidas por semana');
+  if (!data.marcas_motos || data.marcas_motos.length === 0) pending.push('Marcas de motos que más llegan al taller');
+  if (!data.repuestos_frecuentes || data.repuestos_frecuentes.length === 0) pending.push('Repuestos que cambian con más frecuencia');
+  if (!data.marcas_repuestos_usadas || data.marcas_repuestos_usadas.length === 0) pending.push('Marca de repuestos que suelen recomendar y por qué');
+  if (!data.conoce_nitrox && !data.quiere_muestras) pending.push('Si conocen repuestos NITROX o si desean recibir muestras gratis y catálogo');
+  if (!data.correo && !data.cedula) pending.push('Datos para envío de beneficios (correo y cédula o NIT)');
+  if (data.autorizacion_tratamiento_datos === undefined || data.autorizacion_tratamiento_datos === null) pending.push('Autorización expresa de tratamiento de datos (Habeas Data)');
+  return pending;
+}
+
+/**
  * Procesa un turno conversacional completo a través de Gemini.
  * @param {Object} session - Datos de la sesión actual { data, history }
  * @param {string} userText - Mensaje entrante del mecánico
- * @returns {Promise<{ analysis: Object, updates: Object, reply: string, isFinished: boolean }>}
+ * @returns {Promise<{ analysis: Object, updates: Object, reply: string, isFinished: boolean, tokenUsage: Object }>}
  */
 async function processGeminiBrainTurn(session, userText) {
   const currentData = session.data || {};
@@ -104,6 +124,8 @@ async function processGeminiBrainTurn(session, userText) {
 
   // Tomamos los últimos 8 mensajes para contexto conversacional óptimo
   const recentHistory = history.slice(-8);
+  const pendingTopics = getPendingTopics(currentData);
+  const nextTargetTopic = pendingTopics[0] || 'Cierre cordial de vinculación';
 
   const contextPrompt = `HISTORIAL RECIENTE DE LA CONVERSACIÓN:
 ${recentHistory.length > 0 
@@ -113,10 +135,21 @@ ${recentHistory.length > 0
 DATOS YA CONOCIDOS DEL MECÁNICO Y TALLER:
 ${JSON.stringify(currentData, null, 2)}
 
+TEMAS AÚN PENDIENTES POR CONOCER (EN ORDEN):
+${pendingTopics.length > 0 ? pendingTopics.map((t, idx) => `${idx + 1}. ${t}`).join('\n') : '(Todos los temas han sido abordados)'}
+
+OBJETIVO AMENO DE ESTE TURNO:
+- Siguiente tema prioritario a indagar con amabilidad: "${nextTargetTopic}"
+- Conversa de forma amena, cercana, cálida y motera (estilo paisa parceril).
+- Si el mecánico te cuenta algo, haz un comentario ameno sobre lo que dijo y luego indaga con naturalidad el siguiente tema pendiente.
+- Si el mecánico hace una pregunta, respóndela PRIMERO con claridad y amabilidad.
+- NUNCA hagas más de una pregunta por mensaje.
+- NO declares "listo_para_finalizar": true si aún quedan temas pendientes por indagar.
+
 ÚLTIMO MENSAJE ENTRANTE DEL MECÁNICO:
 "${userText}"
 
-Analiza profundamente el mensaje, actualiza los datos conocidos y genera la respuesta más natural, empática y breve de Mateo (5 a 20 palabras, máximo 25 palabras).`;
+Analiza profundamente el mensaje, actualiza los datos conocidos y genera la respuesta más amena, natural y breve de Mateo (5 a 20 palabras, máximo 25 palabras).`;
 
   try {
     const response = await ai.generate({
@@ -141,28 +174,47 @@ Analiza profundamente el mensaje, actualiza los datos conocidos y genera la resp
       }
     }
 
+    const usage = response.usage || {};
+    let inTok = usage.inputTokens || Math.round((contextPrompt.length + SYSTEM_PROMPT.length) / 4);
+    let outTok = usage.outputTokens || Math.round((response.text || '').length / 4);
+
     let reply = cleanResponseText(parsed.respuesta_mateo || '');
     const wc = countWords(reply);
 
     // Validación de calidad y filtro de longitud (máximo 25 palabras)
     if (wc > 25 || wc < 3) {
       console.warn(`[GEMINI BRAIN WARN: Longitud inusual (${wc} palabras)]: "${reply}". Aplicando refinación...`);
-      const refinePrompt = `Acorta y pule esta respuesta de Mateo para que suene 100% natural, paisa y tenga entre 5 y 18 palabras estrictas. Responde únicamente con el texto final pulido:\n"${reply}"`;
+      const refinePrompt = `Acorta y pule esta respuesta de Mateo para que suene 100% natural, amena, paisa y tenga entre 5 y 18 palabras estrictas. Responde únicamente con el texto final pulido:\n"${reply}"`;
       const refined = await ai.generate({
         prompt: refinePrompt,
         config: { temperature: 0.2 }
       });
+      const refinedUsage = refined.usage || {};
+      inTok += refinedUsage.inputTokens || Math.round(refinePrompt.length / 4);
+      outTok += refinedUsage.outputTokens || Math.round((refined.text || '').length / 4);
       const refinedText = cleanResponseText(refined.text);
       if (refinedText && countWords(refinedText) <= 25) {
         reply = refinedText;
       }
     }
 
+    const totalTok = inTok + outTok;
+    // Tarifas oficiales Gemini 1.5 Flash Lite: Input $0.075 / 1M tokens, Output $0.30 / 1M tokens
+    const costUsd = Number(((inTok * 0.000000075) + (outTok * 0.00000030)).toFixed(7));
+    const costCop = Number((costUsd * 4000).toFixed(4));
+
     return {
       analysis: parsed.analisis_interno || {},
       updates: parsed.datos_extraidos || {},
       reply: reply,
-      isFinished: Boolean(parsed.listo_para_finalizar)
+      isFinished: Boolean(parsed.listo_para_finalizar && pendingTopics.length <= 1),
+      tokenUsage: {
+        inputTokens: inTok,
+        outputTokens: outTok,
+        totalTokens: totalTok,
+        costUsd: costUsd,
+        costCop: costCop
+      }
     };
 
   } catch (err) {
@@ -172,7 +224,14 @@ Analiza profundamente el mensaje, actualiza los datos conocidos y genera la resp
       analysis: { error: err.message },
       updates: {},
       reply: '¡Qué más hermano! Qué pena que se me cayó un segundo la señal. ¿Me decías?',
-      isFinished: false
+      isFinished: false,
+      tokenUsage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        costUsd: 0,
+        costCop: 0
+      }
     };
   }
 }
