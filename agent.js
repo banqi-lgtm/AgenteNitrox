@@ -280,17 +280,18 @@ function extractEntities(text, sessionData) {
   }
 
   // 5. Role (Relación con el taller)
-  if (/ambas|las dos|ambos|dueño y mecanico|propietario y mecanico|propietario y mecánico/i.test(lower)) {
+  const isOwner = /\b(?:propi?e?r?t[a-z]*|duen[a-z]*|dueñ[a-z]*|patr[oó]n|socio|creador|fundador|el taller es m[ií]o|es m[ií]o|yo lo manejo)\b/i.test(lower);
+  const isMechanic = /\b(?:mec[aá]nic[a-z]*|mecanic[a-z]*|emplead[a-z]*|trabajad[a-z]*|t[eé]cnic[a-z]*|las arreglo yo|yo arreglo)\b/i.test(lower);
+  const isBoth = /\b(?:ambas|las dos|ambos|ambas cosas|las 2)\b/i.test(lower) || (isOwner && isMechanic);
+
+  if (isBoth) {
     updates.relacion_taller = 'Propietario y Mecánico';
-  } else if (/mecanico|mecánico|empleado|las arreglo yo|yo arreglo|trabajador/i.test(lower)) {
-    updates.relacion_taller = 'Mecánico';
-  } else if (/dueño|dueno|propietario|el taller es mio|es mio|yo lo manejo|patron|patrón/i.test(lower)) {
+  } else if (isOwner) {
     updates.relacion_taller = 'Propietario';
+  } else if (isMechanic) {
+    updates.relacion_taller = 'Mecánico';
   } else if (/socio|copropietario/i.test(lower)) {
     updates.relacion_taller = 'Socio';
-  } else if (sessionData._lastQuestion === 'ROL' && !sessionData.relacion_taller) {
-    if (/propietario|dueño/i.test(lower)) updates.relacion_taller = 'Propietario';
-    else if (/mecanico|mecánico/i.test(lower)) updates.relacion_taller = 'Mecánico';
   }
 
   // 6. Professional Specialty (Perfil Profesional y Especialidad)
@@ -301,14 +302,18 @@ function extractEntities(text, sessionData) {
   if (/4\s*t|4\s*tiempos/i.test(lower) && !specs.includes('4T') && !specs.includes('Motor / 4T')) specs.push('4T');
   if (/freno|frenos|pastilla|banda|disco|suspensi[oó]n|amortiguador/i.test(lower) && !specs.includes('Frenos / Suspensión')) specs.push('Frenos / Suspensión');
   if (/electricidad|el[eé]ctrico|electrico|inyecci[oó]n|inyeccion|electr[oó]nica|bobina|bater[ií]a/i.test(lower) && !specs.includes('Electricidad / Inyección electrónica')) specs.push('Electricidad / Inyección electrónica');
-  if (/general|de todo|todas|mec[aá]nica general|reparaci[oó]n general/i.test(lower) && !specs.includes('Mecánica general')) specs.push('Mecánica general');
+  if (/general|de todo|todas|todo|mec[aá]nica general|reparaci[oó]n general/i.test(lower) && !specs.includes('Mecánica general')) specs.push('Mecánica general');
 
+  const isProtest = /(?:ya\s+(?:me\s+)?hab[ií]as|ya\s+te\s+(?:dije|respond[ií])|eso\s+ya|ya\s+lo\s+dije|ya\s+respond[ií]|pregunta\s+ya)/i.test(lower);
+  const isRoleOnly = isOwner || isMechanic || isBoth || /\b(?:propi?e?r?t|dueñ|mecanic|mecánic|patron|patrón|socio)\b/i.test(lower);
   const isAddressString = addrMatch || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida)\b/i.test(raw);
 
   if (specs.length > 0) {
     updates.especialidad = specs;
-  } else if (isSpecQuestion && !isAddressString && (!sessionData.especialidad || sessionData.especialidad.length === 0)) {
-    const cleanSpec = raw.replace(/(?:soy|propietario|mecanico|mecánico|dueño|y|,)+/gi, '').trim();
+  } else if (isProtest) {
+    updates.especialidad = ['Mecánica general'];
+  } else if (isSpecQuestion && !isRoleOnly && !isAddressString && !isProtest && (!sessionData.especialidad || sessionData.especialidad.length === 0)) {
+    const cleanSpec = raw.replace(/(?:soy|propi?e?r?t[a-z]*|mecanic[a-z]*|mecánic[a-z]*|dueñ[a-z]*|y|,)+/gi, '').trim();
     if (cleanSpec.length > 3 && !/\d/.test(cleanSpec)) updates.especialidad = [cleanSpec];
   }
 
@@ -581,6 +586,21 @@ async function generateMateoResponse(fromNumber, userText) {
   const newEntities = extractEntities(userText, data);
   Object.assign(data, newEntities);
 
+  // Protest / Already Answered Handler
+  if (/(?:ya\s+(?:me\s+)?hab[ií]as\s+(?:echo|hecho|preguntado)|ya\s+te\s+(?:dije|respond[ií])|eso\s+ya\s+te\s+lo\s+(?:dije|respond[ií])|ya\s+lo\s+dije|ya\s+respond[ií]|esa\s+pregunta\s+ya)/i.test(lower)) {
+    if (data._lastQuestion === 'ROL' || data._lastQuestion === 'ESPECIALIDAD' || data._lastQuestion === 'ROL_Y_ESPECIALIDAD') {
+      if (!data.relacion_taller) data.relacion_taller = 'Propietario';
+      if (!data.especialidad || data.especialidad.length === 0) data.especialidad = ['Mecánica general'];
+    } else if (data._lastQuestion === 'UBICACION' || data._lastQuestion === 'DIRECCION' || data._lastQuestion === 'BARRIO') {
+      if (!data.direccion_taller) data.direccion_taller = 'Registrada en taller';
+      if (!data.barrio_taller) data.barrio_taller = data.ciudad_taller || 'Medellín';
+    } else if (data._lastQuestion === 'VOLUMEN' || data._lastQuestion === 'VOLUMEN_Y_MARCAS' || data._lastQuestion === 'MARCAS_MOTOS') {
+      if (!data.motos_por_semana) data.motos_por_semana = '15–20 motos/semana';
+      if (!data.marcas_motos || data.marcas_motos.length === 0) data.marcas_motos = ['Variadas / Todas'];
+    }
+    delete data._lastQuestion;
+  }
+
   // If user was answering the initial greeting:
   if (data._lastQuestion === 'WAITING_GREETING_REPLY') {
     delete data._lastQuestion;
@@ -634,7 +654,7 @@ async function generateMateoResponse(fromNumber, userText) {
     data._lastQuestion = 'TALLER';
     reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller de motos?`;
   }
-  // 3. Location (Barrio & Address obligatory!)
+  // 4. Location (Barrio & Address obligatory!)
   else if (!data.barrio_taller && !data.direccion_taller) {
     data._lastQuestion = 'UBICACION';
     reply = `Mucho gusto, ${firstName}. ¿En qué barrio y en qué dirección queda ${workshopName}?`;
@@ -645,37 +665,30 @@ async function generateMateoResponse(fromNumber, userText) {
     data._lastQuestion = 'BARRIO';
     reply = `Anotada la dirección. ¿Y en qué barrio o municipio queda el taller?`;
   }
-  // 4. Role & Specialty (Perfil Profesional)
-  else if (!data.relacion_taller && (!data.especialidad || data.especialidad.length === 0)) {
-    data._lastQuestion = 'ROL_Y_ESPECIALIDAD';
-    reply = `Anotado. ¿Eres propietario o mecánico, y cuál es tu especialidad en el taller?`;
-  } else if (data.relacion_taller && (!data.especialidad || data.especialidad.length === 0)) {
+  // 5. Role & Specialty (Perfil Profesional) - Strictly 1 question at a time!
+  else if (!data.relacion_taller) {
+    data._lastQuestion = 'ROL';
+    reply = `Anotado. ¿Eres el propietario o el mecánico del taller?`;
+  } else if (!data.especialidad || data.especialidad.length === 0) {
     data._lastQuestion = 'ESPECIALIDAD';
     reply = `Listo, ${data.relacion_taller.toLowerCase()}. ¿Y cuál es tu especialidad en el taller: motor, frenos, electricidad o de todo?`;
-  } else if (!data.relacion_taller && (data.especialidad && data.especialidad.length > 0)) {
-    data._lastQuestion = 'ROL';
-    reply = `Buen trabajo con ${data.especialidad.join(' y ')}. ¿Y eres el propietario o mecánico del taller?`;
   }
-  // 5. Volume & Motorcycle Brands
-  else if (!data.motos_por_semana && (!data.marcas_motos || data.marcas_motos.length === 0)) {
-    data._lastQuestion = 'VOLUMEN_Y_MARCAS';
-    reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana y qué marcas te llegan más?`;
-  } else if (data.motos_por_semana && (!data.marcas_motos || data.marcas_motos.length === 0)) {
+  // 6. Volume & Motorcycle Brands
+  else if (!data.motos_por_semana) {
+    data._lastQuestion = 'VOLUMEN';
+    reply = `Perfecto. ¿Más o menos cuántas motos atiendes por semana en el taller?`;
+  } else if (!data.marcas_motos || data.marcas_motos.length === 0) {
     data._lastQuestion = 'MARCAS_MOTOS';
     reply = `Buen flujo de ${data.motos_por_semana}. ¿Y qué marcas son las que más te llegan al taller?`;
-  } else if (!data.motos_por_semana && (data.marcas_motos && data.marcas_motos.length > 0)) {
-    data._lastQuestion = 'VOLUMEN';
-    reply = `Se mueve bastante ${data.marcas_motos.join(' y ')}. ¿Y más o menos cuántas motos atiendes por semana?`;
   }
-  // 6. Frequent Parts & Recommended Brand
+  // 7. Frequent Parts & Recommended Brand
   else if (!data.repuestos_frecuentes || data.repuestos_frecuentes.length === 0) {
-    data._lastQuestion = 'REPUESTOS_Y_MARCA';
-    reply = `Buen flujo. ¿Qué repuestos cambias más seguido y qué marca sueles recomendar y por qué?`;
-  } else if (data.repuestos_frecuentes && data.repuestos_frecuentes.length > 0 && (!data.marcas_repuestos_usadas || data.marcas_repuestos_usadas.length === 0)) {
+    data._lastQuestion = 'REPUESTOS';
+    reply = `Buen dato. ¿Qué repuestos cambias con más frecuencia en el taller?`;
+  } else if (!data.marcas_repuestos_usadas || data.marcas_repuestos_usadas.length === 0) {
     data._lastQuestion = 'MARCA_RECOMENDADA';
-    reply = `El ${data.repuestos_frecuentes.join(' y ')} se mueve bastante. ¿Y qué marca de repuestos prefieres recomendar a tus clientes y por qué?`;
   }
-  // 7. NITROX Experience & Samples Offer
+  // 8. NITROX Experience & Samples Offer
   else if (!data.conoce_nitrox) {
     data._lastQuestion = 'NITROX_EXP_INTERES';
     reply = `Buen dato. ¿Has trabajado antes con repuestos NITROX, o te interesaría recibir muestras y capacitaciones para el taller?`;

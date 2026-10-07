@@ -1,4 +1,10 @@
 require('dotenv').config();
+const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
+try {
+  enableFirebaseTelemetry();
+} catch (e) {
+  console.warn('[GENKIT TELEMETRY INIT]', e.message);
+}
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
@@ -6,6 +12,7 @@ const { generateMateoResponse, admin, localMecanicosStore, resetMemoryCache } = 
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
 const { generateCardImage } = require('./card_generator');
+const { helloFlow } = require('./genkit_service');
 
 const app = express();
 app.use(express.json());
@@ -624,7 +631,25 @@ async function handleIncomingMessage(req, res) {
 app.post('/webhook', handleIncomingMessage);
 app.post('/', handleIncomingMessage);
 
+app.get('/api/genkit/run', async (req, res) => {
+  try {
+    const text = await helloFlow(req.query.name || 'Firebase-Monitoring');
+    res.json({ success: true, text });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 exports.webhook = onRequest({ cors: true, invoker: 'public' }, app);
+
+exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
+  try {
+    const text = await helloFlow(req.query.name || 'Firebase-Monitoring');
+    res.json({ success: true, text });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 if (!process.env.FUNCTION_TARGET) {
   app.listen(PORT, () => {
