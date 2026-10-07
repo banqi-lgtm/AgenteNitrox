@@ -1,9 +1,17 @@
 require('dotenv').config();
 const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
-try {
-  enableFirebaseTelemetry();
-} catch (e) {
-  console.warn('[GENKIT TELEMETRY INIT]', e.message);
+if (!global.__GENKIT_TELEMETRY_INITIALIZED) {
+  global.__GENKIT_TELEMETRY_INITIALIZED = true;
+  try {
+    enableFirebaseTelemetry({
+      projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'agente-nitrox',
+      metricExportIntervalMillis: 5000,
+      metricExportTimeoutMillis: 5000,
+      forceDevExport: true
+    });
+  } catch (e) {
+    console.warn('[GENKIT TELEMETRY INIT]', e.message);
+  }
 }
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
@@ -634,6 +642,7 @@ app.post('/', handleIncomingMessage);
 app.get('/api/genkit/run', async (req, res) => {
   try {
     const text = await helloFlow(req.query.name || 'Firebase-Monitoring');
+    await new Promise(r => setTimeout(r, 6000));
     res.json({ success: true, text });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -645,6 +654,7 @@ exports.webhook = onRequest({ cors: true, invoker: 'public' }, app);
 exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
   try {
     const text = await helloFlow(req.query.name || 'Firebase-Monitoring');
+    await new Promise(r => setTimeout(r, 6000));
     res.json({ success: true, text });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

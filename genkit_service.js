@@ -3,16 +3,21 @@ const { genkit } = require('genkit');
 const { googleAI } = require('@genkit-ai/googleai');
 const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
 
-enableFirebaseTelemetry();
-
-// Ensure apiKey is mapped if set as GEMINI_API_KEY
-if (!process.env.GOOGLE_GENAI_API_KEY && process.env.GEMINI_API_KEY) {
-  process.env.GOOGLE_GENAI_API_KEY = process.env.GEMINI_API_KEY;
+if (!global.__GENKIT_TELEMETRY_INITIALIZED) {
+  global.__GENKIT_TELEMETRY_INITIALIZED = true;
+  enableFirebaseTelemetry({
+    projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'agente-nitrox',
+    metricExportIntervalMillis: 5000,
+    metricExportTimeoutMillis: 5000,
+    forceDevExport: true
+  });
 }
 
+const API_KEY = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
+
 const ai = genkit({
-  plugins: [googleAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY })],
-  model: 'googleai/gemini-flash-latest',
+  plugins: [googleAI({ apiKey: API_KEY })],
+  model: 'googleai/gemini-flash-lite-latest',
 });
 
 // Flow example
