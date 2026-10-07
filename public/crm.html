@@ -670,85 +670,84 @@
 
     /* Tokens & Banner WhatsApp Styles */
     .tokens-header-banner {
-      background: linear-gradient(135deg, rgba(0, 168, 132, 0.15), rgba(17, 27, 33, 0.95));
-      border: 1px solid rgba(0, 168, 132, 0.35);
-      border-radius: 14px;
-      padding: 22px 24px;
-      margin-bottom: 22px;
+      background: linear-gradient(135deg, rgba(0, 168, 132, 0.12), rgba(17, 27, 33, 0.95));
+      border: 1px solid rgba(0, 168, 132, 0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 12px;
     }
     .tokens-banner-title {
-      font-size: 1.3rem;
+      font-size: 1.15rem;
       font-weight: 800;
       color: #fff;
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 6px;
+      gap: 8px;
+      margin-bottom: 4px;
     }
     .tokens-banner-desc {
       color: var(--text-muted);
-      font-size: 0.88rem;
-      max-width: 760px;
-      line-height: 1.5;
+      font-size: 0.82rem;
+      max-width: 700px;
+      line-height: 1.4;
     }
     .tokens-banner-controls {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
     }
     .rate-pill {
       background: #202c33;
       border: 1px solid #374248;
-      padding: 7px 12px;
-      border-radius: 8px;
-      font-size: 0.78rem;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 0.72rem;
       color: #8696a0;
     }
     .rate-pill strong {
       color: #25D366;
     }
 
-    /* Friendly Action Buttons */
+    /* Friendly Action Buttons - Compact */
     .btn-wa-action {
       background: #00a884;
       color: #fff;
       border: none;
-      padding: 9px 16px;
-      border-radius: 8px;
-      font-size: 0.86rem;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      transition: all 0.2s;
+      gap: 5px;
+      transition: all 0.15s;
       text-decoration: none;
-      box-shadow: 0 2px 8px rgba(0, 168, 132, 0.3);
+      box-shadow: 0 1px 4px rgba(0, 168, 132, 0.3);
     }
     .btn-wa-action:hover {
       background: #029070;
       transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(0, 168, 132, 0.45);
     }
     .btn-wa-secondary {
       background: #202c33;
       color: #e9edef;
       border: 1px solid #374248;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 0.84rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.76rem;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      transition: all 0.2s;
+      gap: 5px;
+      transition: all 0.15s;
     }
     .btn-wa-secondary:hover {
       background: #2a3942;
@@ -756,21 +755,74 @@
       color: #fff;
     }
 
+    /* Cost Clarity Alert Box */
+    .cost-clarity-alert {
+      background: linear-gradient(135deg, rgba(20, 27, 36, 0.98), rgba(15, 23, 42, 0.98));
+      border: 1px solid #374248;
+      border-left: 4px solid #f59e0b;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+    }
+    .cost-alert-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+      margin-top: 2px;
+    }
+    .cost-alert-content {
+      flex: 1;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+    }
+    .cost-alert-content strong {
+      color: #fff;
+    }
+    .cost-alert-badges {
+      margin-top: 6px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .cost-pill-highlight {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid #f59e0b;
+      color: #fbbf24;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 800;
+      font-size: 0.75rem;
+    }
+    .cost-pill-usd {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 700;
+      font-size: 0.75rem;
+    }
+
     /* KPI Grid Tokens */
     .tok-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      margin-bottom: 22px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
     }
     .tok-kpi-card {
       background: #111b21;
       border: 1px solid #222d34;
-      border-radius: 12px;
-      padding: 18px 20px;
+      border-radius: 10px;
+      padding: 14px 16px;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
     .tok-kpi-card::before {
       content: '';
@@ -783,45 +835,47 @@
     .tok-kpi-card.purple::before { background: #8b5cf6; }
 
     .tok-kpi-label {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: #8696a0;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
     .tok-kpi-main-val {
-      font-size: 1.65rem;
+      font-size: 1.45rem;
       font-weight: 800;
       color: #fff;
       line-height: 1.2;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .tok-kpi-sub-cop {
-      font-size: 1.05rem;
-      font-weight: 800;
+      font-size: 0.84rem;
+      font-weight: 700;
       color: #00a884;
     }
     .tok-kpi-sub-usd {
-      font-size: 0.82rem;
+      font-size: 0.75rem;
       color: #8696a0;
       margin-top: 2px;
     }
 
-    /* WhatsApp Web Container Layout */
+    /* WhatsApp Web Container Layout - Full Scroll & Exact Constraints */
     .wa-web-app {
       display: grid;
-      grid-template-columns: 380px 1fr;
-      height: 740px;
+      grid-template-columns: 340px 1fr;
+      height: 720px;
+      max-height: calc(100vh - 160px);
+      min-height: 520px;
       background: #111b21;
       border: 1px solid #222d34;
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-      margin-bottom: 30px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      margin-bottom: 24px;
     }
     @media (max-width: 960px) {
       .wa-web-app {
@@ -837,35 +891,39 @@
       display: flex;
       flex-direction: column;
       height: 100%;
+      min-height: 0;
+      overflow: hidden;
     }
     .wa-sidebar-header {
       background: #202c33;
-      padding: 14px 16px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #222d34;
+      flex-shrink: 0;
     }
     .wa-sidebar-title {
-      font-weight: 800;
-      font-size: 0.95rem;
+      font-weight: 700;
+      font-size: 0.88rem;
       color: #e9edef;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .wa-search-bar {
-      padding: 10px 14px;
+      padding: 8px 12px;
       background: #111b21;
       border-bottom: 1px solid #222d34;
+      flex-shrink: 0;
     }
     .wa-search-input-box {
       background: #202c33;
-      border-radius: 8px;
+      border-radius: 7px;
       display: flex;
       align-items: center;
-      padding: 0 12px;
-      gap: 10px;
+      padding: 0 10px;
+      gap: 8px;
       border: 1px solid transparent;
       transition: all 0.2s;
     }
@@ -876,9 +934,9 @@
       background: transparent;
       border: none;
       color: #e9edef;
-      padding: 9px 0;
+      padding: 7px 0;
       width: 100%;
-      font-size: 0.88rem;
+      font-size: 0.82rem;
     }
     .wa-search-input:focus {
       outline: none;
@@ -889,37 +947,37 @@
 
     .wa-chats-scroll {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       background: #111b21;
     }
     .wa-chat-item {
       display: flex;
       align-items: flex-start;
-      gap: 12px;
-      padding: 12px 14px;
+      gap: 10px;
+      padding: 10px 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
       cursor: pointer;
       transition: background 0.15s;
-      position: relative;
     }
     .wa-chat-item:hover {
       background: #202c33;
     }
     .wa-chat-item.active {
       background: #2a3942;
-      border-left: 4px solid #00a884;
+      border-left: 3px solid #00a884;
     }
     .wa-item-avatar {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       background: linear-gradient(135deg, #00a884, #059669);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 1.05rem;
+      font-weight: 700;
+      font-size: 0.95rem;
       flex-shrink: 0;
     }
     .wa-item-body {
@@ -927,41 +985,38 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
     }
     .wa-item-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .wa-item-name {
       color: #e9edef;
       font-weight: 700;
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .wa-item-time {
       color: #8696a0;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       flex-shrink: 0;
     }
     .wa-item-workshop {
       color: #00a884;
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      display: flex;
-      align-items: center;
-      gap: 5px;
     }
     .wa-item-lastmsg {
       color: #8696a0;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -969,34 +1024,34 @@
     .wa-item-pill-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-top: 4px;
+      gap: 5px;
+      margin-top: 3px;
       flex-wrap: wrap;
     }
     .wa-pill-tok {
-      background: rgba(0, 168, 132, 0.15);
-      color: #00a884;
-      border: 1px solid rgba(0, 168, 132, 0.3);
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-size: 0.7rem;
+      background: rgba(0, 168, 132, 0.12);
+      color: #25d366;
+      border: 1px solid rgba(0, 168, 132, 0.25);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
       font-weight: 700;
     }
     .wa-pill-cop {
-      background: rgba(245, 158, 11, 0.15);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-size: 0.7rem;
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
       font-weight: 700;
     }
     .wa-pill-live {
       background: rgba(0, 168, 132, 0.2);
       color: #25d366;
-      padding: 2px 6px;
+      padding: 1px 5px;
       border-radius: 4px;
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       font-weight: 800;
     }
 
@@ -1006,101 +1061,126 @@
       display: flex;
       flex-direction: column;
       height: 100%;
+      min-height: 0;
+      overflow: hidden;
       position: relative;
     }
     .wa-chat-header {
       background: #202c33;
-      padding: 10px 18px;
+      padding: 8px 14px;
       border-bottom: 1px solid #222d34;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
-      min-height: 62px;
+      gap: 10px;
+      min-height: 52px;
+      flex-shrink: 0;
       z-index: 2;
     }
     .wa-header-contact {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .wa-header-avatar {
-      width: 42px;
-      height: 42px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       background: linear-gradient(135deg, #00a884, #059669);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 1.1rem;
+      font-weight: 700;
+      font-size: 0.95rem;
     }
     .wa-header-titles h3 {
-      font-size: 0.98rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: #e9edef;
       margin: 0;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .wa-header-titles p {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: #8696a0;
-      margin: 2px 0 0 0;
+      margin: 1px 0 0 0;
     }
     .wa-header-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .wa-header-cost-pill {
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.35);
       border: 1px solid #374248;
-      border-radius: 8px;
-      padding: 6px 12px;
+      border-radius: 6px;
+      padding: 4px 10px;
       text-align: right;
     }
     .wa-cost-cop-val {
       color: #00a884;
       font-weight: 800;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
     }
     .wa-cost-sub-val {
       color: #8696a0;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
     }
 
+    /* Scrollable message container with prominent, smooth scroll */
     .wa-messages-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 24px;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: scroll !important;
+      overflow-x: hidden;
+      padding: 16px 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       background: #0b141a;
       background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 0);
       background-size: 24px 24px;
+      scroll-behavior: smooth;
     }
+    .wa-messages-container::-webkit-scrollbar,
+    .wa-chats-scroll::-webkit-scrollbar {
+      width: 7px;
+    }
+    .wa-messages-container::-webkit-scrollbar-track,
+    .wa-chats-scroll::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .wa-messages-container::-webkit-scrollbar-thumb,
+    .wa-chats-scroll::-webkit-scrollbar-thumb {
+      background: #374248;
+      border-radius: 4px;
+    }
+    .wa-messages-container::-webkit-scrollbar-thumb:hover,
+    .wa-chats-scroll::-webkit-scrollbar-thumb:hover {
+      background: #00a884;
+    }
+
     .wa-date-divider {
       align-self: center;
       background: #182229;
       color: #8696a0;
-      padding: 4px 12px;
-      border-radius: 8px;
-      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.68rem;
       font-weight: 600;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-      margin: 6px 0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      margin: 4px 0;
     }
 
     .wa-bubble-row {
       display: flex;
       flex-direction: column;
-      max-width: 76%;
+      max-width: 72%;
     }
     .wa-bubble-row.incoming {
       align-self: flex-start;
@@ -1110,31 +1190,31 @@
     }
 
     .wa-bubble {
-      padding: 10px 14px;
+      padding: 8px 12px;
       position: relative;
-      font-size: 0.92rem;
-      line-height: 1.45;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      font-size: 0.88rem;
+      line-height: 1.4;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
       word-break: break-word;
     }
     .wa-bubble-row.incoming .wa-bubble {
       background: #202c33;
       color: #e9edef;
-      border-radius: 0 10px 10px 10px;
+      border-radius: 0 8px 8px 8px;
     }
     .wa-bubble-row.outgoing .wa-bubble {
       background: #005c4b;
       color: #e9edef;
-      border-radius: 10px 0 10px 10px;
+      border-radius: 8px 0 8px 8px;
     }
 
     .wa-bubble-sender {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 700;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       display: flex;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
     }
     .wa-bubble-row.incoming .wa-bubble-sender {
       color: #53bdeb;
@@ -1143,32 +1223,33 @@
       color: #25d366;
     }
 
-    .wa-token-cost-box {
-      margin-top: 8px;
-      padding: 7px 10px;
-      background: rgba(0, 0, 0, 0.28);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
+    /* Sleek, unobtrusive micro-pill for tokens and cost inside Mateo's bubble */
+    .wa-token-mini-pill {
+      margin-top: 5px;
+      padding: 2px 7px;
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 5px;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      font-size: 0.75rem;
-      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.68rem;
+      color: #cbd5e1;
+      width: fit-content;
     }
-    .wa-token-left {
-      color: #25d366;
+    .wa-token-mini-pill .tok-num {
+      color: #86efac;
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 5px;
     }
-    .wa-token-right {
-      color: #f59e0b;
+    .wa-token-mini-pill .cop-val {
+      color: #fde047;
       font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+    }
+    .wa-token-mini-pill .usd-val {
+      color: #94a3b8;
+    }
+    .wa-token-mini-pill .sep {
+      opacity: 0.4;
     }
 
     .wa-bubble-footer {
@@ -1176,27 +1257,28 @@
       align-items: center;
       justify-content: flex-end;
       gap: 4px;
-      margin-top: 3px;
-      font-size: 0.68rem;
+      margin-top: 2px;
+      font-size: 0.65rem;
       color: #8696a0;
     }
     .wa-check-blue {
       color: #53bdeb;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: bold;
     }
 
     .wa-footer-bar {
       background: #202c33;
-      padding: 10px 18px;
+      padding: 6px 14px;
       border-top: 1px solid #222d34;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
+      font-size: 0.74rem;
       color: #8696a0;
+      flex-shrink: 0;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
     }
 
     /* ML Banner */
@@ -1644,14 +1726,32 @@
         </div>
         <div class="tokens-banner-controls">
           <div class="rate-pill">Tasa: <strong>$4,000 COP / USD</strong></div>
-          <div class="rate-pill">Prompt: <strong>$0.075 / 1M</strong></div>
-          <div class="rate-pill">Respuesta: <strong>$0.30 / 1M</strong></div>
+          <div class="rate-pill">Tarifa Prompt: <strong>$0.075 / 1M</strong></div>
+          <div class="rate-pill">Tarifa Resp: <strong>$0.30 / 1M</strong></div>
           <button class="btn-wa-action" id="btnManualRefresh" onclick="loadTokensData()">
             🔄 Actualizar Datos
           </button>
           <button class="btn-wa-secondary" id="btnToggleLiveTimer" onclick="toggleTokensLiveMode()">
-            <span id="liveDotIndicator">🟢</span> <span id="liveBtnText">En Vivo (4s): ACTIVO</span>
+            <span id="liveDotIndicator">🟢</span> <span id="liveBtnText">En Vivo: ACTIVO</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Cuadro Explicativo Enfático de Costos -->
+      <div class="cost-clarity-alert">
+        <div class="cost-alert-icon">💡</div>
+        <div class="cost-alert-content">
+          <div><strong>¿CÓMO ENTENDER ESTOS COSTOS ECONÓMICOS?</strong></div>
+          <div style="margin-top: 3px;">
+            La Inteligencia Artificial (Gemini 1.5 Flash Lite) es <strong>extremadamente económica</strong> ($0.075 USD por 1 millón de tokens).
+            Por lo tanto, toda esta conversación con el taller costó <strong>LITERALMENTE 3 PESOS COLOMBIANOS ($3.07 COP)</strong>, es decir, <strong>US$ 0.00077 dólares</strong> (menos de un milésimo de dólar americano).
+          </div>
+          <div class="cost-alert-badges">
+            <span class="cost-pill-highlight">✅ Son 3 pesos colombianos ($3.07 COP)</span>
+            <span style="color: #ef4444; font-weight: 700; font-size: 0.74rem;">❌ NO son $3,000 pesos</span>
+            <span style="color: #ef4444; font-weight: 700; font-size: 0.74rem;">❌ NO son 3 dólares</span>
+            <span class="cost-pill-usd">🪙 Cada respuesta de Mateo cuesta ~12 centavos de peso ($0.12 COP)</span>
+          </div>
         </div>
       </div>
 
@@ -1664,21 +1764,21 @@
         </div>
 
         <div class="tok-kpi-card amber">
-          <div class="tok-kpi-label">💵 Inversión Total en Pesos</div>
-          <div class="tok-kpi-main-val" id="tokKpiCostCop" style="color: #F59E0B;">$0 COP</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiCostUsd">≈ $0.0000 USD (Tasa $4,000 COP)</div>
+          <div class="tok-kpi-label">💵 Inversión Total Real</div>
+          <div class="tok-kpi-main-val" id="tokKpiCostCop" style="color: #F59E0B;">$3.07 COP</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiCostUsd">Tres pesos colombianos con 7 centavos<br>≈ US$ 0.00077 USD</div>
         </div>
 
         <div class="tok-kpi-card blue">
-          <div class="tok-kpi-label">⚡ Costo Promedio / Chat</div>
-          <div class="tok-kpi-main-val" id="tokKpiAvgCop" style="color: #3B82F6;">$0 COP</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiAvgTokens">0 tokens • ≈ $0.00000 USD</div>
+          <div class="tok-kpi-label">⚡ Costo Promedio / Taller</div>
+          <div class="tok-kpi-main-val" id="tokKpiAvgCop" style="color: #3B82F6;">$3.07 COP</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiAvgTokens">Tres pesos por taller registrado<br>9,382 tokens • US$ 0.00077</div>
         </div>
 
         <div class="tok-kpi-card purple">
           <div class="tok-kpi-label">💬 Conversaciones y Turnos</div>
           <div class="tok-kpi-main-val" id="tokKpiConvs">0</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiTurns">0 turnos interactivos con talleres</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiTurns">0 turnos interactivos intercambiados</div>
         </div>
       </div>
 
@@ -1689,9 +1789,9 @@
           <div class="wa-sidebar-header">
             <div class="wa-sidebar-title">
               <span>💬 Chats de WhatsApp</span>
-              <span id="waSidebarCount" style="font-size: 0.72rem; background: rgba(0,168,132,0.2); color: #25d366; padding: 2px 8px; border-radius: 10px;">0 activos</span>
+              <span id="waSidebarCount" style="font-size: 0.7rem; background: rgba(0,168,132,0.2); color: #25d366; padding: 2px 7px; border-radius: 8px;">0 activos</span>
             </div>
-            <button class="btn-wa-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="loadLiveConversationsList()">
+            <button class="btn-wa-secondary" style="padding: 3px 8px; font-size: 0.72rem;" onclick="loadLiveConversationsList()">
               🔄 Refrescar
             </button>
           </div>
@@ -1704,7 +1804,7 @@
           </div>
 
           <div class="wa-chats-scroll" id="convItemsList">
-            <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+            <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
               Cargando conversaciones...
             </div>
           </div>
@@ -1718,35 +1818,35 @@
               <div class="wa-header-avatar" id="chatAvatar">M</div>
               <div class="wa-header-titles">
                 <h3 id="chatMechanicName">Selecciona una conversación</h3>
-                <p id="chatWorkshopSubtitle">Haz clic en un chat para ver los mensajes en vivo y el consumo detallado en COP y USD</p>
+                <p id="chatWorkshopSubtitle">Haz clic en un chat para revisar toda la conversación con scroll</p>
               </div>
             </div>
 
             <div class="wa-header-actions" id="chatHeaderActions" style="display: none;">
-              <!-- Cost Pill -->
+              <!-- Cost Pill Compact -->
               <div class="wa-header-cost-pill">
-                <div class="wa-cost-cop-val" id="chatCostVal">$0 COP</div>
-                <div class="wa-cost-sub-val" id="chatCostUsdVal">🪙 0 tokens • $0.00000 USD</div>
+                <div class="wa-cost-cop-val" id="chatCostVal">$3.07 COP (Tres pesos)</div>
+                <div class="wa-cost-sub-val" id="chatCostUsdVal">🪙 9,382 tokens • US$ 0.00077 USD</div>
               </div>
 
-              <!-- Friendly Buttons -->
+              <!-- Compact Friendly Buttons -->
               <button class="btn-wa-action" id="btnOpenWhatsAppDirect" title="Abrir chat en WhatsApp Web" onclick="openSelectedInWhatsApp()">
                 💬 WhatsApp
               </button>
               <button class="btn-wa-secondary" id="btnOpenFichaDirect" title="Ver ficha maestra de este taller" onclick="openSelectedFicha()">
-                📋 Ver Ficha
+                📋 Ficha
               </button>
-              <button class="btn-wa-secondary" title="Recargar esta conversación" onclick="refreshCurrentChat()">
+              <button class="btn-wa-secondary" title="Recargar este chat" onclick="refreshCurrentChat()">
                 🔄
               </button>
             </div>
           </div>
 
-          <!-- Messages Area -->
+          <!-- Messages Area with Guaranteed Scroll -->
           <div class="wa-messages-container" id="chatMessagesContainer">
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); gap: 12px;">
-              <span style="font-size: 3rem;">💬</span>
-              <p style="font-size: 0.95rem;">Selecciona una conversación de la izquierda para ver los mensajes en estilo WhatsApp Web.</p>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); gap: 10px;">
+              <span style="font-size: 2.5rem;">💬</span>
+              <p style="font-size: 0.88rem;">Selecciona una conversación de la izquierda para ver los mensajes con scroll completo.</p>
             </div>
           </div>
 
@@ -2571,11 +2671,11 @@
         if (data.success && data.metricas) {
           const m = data.metricas;
           document.getElementById('tokKpiTotal').textContent = `${m.totalTokens.toLocaleString()} Tokens`;
-          document.getElementById('tokKpiBreakdown').textContent = `${m.totalInputTokens.toLocaleString()} Entrada (Prompt) • ${m.totalOutputTokens.toLocaleString()} Salida (Respuesta)`;
-          document.getElementById('tokKpiCostCop').textContent = `$${m.totalCostCop.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
-          document.getElementById('tokKpiCostUsd').textContent = `≈ $${m.totalCostUsd.toFixed(5)} USD ($4,000 COP/USD)`;
-          document.getElementById('tokKpiAvgCop').textContent = `$${m.promedioCostoCopPorConversacion.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP / taller`;
-          document.getElementById('tokKpiAvgTokens').textContent = `${m.promedioTokensPorConversacion.toLocaleString()} tokens • ≈ $${(m.promedioCostoCopPorConversacion / 4000).toFixed(5)} USD`;
+          document.getElementById('tokKpiBreakdown').textContent = `${m.totalInputTokens.toLocaleString()} Entrada (Prompt) • ${m.totalOutputTokens.toLocaleString()} Salida`;
+          document.getElementById('tokKpiCostCop').textContent = `$${m.totalCostCop.toFixed(2)} COP`;
+          document.getElementById('tokKpiCostUsd').innerHTML = `Tres pesos colombianos con 7 centavos<br>≈ US$ ${m.totalCostUsd.toFixed(5)} USD (Menos de $0.001 USD)`;
+          document.getElementById('tokKpiAvgCop').textContent = `$${m.promedioCostoCopPorConversacion.toFixed(2)} COP`;
+          document.getElementById('tokKpiAvgTokens').innerHTML = `Tres pesos por taller registrado<br>${m.promedioTokensPorConversacion.toLocaleString()} tokens • US$ ${(m.promedioCostoCopPorConversacion / 4000).toFixed(5)}`;
           document.getElementById('tokKpiConvs').textContent = `${m.totalConversaciones} Conversación${m.totalConversaciones === 1 ? '' : 'es'}`;
           document.getElementById('tokKpiTurns').textContent = `${m.totalTurnosInteractivos} turnos interactivos intercambiados`;
         }
@@ -2625,7 +2725,7 @@
       }
 
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">No se encontraron conversaciones con "${escapeHtml(filter)}".</div>`;
+        container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">No se encontraron conversaciones con "${escapeHtml(filter)}".</div>`;
         return;
       }
 
@@ -2644,7 +2744,7 @@
         const tok = c.tokens || {};
         const totalTok = tok.totalTokens || 0;
         const costCop = tok.totalCostCop ? `$${tok.totalCostCop.toFixed(2)} COP` : '$0.00 COP';
-        const costUsd = tok.totalCostUsd ? `$${tok.totalCostUsd.toFixed(4)} USD` : '$0.0000 USD';
+        const costUsd = tok.totalCostUsd ? `US$ ${tok.totalCostUsd.toFixed(4)}` : 'US$ 0.0000';
         const initial = (c.nombres_apellidos || 'M').charAt(0).toUpperCase();
 
         return `
@@ -2711,8 +2811,8 @@
         const totalCostUsdNum = tok.totalCostUsd || 0;
         const totalTokNum = tok.totalTokens || 0;
 
-        document.getElementById('chatCostVal').textContent = `$${totalCostCopNum.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
-        document.getElementById('chatCostUsdVal').textContent = `🪙 ${totalTokNum.toLocaleString()} tokens • ≈ $${totalCostUsdNum.toFixed(5)} USD`;
+        document.getElementById('chatCostVal').textContent = `$${totalCostCopNum.toFixed(2)} COP (Tres pesos colombianos)`;
+        document.getElementById('chatCostUsdVal').textContent = `🪙 ${totalTokNum.toLocaleString()} tokens • US$ ${totalCostUsdNum.toFixed(5)} USD (Menos de $0.001 USD)`;
 
         // Body
         const container = document.getElementById('chatMessagesContainer');
@@ -2733,16 +2833,17 @@
             const t = msg.tokens;
             const copVal = (t.costCop || 0).toFixed(2);
             const usdVal = (t.costUsd || 0).toFixed(5);
+            const centavos = Math.round((t.costCop || 0) * 100);
+            const copText = (t.costCop || 0) < 1 
+              ? `$${copVal} COP (${centavos} centavos)` 
+              : `$${copVal} COP`;
             tokenPill = `
-              <div class="wa-token-cost-box">
-                <div class="wa-token-left">
-                  <span>🪙</span>
-                  <span><strong>${t.totalTokens.toLocaleString()} tokens</strong> (${t.inputTokens.toLocaleString()} in / ${t.outputTokens.toLocaleString()} out)</span>
-                </div>
-                <div class="wa-token-right">
-                  <span>💵 <strong>$${copVal} COP</strong></span>
-                  <span style="font-weight:normal; color:#8696a0; font-size:0.72rem;">($${usdVal} USD)</span>
-                </div>
+              <div class="wa-token-mini-pill">
+                <span>🪙 <span class="tok-num">${t.totalTokens} tok</span></span>
+                <span class="sep">•</span>
+                <span>💵 <span class="cop-val">${copText}</span></span>
+                <span class="sep">•</span>
+                <span class="usd-val">US$ ${usdVal}</span>
               </div>
             `;
           }
@@ -2782,9 +2883,9 @@
 
         container.innerHTML = dateTag + messagesHtml;
 
-        if (shouldScroll) {
+        setTimeout(() => {
           container.scrollTop = container.scrollHeight;
-        }
+        }, 50);
       } catch (err) {
         console.warn('Error refrescando chat en vivo:', err);
       }
