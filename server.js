@@ -1,25 +1,4 @@
 require('dotenv').config();
-const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
-const isCloudEnv = Boolean(
-  process.env.K_SERVICE || 
-  process.env.FUNCTION_TARGET || 
-  process.env.GOOGLE_APPLICATION_CREDENTIALS || 
-  process.env.ENABLE_FIREBASE_TELEMETRY === 'true'
-);
-
-if (!global.__GENKIT_TELEMETRY_INITIALIZED && isCloudEnv) {
-  global.__GENKIT_TELEMETRY_INITIALIZED = true;
-  try {
-    enableFirebaseTelemetry({
-      projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'agente-nitrox',
-      metricExportIntervalMillis: 5000,
-      metricExportTimeoutMillis: 5000,
-      forceDevExport: true
-    });
-  } catch (e) {
-    console.warn('[GENKIT TELEMETRY INIT]', e.message);
-  }
-}
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
@@ -27,8 +6,6 @@ const { generateMateoResponse, admin, localMecanicosStore, resetMemoryCache } = 
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
 const { generateCardImage } = require('./card_generator');
-const { helloFlow } = require('./genkit_service');
-const { getAllLearnings, analyzeConversation, analyzeAllStoredSessions } = require('./ml_service');
 
 const app = express();
 app.use(express.json());
@@ -479,6 +456,7 @@ async function sendWhatsAppImage(to, imageUrl, caption) {
 // Get all ML learnings and aggregated metrics
 app.get('/api/ml/aprendizajes', requireAuth, async (req, res) => {
   try {
+    const { getAllLearnings } = require('./ml_service');
     const data = await getAllLearnings();
     return res.json({ success: true, ...data });
   } catch (err) {
@@ -503,6 +481,7 @@ app.post('/api/ml/analizar/:phone', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: `No se encontró sesión para el teléfono +${phone}` });
     }
 
+    const { analyzeConversation } = require('./ml_service');
     const result = await analyzeConversation(phone, session);
     return res.json({ success: true, aprendizaje: result });
   } catch (err) {
@@ -514,6 +493,7 @@ app.post('/api/ml/analizar/:phone', requireAuth, async (req, res) => {
 // Trigger batch ML analysis on all stored conversations
 app.post('/api/ml/analizar-todas', requireAuth, async (req, res) => {
   try {
+    const { analyzeAllStoredSessions } = require('./ml_service');
     const resultados = await analyzeAllStoredSessions();
     return res.json({ success: true, count: resultados.length, resultados });
   } catch (err) {
@@ -699,6 +679,7 @@ app.post('/', handleIncomingMessage);
 
 app.get('/api/genkit/run', async (req, res) => {
   try {
+    const { helloFlow } = require('./genkit_service');
     const text = await helloFlow(req.query.name || 'Firebase-Monitoring');
     await new Promise(r => setTimeout(r, 6000));
     res.json({ success: true, text });
@@ -711,6 +692,7 @@ exports.webhook = onRequest({ cors: true, invoker: 'public' }, app);
 
 exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
   try {
+    const { helloFlow } = require('./genkit_service');
     const text = await helloFlow(req.query.name || 'Firebase-Monitoring');
     await new Promise(r => setTimeout(r, 6000));
     res.json({ success: true, text });
