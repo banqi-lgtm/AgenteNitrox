@@ -668,80 +668,40 @@
       50% { opacity: 0.85; transform: scale(1.05); }
     }
 
-    /* Tokens & Banner WhatsApp Styles */
-    .tokens-header-banner {
-      background: linear-gradient(135deg, rgba(0, 168, 132, 0.12), rgba(17, 27, 33, 0.95));
-      border: 1px solid rgba(0, 168, 132, 0.3);
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-bottom: 16px;
+    /* Tokens & Banner Slim Styles */
+    .tokens-slim-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 8px 14px;
+      background: #111b21;
+      border: 1px solid #222d34;
+      border-radius: 10px;
+      margin-bottom: 10px;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 8px;
     }
-    .tokens-banner-title {
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: #fff;
+    .tokens-slim-title {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 4px;
-    }
-    .tokens-banner-desc {
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      max-width: 700px;
-      line-height: 1.4;
-    }
-    .tokens-banner-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .rate-pill {
-      background: #202c33;
-      border: 1px solid #374248;
-      padding: 5px 9px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      color: #8696a0;
-    }
-    .rate-pill strong {
-      color: #25D366;
-    }
-
-    /* Friendly Action Buttons - Compact */
-    .btn-wa-action {
-      background: #00a884;
       color: #fff;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 0.78rem;
+      font-size: 0.92rem;
       font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
+    }
+    .tokens-slim-actions {
+      display: flex;
       align-items: center;
-      gap: 5px;
-      transition: all 0.15s;
-      text-decoration: none;
-      box-shadow: 0 1px 4px rgba(0, 168, 132, 0.3);
+      gap: 6px;
+      flex-wrap: wrap;
     }
-    .btn-wa-action:hover {
-      background: #029070;
-      transform: translateY(-1px);
-    }
-    .btn-wa-secondary {
+    .btn-micro {
       background: #202c33;
       color: #e9edef;
       border: 1px solid #374248;
-      padding: 5px 10px;
+      padding: 4px 10px;
       border-radius: 6px;
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
@@ -749,118 +709,79 @@
       gap: 5px;
       transition: all 0.15s;
     }
-    .btn-wa-secondary:hover {
+    .btn-micro:hover {
       background: #2a3942;
       border-color: #00a884;
       color: #fff;
     }
-
-    /* Cost Clarity Alert Box */
-    .cost-clarity-alert {
-      background: linear-gradient(135deg, rgba(20, 27, 36, 0.98), rgba(15, 23, 42, 0.98));
-      border: 1px solid #374248;
-      border-left: 4px solid #f59e0b;
-      border-radius: 10px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+    .btn-micro-info {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: rgba(59, 130, 246, 0.45);
+      color: #93c5fd;
     }
-    .cost-alert-icon {
-      font-size: 1.4rem;
-      line-height: 1;
-      margin-top: 2px;
-    }
-    .cost-alert-content {
-      flex: 1;
-      font-size: 0.82rem;
-      line-height: 1.45;
-      color: #e2e8f0;
-    }
-    .cost-alert-content strong {
+    .btn-micro-info:hover {
+      background: rgba(59, 130, 246, 0.32);
+      border-color: #3b82f6;
       color: #fff;
     }
-    .cost-alert-badges {
-      margin-top: 6px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .cost-pill-highlight {
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid #f59e0b;
-      color: #fbbf24;
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-weight: 800;
-      font-size: 0.75rem;
-    }
-    .cost-pill-usd {
-      background: rgba(59, 130, 246, 0.15);
-      border: 1px solid #3b82f6;
-      color: #93c5fd;
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-weight: 700;
-      font-size: 0.75rem;
+    .btn-micro-live {
+      background: rgba(0, 168, 132, 0.15);
+      border-color: rgba(0, 168, 132, 0.4);
+      color: #25d366;
     }
 
-    /* KPI Grid Tokens */
-    .tok-kpi-grid {
+    /* Ultra-Compact 4-KPI Row */
+    .tok-kpi-compact-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
     }
-    .tok-kpi-card {
+    @media (max-width: 900px) {
+      .tok-kpi-compact-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .kpi-mini {
       background: #111b21;
       border: 1px solid #222d34;
-      border-radius: 10px;
-      padding: 14px 16px;
+      border-radius: 8px;
+      padding: 8px 12px;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
-    .tok-kpi-card::before {
+    .kpi-mini::before {
       content: '';
       position: absolute;
-      top: 0; left: 0; right: 0; height: 3px;
+      top: 0; left: 0; right: 0; height: 2px;
     }
-    .tok-kpi-card.green::before { background: #00a884; }
-    .tok-kpi-card.amber::before { background: #f59e0b; }
-    .tok-kpi-card.blue::before { background: #3b82f6; }
-    .tok-kpi-card.purple::before { background: #8b5cf6; }
+    .kpi-mini.green::before { background: #00a884; }
+    .kpi-mini.amber::before { background: #f59e0b; }
+    .kpi-mini.blue::before { background: #3b82f6; }
+    .kpi-mini.purple::before { background: #8b5cf6; }
 
-    .tok-kpi-label {
-      font-size: 0.72rem;
+    .kpi-mini-lbl {
+      font-size: 0.68rem;
       color: #8696a0;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
       font-weight: 700;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      display: block;
+      margin-bottom: 2px;
     }
-    .tok-kpi-main-val {
-      font-size: 1.45rem;
+    .kpi-mini-val {
+      font-size: 1.15rem;
       font-weight: 800;
       color: #fff;
       line-height: 1.2;
-      margin-bottom: 2px;
     }
-    .tok-kpi-sub-cop {
-      font-size: 0.84rem;
-      font-weight: 700;
-      color: #00a884;
-    }
-    .tok-kpi-sub-usd {
-      font-size: 0.75rem;
+    .kpi-mini-sub {
+      font-size: 0.68rem;
       color: #8696a0;
-      margin-top: 2px;
+      display: block;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* WhatsApp Web Container Layout - Full Scroll & Exact Constraints */
@@ -1713,72 +1634,46 @@
 
     <!-- View: Tokens y Conversaciones en Vivo -->
     <div id="viewTokens" style="display: none;">
-      <!-- Banner con Controles y Tarifas -->
-      <div class="tokens-header-banner">
-        <div>
-          <div class="tokens-banner-title">
-            <span>💬 Monitor WhatsApp en Vivo & Tokens Gemini</span>
-            <span class="live-badge-pulse" id="liveBadgePulse">LIVE</span>
-          </div>
-          <p class="tokens-banner-desc">
-            Supervisión en tiempo real de conversaciones WhatsApp. El 100% de los mensajes son procesados por <strong>Gemini Flash Lite</strong> con contexto completo, lenguaje motero paisa y sin trabarse.
-          </p>
+      <!-- Slim Top Bar -->
+      <div class="tokens-slim-bar">
+        <div class="tokens-slim-title">
+          <span>💬 Conversaciones WhatsApp & Tokens Gemini</span>
+          <span class="live-badge-pulse" id="liveBadgePulse" style="font-size: 0.62rem; padding: 2px 7px;">LIVE</span>
         </div>
-        <div class="tokens-banner-controls">
-          <div class="rate-pill">Tasa: <strong>$4,000 COP / USD</strong></div>
-          <div class="rate-pill">Tarifa Prompt: <strong>$0.075 / 1M</strong></div>
-          <div class="rate-pill">Tarifa Resp: <strong>$0.30 / 1M</strong></div>
-          <button class="btn-wa-action" id="btnManualRefresh" onclick="loadTokensData()">
-            🔄 Actualizar Datos
+        <div class="tokens-slim-actions">
+          <button class="btn-micro btn-micro-info" onclick="openInstructivoModal()" title="Ver explicación detallada de tarifas y pesos colombianos">
+            ℹ️ Instructivo
           </button>
-          <button class="btn-wa-secondary" id="btnToggleLiveTimer" onclick="toggleTokensLiveMode()">
-            <span id="liveDotIndicator">🟢</span> <span id="liveBtnText">En Vivo: ACTIVO</span>
+          <button class="btn-micro" onclick="loadTokensData()" title="Recargar datos ahora">
+            🔄 Actualizar
+          </button>
+          <button class="btn-micro btn-micro-live" id="btnToggleLiveTimer" onclick="toggleTokensLiveMode()" title="Pausar o activar auto-refresco">
+            <span id="liveDotIndicator">🟢</span> <span id="liveBtnText">En Vivo (4s)</span>
           </button>
         </div>
       </div>
 
-      <!-- Cuadro Explicativo Enfático de Costos -->
-      <div class="cost-clarity-alert">
-        <div class="cost-alert-icon">💡</div>
-        <div class="cost-alert-content">
-          <div><strong>¿CÓMO ENTENDER ESTOS COSTOS ECONÓMICOS?</strong></div>
-          <div style="margin-top: 3px;">
-            La Inteligencia Artificial (Gemini 1.5 Flash Lite) es <strong>extremadamente económica</strong> ($0.075 USD por 1 millón de tokens).
-            Por lo tanto, toda esta conversación con el taller costó <strong>LITERALMENTE 3 PESOS COLOMBIANOS ($3.07 COP)</strong>, es decir, <strong>US$ 0.00077 dólares</strong> (menos de un milésimo de dólar americano).
-          </div>
-          <div class="cost-alert-badges">
-            <span class="cost-pill-highlight">✅ Son 3 pesos colombianos ($3.07 COP)</span>
-            <span style="color: #ef4444; font-weight: 700; font-size: 0.74rem;">❌ NO son $3,000 pesos</span>
-            <span style="color: #ef4444; font-weight: 700; font-size: 0.74rem;">❌ NO son 3 dólares</span>
-            <span class="cost-pill-usd">🪙 Cada respuesta de Mateo cuesta ~12 centavos de peso ($0.12 COP)</span>
-          </div>
+      <!-- Ultra-Compact 4-KPI Row -->
+      <div class="tok-kpi-compact-row">
+        <div class="kpi-mini green">
+          <span class="kpi-mini-lbl">🪙 Tokens Gemini</span>
+          <div class="kpi-mini-val" id="tokKpiTotal">9,382 Tokens</div>
+          <span class="kpi-mini-sub" id="tokKpiBreakdown">9,100 in • 282 out</span>
         </div>
-      </div>
-
-      <!-- KPI Grid: Tokens, COP y USD Claramente Destacados -->
-      <div class="tok-kpi-grid">
-        <div class="tok-kpi-card green">
-          <div class="tok-kpi-label">🪙 Total Tokens Gemini</div>
-          <div class="tok-kpi-main-val" id="tokKpiTotal">0</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiBreakdown">0 Prompt (in) • 0 Respuesta (out)</div>
+        <div class="kpi-mini amber">
+          <span class="kpi-mini-lbl">💵 Inversión Total Real</span>
+          <div class="kpi-mini-val" id="tokKpiCostCop" style="color: #F59E0B;">$3.07 COP</div>
+          <span class="kpi-mini-sub" id="tokKpiCostUsd">3 Pesos Colombianos (Literal $3 COP)</span>
         </div>
-
-        <div class="tok-kpi-card amber">
-          <div class="tok-kpi-label">💵 Inversión Total Real</div>
-          <div class="tok-kpi-main-val" id="tokKpiCostCop" style="color: #F59E0B;">$3.07 COP</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiCostUsd">Tres pesos colombianos con 7 centavos<br>≈ US$ 0.00077 USD</div>
+        <div class="kpi-mini blue">
+          <span class="kpi-mini-lbl">⚡ Promedio / Taller</span>
+          <div class="kpi-mini-val" id="tokKpiAvgCop" style="color: #3B82F6;">$3.07 COP</div>
+          <span class="kpi-mini-sub" id="tokKpiAvgTokens">Tres pesos por taller registrado</span>
         </div>
-
-        <div class="tok-kpi-card blue">
-          <div class="tok-kpi-label">⚡ Costo Promedio / Taller</div>
-          <div class="tok-kpi-main-val" id="tokKpiAvgCop" style="color: #3B82F6;">$3.07 COP</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiAvgTokens">Tres pesos por taller registrado<br>9,382 tokens • US$ 0.00077</div>
-        </div>
-
-        <div class="tok-kpi-card purple">
-          <div class="tok-kpi-label">💬 Conversaciones y Turnos</div>
-          <div class="tok-kpi-main-val" id="tokKpiConvs">0</div>
-          <div class="tok-kpi-sub-usd" id="tokKpiTurns">0 turnos interactivos intercambiados</div>
+        <div class="kpi-mini purple">
+          <span class="kpi-mini-lbl">💬 Conversaciones</span>
+          <div class="kpi-mini-val" id="tokKpiConvs">1 Conversación</div>
+          <span class="kpi-mini-sub" id="tokKpiTurns">14 turnos interactivos</span>
         </div>
       </div>
 
@@ -1915,9 +1810,75 @@
     </div>
   </div>
 
+  <!-- Modal Instructivo de Costos y Tokens -->
+  <div class="modal-overlay" id="instructivoModal" style="display: none;">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <h2 style="font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+            <span>ℹ️ Instructivo: Costos y Tokens de Mateo</span>
+          </h2>
+          <p style="font-size: 0.78rem; color: #8696a0;">Guía clara para entender las métricas de consumo</p>
+        </div>
+        <button class="modal-close" onclick="closeInstructivoModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 18px 20px; font-size: 0.85rem; line-height: 1.5; color: #e2e8f0;">
+        <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px;">
+          <h4 style="color: #fbbf24; margin: 0 0 6px 0; font-size: 0.9rem;">💵 ¿Son 3 pesos, 3 dólares o 3 mil pesos?</h4>
+          <p style="margin: 0; font-size: 0.82rem; color: #f1f5f9;">
+            Son <strong>LITERALMENTE TRES PESOS COLOMBIANOS ($3.07 COP)</strong>.<br>
+            <span style="color: #ef4444; font-weight: 700;">❌ NO son 3 dólares.</span><br>
+            <span style="color: #ef4444; font-weight: 700;">❌ NO son 3 mil pesos ($3,000 COP).</span><br>
+            <span style="color: #22c55e; font-weight: 700;">✅ Son literalmente 3 monedas de $1 peso colombiano.</span>
+          </p>
+        </div>
+
+        <h4 style="color: #fff; margin: 0 0 6px 0; font-size: 0.88rem;">⚡ ¿Por qué es tan económico?</h4>
+        <p style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 14px;">
+          El motor de Mateo usa <strong>Gemini 1.5 Flash Lite</strong>, cuyo costo es de apenas <strong>$0.075 USD por cada millón de tokens</strong>.
+          Toda la conversación con el taller gastó 9,382 tokens, lo que equivale a <strong>US$ 0.00077 dólares</strong> (menos de 1 milésimo de dólar). Al cambio oficial ($4,000 COP por USD), da exactamente <strong>$3.07 COP</strong>.
+        </p>
+
+        <h4 style="color: #fff; margin: 0 0 6px 0; font-size: 0.88rem;">📊 Tarifas y Referencias</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.78rem; margin-bottom: 10px;">
+          <div style="background: #202c33; padding: 8px 10px; border-radius: 6px; border: 1px solid #374248;">
+            <span style="color: #8696a0;">Tarifa Entrada:</span><br>
+            <strong style="color: #25d366;">$0.075 USD / 1M tokens</strong>
+          </div>
+          <div style="background: #202c33; padding: 8px 10px; border-radius: 6px; border: 1px solid #374248;">
+            <span style="color: #8696a0;">Tarifa Salida:</span><br>
+            <strong style="color: #25d366;">$0.30 USD / 1M tokens</strong>
+          </div>
+          <div style="background: #202c33; padding: 8px 10px; border-radius: 6px; border: 1px solid #374248;">
+            <span style="color: #8696a0;">Tasa de Cambio:</span><br>
+            <strong style="color: #fbbf24;">$4,000 COP / USD</strong>
+          </div>
+          <div style="background: #202c33; padding: 8px 10px; border-radius: 6px; border: 1px solid #374248;">
+            <span style="color: #8696a0;">Costo aprox. por mensaje:</span><br>
+            <strong style="color: #38bdf8;">~12 centavos ($0.12 COP)</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding: 10px 16px; display: flex; justify-content: flex-end;">
+        <button class="btn-action" style="padding: 6px 14px; font-size: 0.8rem;" onclick="closeInstructivoModal()">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let allMechanics = [];
     let currentSelectedId = null;
+
+    function openInstructivoModal() {
+      document.getElementById('instructivoModal').style.display = 'flex';
+    }
+    function closeInstructivoModal() {
+      document.getElementById('instructivoModal').style.display = 'none';
+    }
 
     function escapeHtml(str) {
       if (!str) return '';
