@@ -135,7 +135,7 @@ function normalizeMechanicData(input, origin = 'Web') {
     ciudad_taller: input.ciudad_taller || 'Medellín',
     barrio_taller: input.barrio_taller || '',
     direccion_taller: input.direccion_taller || input.direccion || '',
-    relacion_taller: input.relacion_taller || 'Propietario',
+    relacion_taller: input.relacion_taller || 'No especificado',
     antiguedad_taller: input.antiguedad_taller || 'No especificada',
     personas_taller: input.personas_taller || input.personal || 'No especificado',
 
@@ -151,6 +151,9 @@ function normalizeMechanicData(input, origin = 'Web') {
     frecuencia_recomendacion: input.frecuencia_recomendacion || (input.quien_decide_repuesto === 'Mecánico' ? 'Siempre' : 'No especificada'),
 
     // E. COMPORTAMIENTO DE COMPRA Y MARCAS (Datos reales del usuario)
+    repuestos_frecuentes: Array.isArray(input.repuestos_frecuentes)
+      ? input.repuestos_frecuentes
+      : (input.repuestos_frecuentes ? [input.repuestos_frecuentes] : []),
     donde_compra_repuestos: Array.isArray(input.donde_compra_repuestos)
       ? input.donde_compra_repuestos
       : (input.canal_compra ? [input.canal_compra] : (input.donde_compra_repuestos ? [input.donde_compra_repuestos] : [])),

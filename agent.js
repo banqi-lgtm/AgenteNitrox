@@ -55,17 +55,21 @@ function cleanPersonName(str) {
   if (isPureGreeting(s) || isGreetingResponse(s)) return '';
   s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es|yo soy|yo me llamo)\s+/gi, '');
   s = s.replace(/(?:taller|motos|repuestos).*$/gi, '').trim();
+  s = s.replace(/\s+(?:y|de|del)$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
   if (isPureGreeting(s) || isGreetingResponse(s)) return '';
   const words = s.split(/\s+/).filter(Boolean);
-  if (words.length === 1 && /^(hola|buenas|quiero|taller|motos|info)$/i.test(words[0])) return '';
+  if (words.length === 0 || (words.length === 1 && /^(hola|buenas|quiero|taller|motos|info)$/i.test(words[0]))) return '';
   return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
 // Helper to extract and clean workshop name
 function cleanWorkshopName(str) {
   if (!str) return '';
-  let s = str.replace(/^(?:y mi taller es|mi taller se llama|el taller es|el taller se llama|el taller|taller:\s*|es el taller|del taller)\s+/gi, '').trim();
+  let s = str.trim();
+  // Remove introductory and trailing filler
+  s = s.replace(/^(?:y\s+)?(?:mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|se\s+llama\s+el\s+taller|se\s+llama|el\s+taller|taller:\s*|es\s+el\s+taller|del\s+taller)\s+/gi, '').trim();
+  s = s.replace(/\s+(?:el\s+taller|mi\s+taller)$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
   if (!workshopKeywords.test(s)) {
     s = 'Taller ' + s;
@@ -76,8 +80,9 @@ function cleanWorkshopName(str) {
 // Helper to parse Name & Workshop if provided together or separately
 function parseNameAndWorkshop(raw) {
   const clean = (raw || '').trim();
-  if (isGreeting(clean)) return { name: '', workshop: '', ambiguous: null };
+  if (!clean || isGreeting(clean)) return { name: '', workshop: '', ambiguous: null };
 
+  // 1. Explicit multi-line input
   const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (lines.length >= 2) {
     const isW0 = workshopKeywords.test(lines[0]);
@@ -89,6 +94,32 @@ function parseNameAndWorkshop(raw) {
     }
   }
 
+  // 2. Pattern: Person first, then workshop with "se llama", "el taller es", "taller":
+  // e.g. "Soy Sergio Se Llama Panama El Taller", "Soy Sergio y el taller es Panama", "Sergio, taller Panama", "Sergio se llama Panama el taller"
+  const personFirstMatch = clean.match(/^(?:hola|buenas|buenos dias)?\s*(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+)?)\s*[,;]?\s*(?:y\s+)?(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+de\s+nombre|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?:\s+el\s+taller)?$/i)
+    || clean.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*[,;]?\s*(?:y\s+)?(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+de\s+nombre|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?:\s+el\s+taller)?$/i);
+  if (personFirstMatch && personFirstMatch[1].trim() && personFirstMatch[2].trim()) {
+    const nameCand = personFirstMatch[1].trim();
+    const shopCand = personFirstMatch[2].trim();
+    if (!workshopKeywords.test(nameCand) && !/^(?:el|la|los|las|un|una|mi|tu|su)$/i.test(nameCand) && (commonFirstNames.test(nameCand) || /soy|me llamo|yo soy|mi nombre/i.test(clean))) {
+      return { name: cleanPersonName(nameCand), workshop: cleanWorkshopName(shopCand), ambiguous: null };
+    }
+  }
+
+  // 3. Pattern: Workshop first, then person:
+  // e.g. "Se llama Panama el taller y yo soy Sergio", "El taller se llama Panama y me llamo Sergio", "Taller Panama, soy Sergio"
+  const shopFirstMatch = clean.match(/^(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?:\s+el\s+taller)?\s*[,;]?\s*(?:y\s+)?(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+)$/i);
+  if (shopFirstMatch && shopFirstMatch[1].trim() && shopFirstMatch[2].trim()) {
+    return { name: cleanPersonName(shopFirstMatch[2]), workshop: cleanWorkshopName(shopFirstMatch[1]), ambiguous: null };
+  }
+
+  // 4. Pattern: "Soy [Nombre] de/del [Taller]"
+  const deMatch = clean.match(/^(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del|y mi taller es|y el taller es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)$/i);
+  if (deMatch && deMatch[1].trim() && deMatch[2].trim()) {
+    return { name: cleanPersonName(deMatch[1]), workshop: cleanWorkshopName(deMatch[2]), ambiguous: null };
+  }
+
+  // 5. Pattern with commas or "y":
   if (clean.includes(',') || /\s+y\s+/i.test(clean)) {
     const parts = clean.split(/,|\s+y\s+/i).map(p => p.trim()).filter(Boolean);
     if (parts.length >= 2) {
@@ -102,29 +133,35 @@ function parseNameAndWorkshop(raw) {
     }
   }
 
-  const deMatch = clean.match(/^(?:soy|me llamo|mi nombre es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del|y mi taller es|y el taller es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)$/i);
-  if (deMatch && deMatch[1].trim() && deMatch[2].trim()) {
-    return { name: cleanPersonName(deMatch[1]), workshop: cleanWorkshopName(deMatch[2]), ambiguous: null };
-  }
-
-  // If two parts separated by 'de' or 'del' without 'soy/me llamo', check if part1 is a known person name AND part2 has workshop word
+  // 6. If two parts separated by 'de' or 'del' without 'soy/me llamo', check if part1 is a known person name AND part2 has workshop word
   const deParts = clean.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)\s+(?:de|del)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)$/i);
   if (deParts && commonFirstNames.test(deParts[1].trim().split(/\s+/)[0]) && workshopKeywords.test(deParts[2])) {
     return { name: cleanPersonName(deParts[1]), workshop: cleanWorkshopName(deParts[2]), ambiguous: null };
   }
 
-  // Single entity check
+  // 7. Explicit single person or single workshop patterns
+  const singleNameMatch = clean.match(/^(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+)$/i);
+  if (singleNameMatch && !workshopKeywords.test(singleNameMatch[1])) {
+    return { name: cleanPersonName(singleNameMatch[1]), workshop: '', ambiguous: null };
+  }
+
+  const singleWorkshopMatch = clean.match(/^(?:mi\s+taller\s+es|el\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+se\s+llama|taller:\s*)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+)$/i);
+  if (singleWorkshopMatch) {
+    return { name: '', workshop: cleanWorkshopName(singleWorkshopMatch[1]), ambiguous: null };
+  }
+
+  // 8. General single entity check
   const lower = clean.toLowerCase();
-  if (workshopKeywords.test(lower)) {
+  if (workshopKeywords.test(lower) && !/(?:soy|me llamo|mi nombre|yo soy)/i.test(lower)) {
     return { name: '', workshop: cleanWorkshopName(clean), ambiguous: null };
   }
 
   const words = clean.split(/\s+/).filter(Boolean);
-  if (commonFirstNames.test(words[0]) && words.length <= 3 && !/(?:dorado|racing|garage|motor|repuestos|leon|león)/i.test(lower)) {
+  if (commonFirstNames.test(words[0]) && words.length <= 3 && !/(?:dorado|racing|garage|motor|repuestos|leon|león|taller)/i.test(lower)) {
     return { name: cleanPersonName(clean), workshop: '', ambiguous: null };
   }
 
-  // Ambiguous single entity (like "León Del Dorado")
+  // 9. Ambiguous single entity (like "León Del Dorado")
   return { name: '', workshop: '', ambiguous: clean };
 }
 
