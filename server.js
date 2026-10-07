@@ -12,7 +12,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const isRunningInCloud = Boolean(
+  process.env.K_SERVICE || 
+  process.env.FUNCTION_TARGET || 
+  process.env.GOOGLE_CLOUD_PROJECT || 
+  process.env.GCP_PROJECT ||
+  process.env.K_REVISION ||
+  process.env.CLOUD_RUN_JOB
+);
 const ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'btnt_nitrox_secret_token_2026';
@@ -561,7 +569,7 @@ function computeSessionTokenStats(session) {
 app.get('/api/crm/tokens-resumen', requireAuth, async (req, res) => {
   try {
     // Si corre en localhost, consultar en vivo a producción para paridad total e inmediata con WhatsApp
-    if (!process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
+    if (!isRunningInCloud) {
       try {
         const prodRes = await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/tokens-resumen', {
           headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
@@ -629,7 +637,7 @@ app.get('/api/crm/tokens-resumen', requireAuth, async (req, res) => {
 app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
   try {
     // Si corre en localhost, consultar en vivo a producción
-    if (!process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
+    if (!isRunningInCloud) {
       try {
         const prodRes = await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/conversaciones-en-vivo', {
           headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
@@ -684,7 +692,7 @@ app.get('/api/crm/conversacion-en-vivo/:phone', requireAuth, async (req, res) =>
     const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
 
     // Si corre en localhost, consultar en vivo a producción
-    if (!process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
+    if (!isRunningInCloud) {
       try {
         const prodRes = await fetch(`https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/conversacion-en-vivo/${cleanPhone}`, {
           headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
@@ -1002,7 +1010,7 @@ exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res
 
 // Local Development Sync: Automatically sync production data to RAM when running on localhost
 async function syncFromProductionIfLocal() {
-  if (process.env.FUNCTION_TARGET || process.env.K_SERVICE) {
+  if (isRunningInCloud) {
     return;
   }
   try {
@@ -1058,9 +1066,13 @@ app.post('/api/crm/sync-production', requireAuth, async (req, res) => {
   }
 });
 
-if (require.main === module && !process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
-  app.listen(PORT, async () => {
-    console.log(`🚀 Servidor Mateo NITROX activo en el puerto ${PORT}`);
-    await syncFromProductionIfLocal();
+// Standalone server entrypoint (Google Cloud Run container or Localhost)
+if (require.main === module && !process.env.FUNCTION_TARGET) {
+  const HOST = '0.0.0.0';
+  app.listen(PORT, HOST, async () => {
+    console.log(`🚀 Servidor Mateo NITROX escuchando en http://${HOST}:${PORT} [Modo: ${isRunningInCloud ? 'Cloud Run (' + (process.env.K_SERVICE || 'agente-nitrox') + ')' : 'Localhost'}]`);
+    if (!isRunningInCloud) {
+      await syncFromProductionIfLocal();
+    }
   });
 }
