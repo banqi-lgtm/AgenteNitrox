@@ -9,6 +9,7 @@
     "node": "22"
   },
   "dependencies": {
+    "@genkit-ai/firebase": "^1.42.0",
     "@genkit-ai/googleai": "^1.28.0",
     "@google/generative-ai": "^0.24.1",
     "dotenv": "^18.0.5",

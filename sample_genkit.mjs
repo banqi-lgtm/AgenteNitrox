@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import { gemini15Flash, googleAI } from '@genkit-ai/googleai';
 import { genkit } from 'genkit';
+import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
+
+enableFirebaseTelemetry();
 
 const ai = genkit({
   plugins: [googleAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY })],

@@ -1,6 +1,9 @@
 require('dotenv').config();
 const { genkit } = require('genkit');
-const { googleAI, gemini15Flash } = require('@genkit-ai/googleai');
+const { googleAI } = require('@genkit-ai/googleai');
+const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
+
+enableFirebaseTelemetry();
 
 // Ensure apiKey is mapped if set as GEMINI_API_KEY
 if (!process.env.GOOGLE_GENAI_API_KEY && process.env.GEMINI_API_KEY) {
