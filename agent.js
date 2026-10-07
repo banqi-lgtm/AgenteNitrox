@@ -67,6 +67,9 @@ function cleanPersonName(str) {
 function cleanWorkshopName(str) {
   if (!str) return '';
   let s = str.trim();
+  if (/^(?:no tengo taller|a domicilio|independiente|trabajo a domicilio|particular)/i.test(s)) {
+    return 'Mecánico Independiente / A domicilio';
+  }
   // Remove introductory and trailing filler
   s = s.replace(/^(?:y\s+)?(?:mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|se\s+llama\s+el\s+taller|se\s+llama|el\s+taller|taller:\s*|es\s+el\s+taller|del\s+taller)\s+/gi, '').trim();
   s = s.replace(/\s+(?:el\s+taller|mi\s+taller)$/gi, '').trim();
@@ -197,11 +200,23 @@ function extractEntities(text, sessionData) {
   // 1. Name & Workshop if missing
   if (!sessionData.nombres_apellidos || !sessionData.nombre_taller) {
     if (sessionData._lastQuestion === 'NOMBRE' && !sessionData.nombres_apellidos) {
-      const p = cleanPersonName(raw);
-      if (p) updates.nombres_apellidos = p;
+      const parsed = parseNameAndWorkshop(raw);
+      if (parsed.name) {
+        updates.nombres_apellidos = parsed.name;
+        if (parsed.workshop && !sessionData.nombre_taller) updates.nombre_taller = parsed.workshop;
+      } else {
+        const p = cleanPersonName(raw);
+        if (p) updates.nombres_apellidos = p;
+      }
     } else if (sessionData._lastQuestion === 'TALLER' && !sessionData.nombre_taller) {
-      const w = cleanWorkshopName(raw);
-      if (w) updates.nombre_taller = w;
+      const parsed = parseNameAndWorkshop(raw);
+      if (parsed.workshop) {
+        updates.nombre_taller = parsed.workshop;
+        if (parsed.name && !sessionData.nombres_apellidos) updates.nombres_apellidos = parsed.name;
+      } else {
+        const w = cleanWorkshopName(raw);
+        if (w) updates.nombre_taller = w;
+      }
     } else if (sessionData._lastQuestion === 'NOMBRE_Y_TALLER' || !sessionData._lastQuestion) {
       const parsed = parseNameAndWorkshop(raw);
       if (parsed.ambiguous) {
@@ -432,24 +447,30 @@ function extractEntities(text, sessionData) {
   const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   if (emailMatch) {
     updates.correo = emailMatch[0].toLowerCase();
-    updates.autorizacion_tratamiento_datos = true;
-    updates.autorizacion_comunicaciones_comerciales = true;
-    updates.acepta_registro = true;
   }
 
   const idMatch = raw.match(/(?:nit|cedula|c\.c\.|cc)?\s*(\b\d{7,10}(?:-\d)?\b)/i);
   if (idMatch && (!updates.correo || !idMatch[1].includes('@'))) {
     updates.cedula = idMatch[1];
-    updates.autorizacion_tratamiento_datos = true;
-    updates.autorizacion_comunicaciones_comerciales = true;
-    updates.acepta_registro = true;
   }
 
   if (isBenefitsQuestion) {
     sessionData._datosBeneficiosSolicitados = true;
-    if (/no tengo|no gracias|despu[eé]s|solo whatsapp|ninguno|no me gustar[ií]a/i.test(lower)) {
+    if (/no tengo|no gracias|despu[eé]s|solo whatsapp|ninguno|no me gustar[ií]a|no uso correo/i.test(lower)) {
       if (!updates.correo && !sessionData.correo) updates.correo = 'No especificado';
       if (!updates.cedula && !sessionData.cedula) updates.cedula = 'No especificada';
+    }
+  }
+
+  // 13. Habeas Data / Legal Data Treatment Acceptance
+  if (sessionData._lastQuestion === 'HABEAS_DATA') {
+    updates._habeasDataRespondido = true;
+    if (/(?:no\s*gracias|no\s*acepto|no\s*autorizo|^no\b|para nada|negativo)/i.test(lower)) {
+      updates.autorizacion_tratamiento_datos = false;
+      updates.autorizacion_comunicaciones_comerciales = false;
+      updates.acepta_registro = false;
+    } else {
+      // Affirmative: "si", "sí", "acepto", "autorizo", "claro", "de una", "ok", "listo", "dale", etc.
       updates.autorizacion_tratamiento_datos = true;
       updates.autorizacion_comunicaciones_comerciales = true;
       updates.acepta_registro = true;
@@ -542,7 +563,7 @@ async function generateMateoResponse(fromNumber, userText) {
     session.data = {};
     session.history = [];
     await saveSession(fromNumber, session);
-    const reply = "¡Listo! Empecemos de nuevo. ¿Cómo te llamas y cómo se llama tu taller?";
+    const reply = "¡Listo! Empecemos de nuevo. ¿Cuál es tu nombre?";
     return [reply];
   }
 
@@ -563,9 +584,9 @@ async function generateMateoResponse(fromNumber, userText) {
   // If user was answering the initial greeting:
   if (data._lastQuestion === 'WAITING_GREETING_REPLY') {
     delete data._lastQuestion;
-    if (!data.nombres_apellidos && !data.nombre_taller) {
-      data._lastQuestion = 'NOMBRE_Y_TALLER';
-      const reply = "Me alegra. ¿Cómo te llamas y cómo se llama tu taller de motos?";
+    if (!data.nombres_apellidos) {
+      data._lastQuestion = 'NOMBRE';
+      const reply = "Me alegra. ¿Cuál es tu nombre?";
       session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
       await saveSession(fromNumber, session);
       return [reply];
@@ -583,9 +604,12 @@ async function generateMateoResponse(fromNumber, userText) {
   // 4. User inquiry interceptor (if user asks what RED NITROX is)
   if (/(que es red nitrox|de que se trata|para que es|que beneficios|quien es nitrox)/i.test(lower)) {
     let reply = "Es una red de talleres aliados de NITROX en Medellín con capacitaciones, muestras de repuestos y beneficios directos.";
-    if (!data.nombres_apellidos || !data.nombre_taller) {
-      reply += " ¿Cómo te llamas y cómo se llama tu taller?";
-      data._lastQuestion = 'NOMBRE_Y_TALLER';
+    if (!data.nombres_apellidos) {
+      reply += " ¿Cuál es tu nombre?";
+      data._lastQuestion = 'NOMBRE';
+    } else if (!data.nombre_taller) {
+      reply += " ¿Cómo se llama tu taller de motos?";
+      data._lastQuestion = 'TALLER';
     }
     session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
     await saveSession(fromNumber, session);
@@ -600,14 +624,13 @@ async function generateMateoResponse(fromNumber, userText) {
     data._lastQuestion = 'CLARIFY_NOMBRE_O_TALLER';
     reply = `¿${data._ambiguousName} es tu nombre o el nombre de tu taller? Si quieres me los puedes enviar por separado.`;
   }
-  // 2. Missing Name or Workshop
-  else if (!data.nombres_apellidos && !data.nombre_taller) {
-    data._lastQuestion = 'NOMBRE_Y_TALLER';
-    reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cómo te llamas y cómo se llama tu taller?";
-  } else if (data.nombre_taller && !data.nombres_apellidos) {
+  // 2. Step 1: Missing Person Name
+  else if (!data.nombres_apellidos) {
     data._lastQuestion = 'NOMBRE';
-    reply = `Excelente taller ${workshopName}. ¿Y cuál es tu nombre?`;
-  } else if (data.nombres_apellidos && !data.nombre_taller) {
+    reply = "¡Hola! Soy Mateo, asesor de la RED NITROX. ¿Cuál es tu nombre?";
+  }
+  // 3. Step 2: Missing Workshop Name
+  else if (!data.nombre_taller) {
     data._lastQuestion = 'TALLER';
     reply = `Mucho gusto, ${firstName}. ¿Cómo se llama tu taller de motos?`;
   }
@@ -670,7 +693,12 @@ async function generateMateoResponse(fromNumber, userText) {
     data._lastQuestion = 'BENEFICIOS_DATOS';
     reply = `¡De una! Para enviarte los beneficios oficiales y activar tu vinculación, ¿me regalas tu Correo y tu Cédula o NIT?`;
   }
-  // 9. Final Delivery (QR & Credential)
+  // 9. Habeas Data / Legal Data Treatment Acceptance
+  else if (!data._habeasDataRespondido) {
+    data._lastQuestion = 'HABEAS_DATA';
+    reply = `Para registrar tu taller y enviarte beneficios oficiales, ¿autorizas a RED NITROX el tratamiento de tus datos? (Responde Sí o No)`;
+  }
+  // 10. Final Delivery (QR & Credential)
   else if (!data._finished) {
     data._finished = true;
     const mechanic = await saveMechanicToFirestore(fromNumber, data);
@@ -681,6 +709,13 @@ async function generateMateoResponse(fromNumber, userText) {
 
     const nameLabel = firstName || 'amigo';
     const workshopLabel = workshopName || 'tu taller';
+
+    if (data.autorizacion_tratamiento_datos === false) {
+      const bubble1 = `Entendido, ${nameLabel}. Respetamos tu decisión. Registramos tu taller sin enviar comunicaciones comerciales. ¡A la orden siempre!`;
+      session.history.push({ role: 'assistant', content: bubble1, timestamp: Date.now() });
+      await saveSession(fromNumber, session);
+      return [bubble1];
+    }
 
     const sampleNote = data.quiere_muestras === 'Sí'
       ? 'Te tendremos súper en cuenta para hacerte llegar las muestras y el catálogo.'
