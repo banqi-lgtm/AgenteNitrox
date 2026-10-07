@@ -719,7 +719,7 @@ exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res
   }
 });
 
-if (!process.env.FUNCTION_TARGET) {
+if (require.main === module && !process.env.FUNCTION_TARGET && !process.env.K_SERVICE) {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor Mateo NITROX activo en el puerto ${PORT}`);
   });
