@@ -1,6 +1,13 @@
 require('dotenv').config();
 const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
-if (!global.__GENKIT_TELEMETRY_INITIALIZED) {
+const isCloudEnv = Boolean(
+  process.env.K_SERVICE || 
+  process.env.FUNCTION_TARGET || 
+  process.env.GOOGLE_APPLICATION_CREDENTIALS || 
+  process.env.ENABLE_FIREBASE_TELEMETRY === 'true'
+);
+
+if (!global.__GENKIT_TELEMETRY_INITIALIZED && isCloudEnv) {
   global.__GENKIT_TELEMETRY_INITIALIZED = true;
   try {
     enableFirebaseTelemetry({
@@ -21,6 +28,7 @@ const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
 const { generateCardImage } = require('./card_generator');
 const { helloFlow } = require('./genkit_service');
+const { getAllLearnings, analyzeConversation, analyzeAllStoredSessions } = require('./ml_service');
 
 const app = express();
 app.use(express.json());
@@ -463,6 +471,56 @@ async function sendWhatsAppImage(to, imageUrl, caption) {
     console.warn('Error enviando imagen a', to, error.message);
   }
 }
+
+// ==========================================
+// MACHINE LEARNING DASHBOARD & AUDIT APIS
+// ==========================================
+
+// Get all ML learnings and aggregated metrics
+app.get('/api/ml/aprendizajes', requireAuth, async (req, res) => {
+  try {
+    const data = await getAllLearnings();
+    return res.json({ success: true, ...data });
+  } catch (err) {
+    console.error('Error obteniendo aprendizajes de ML:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Trigger ML analysis on a specific conversation
+app.post('/api/ml/analizar/:phone', requireAuth, async (req, res) => {
+  try {
+    const phone = (req.params.phone || '').replace(/\D/g, '');
+    let session = null;
+    try {
+      const doc = await admin.firestore().collection('sesiones_mateo').doc(phone).get();
+      if (doc.exists) session = doc.data();
+    } catch (e) {
+      console.warn('[ML GET SESSION FIRESTORE]', e.message);
+    }
+
+    if (!session) {
+      return res.status(404).json({ success: false, message: `No se encontró sesión para el teléfono +${phone}` });
+    }
+
+    const result = await analyzeConversation(phone, session);
+    return res.json({ success: true, aprendizaje: result });
+  } catch (err) {
+    console.error('Error analizando conversación ML:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Trigger batch ML analysis on all stored conversations
+app.post('/api/ml/analizar-todas', requireAuth, async (req, res) => {
+  try {
+    const resultados = await analyzeAllStoredSessions();
+    return res.json({ success: true, count: resultados.length, resultados });
+  } catch (err) {
+    console.error('Error en análisis batch de ML:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // Admin Reset Endpoint: Deletes all conversation sessions and marks Mateo at zero
 app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {

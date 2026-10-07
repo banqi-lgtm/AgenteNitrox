@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const { normalizeMechanicData, calculateMechanicScore, calculateNitroxLevel } = require('./scoring');
+const { analyzeConversationAsync } = require('./ml_service');
 
 // Initialize Firebase Admin for Firestore
 if (!admin.apps.length) {
@@ -727,6 +728,7 @@ async function generateMateoResponse(fromNumber, userText) {
       const bubble1 = `Entendido, ${nameLabel}. Respetamos tu decisión. Registramos tu taller sin enviar comunicaciones comerciales. ¡A la orden siempre!`;
       session.history.push({ role: 'assistant', content: bubble1, timestamp: Date.now() });
       await saveSession(fromNumber, session);
+      analyzeConversationAsync(fromNumber, session);
       return [bubble1];
     }
 
@@ -744,6 +746,7 @@ async function generateMateoResponse(fromNumber, userText) {
 
     session.history.push({ role: 'assistant', content: `${bubble1}\n${bubble2}`, timestamp: Date.now() });
     await saveSession(fromNumber, session);
+    analyzeConversationAsync(fromNumber, session);
 
     return [bubble1, qrBubble, bubble2];
   } else {

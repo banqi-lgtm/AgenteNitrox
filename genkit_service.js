@@ -3,14 +3,25 @@ const { genkit } = require('genkit');
 const { googleAI } = require('@genkit-ai/googleai');
 const { enableFirebaseTelemetry } = require('@genkit-ai/firebase');
 
-if (!global.__GENKIT_TELEMETRY_INITIALIZED) {
+const isCloudEnv = Boolean(
+  process.env.K_SERVICE || 
+  process.env.FUNCTION_TARGET || 
+  process.env.GOOGLE_APPLICATION_CREDENTIALS || 
+  process.env.ENABLE_FIREBASE_TELEMETRY === 'true'
+);
+
+if (!global.__GENKIT_TELEMETRY_INITIALIZED && isCloudEnv) {
   global.__GENKIT_TELEMETRY_INITIALIZED = true;
-  enableFirebaseTelemetry({
-    projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'agente-nitrox',
-    metricExportIntervalMillis: 5000,
-    metricExportTimeoutMillis: 5000,
-    forceDevExport: true
-  });
+  try {
+    enableFirebaseTelemetry({
+      projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'agente-nitrox',
+      metricExportIntervalMillis: 5000,
+      metricExportTimeoutMillis: 5000,
+      forceDevExport: true
+    });
+  } catch (e) {
+    console.warn('[GENKIT TELEMETRY INIT]', e.message);
+  }
 }
 
 const API_KEY = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
