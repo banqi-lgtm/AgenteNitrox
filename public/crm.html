@@ -651,6 +651,7 @@
       border-radius: 20px;
       letter-spacing: 0.5px;
       box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+    }
     .live-badge-pulse {
       background: linear-gradient(135deg, #10B981, #059669);
       color: #fff;
@@ -667,12 +668,13 @@
       50% { opacity: 0.85; transform: scale(1.05); }
     }
 
+    /* Tokens & Banner WhatsApp Styles */
     .tokens-header-banner {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(20, 23, 33, 0.9));
-      border: 1px solid rgba(16, 185, 129, 0.3);
+      background: linear-gradient(135deg, rgba(0, 168, 132, 0.15), rgba(17, 27, 33, 0.95));
+      border: 1px solid rgba(0, 168, 132, 0.35);
       border-radius: 14px;
-      padding: 22px 26px;
-      margin-bottom: 24px;
+      padding: 22px 24px;
+      margin-bottom: 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -680,7 +682,7 @@
       gap: 16px;
     }
     .tokens-banner-title {
-      font-size: 1.35rem;
+      font-size: 1.3rem;
       font-weight: 800;
       color: #fff;
       display: flex;
@@ -691,290 +693,510 @@
     .tokens-banner-desc {
       color: var(--text-muted);
       font-size: 0.88rem;
-      max-width: 780px;
+      max-width: 760px;
       line-height: 1.5;
     }
-    .tokens-banner-rates {
+    .tokens-banner-controls {
       display: flex;
-      gap: 12px;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
     .rate-pill {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--card-border);
-      padding: 6px 12px;
+      background: #202c33;
+      border: 1px solid #374248;
+      padding: 7px 12px;
       border-radius: 8px;
       font-size: 0.78rem;
-      color: var(--text-muted);
+      color: #8696a0;
     }
     .rate-pill strong {
-      color: #10B981;
+      color: #25D366;
     }
 
-    /* Tokens & Live Chat Split Layout */
-    .tokens-layout {
+    /* Friendly Action Buttons */
+    .btn-wa-action {
+      background: #00a884;
+      color: #fff;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      text-decoration: none;
+      box-shadow: 0 2px 8px rgba(0, 168, 132, 0.3);
+    }
+    .btn-wa-action:hover {
+      background: #029070;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0, 168, 132, 0.45);
+    }
+    .btn-wa-secondary {
+      background: #202c33;
+      color: #e9edef;
+      border: 1px solid #374248;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-wa-secondary:hover {
+      background: #2a3942;
+      border-color: #00a884;
+      color: #fff;
+    }
+
+    /* KPI Grid Tokens */
+    .tok-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .tok-kpi-card {
+      background: #111b21;
+      border: 1px solid #222d34;
+      border-radius: 12px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+    .tok-kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+    }
+    .tok-kpi-card.green::before { background: #00a884; }
+    .tok-kpi-card.amber::before { background: #f59e0b; }
+    .tok-kpi-card.blue::before { background: #3b82f6; }
+    .tok-kpi-card.purple::before { background: #8b5cf6; }
+
+    .tok-kpi-label {
+      font-size: 0.78rem;
+      color: #8696a0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tok-kpi-main-val {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .tok-kpi-sub-cop {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #00a884;
+    }
+    .tok-kpi-sub-usd {
+      font-size: 0.82rem;
+      color: #8696a0;
+      margin-top: 2px;
+    }
+
+    /* WhatsApp Web Container Layout */
+    .wa-web-app {
       display: grid;
       grid-template-columns: 380px 1fr;
-      gap: 20px;
-      height: 720px;
-      margin-bottom: 40px;
+      height: 740px;
+      background: #111b21;
+      border: 1px solid #222d34;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      margin-bottom: 30px;
     }
-    @media (max-width: 1024px) {
-      .tokens-layout {
+    @media (max-width: 960px) {
+      .wa-web-app {
         grid-template-columns: 1fr;
         height: auto;
       }
     }
 
-    .conv-list-panel {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
+    /* Left Sidebar */
+    .wa-sidebar {
+      background: #111b21;
+      border-right: 1px solid #222d34;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      height: 100%;
     }
-    .conv-list-header {
-      padding: 16px;
-      border-bottom: 1px solid var(--card-border);
-      background: rgba(0, 0, 0, 0.2);
+    .wa-sidebar-header {
+      background: #202c33;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #222d34;
     }
-    .conv-search-input {
-      width: 100%;
-      background: #0B0E14;
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
+    .wa-sidebar-title {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #e9edef;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wa-search-bar {
       padding: 10px 14px;
-      color: #fff;
+      background: #111b21;
+      border-bottom: 1px solid #222d34;
+    }
+    .wa-search-input-box {
+      background: #202c33;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .wa-search-input-box:focus-within {
+      border-color: #00a884;
+    }
+    .wa-search-input {
+      background: transparent;
+      border: none;
+      color: #e9edef;
+      padding: 9px 0;
+      width: 100%;
       font-size: 0.88rem;
     }
-    .conv-search-input:focus {
+    .wa-search-input:focus {
       outline: none;
-      border-color: #10B981;
     }
-    .conv-items-container {
-      flex: 1;
-      overflow-y: auto;
-    }
-    .conv-card {
-      padding: 14px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .conv-card:hover {
-      background: rgba(255, 255, 255, 0.03);
-    }
-    .conv-card.active {
-      background: rgba(16, 185, 129, 0.08);
-      border-left: 3px solid #10B981;
-    }
-    .conv-card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .conv-name {
-      font-weight: 700;
-      font-size: 0.95rem;
-      color: #fff;
-    }
-    .conv-time {
-      font-size: 0.72rem;
-      color: var(--text-dim);
-    }
-    .conv-workshop {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .conv-last-msg {
-      font-size: 0.8rem;
-      color: var(--text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .conv-meta-badges {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .token-badge {
-      background: rgba(16, 185, 129, 0.15);
-      color: #10B981;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-    .cost-badge {
-      background: rgba(245, 158, 11, 0.15);
-      color: #F59E0B;
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-    .status-badge-live {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10B981;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 700;
-    }
-    .status-badge-done {
-      background: rgba(59, 130, 246, 0.2);
-      color: #3B82F6;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 700;
+    .wa-search-input::placeholder {
+      color: #8696a0;
     }
 
-    .conv-chat-panel {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+    .wa-chats-scroll {
+      flex: 1;
+      overflow-y: auto;
+      background: #111b21;
     }
-    .chat-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--card-border);
-      background: rgba(0, 0, 0, 0.25);
+    .wa-chat-item {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
+      align-items: flex-start;
       gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
     }
-    .chat-header-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .wa-chat-item:hover {
+      background: #202c33;
     }
-    .chat-avatar {
+    .wa-chat-item.active {
+      background: #2a3942;
+      border-left: 4px solid #00a884;
+    }
+    .wa-item-avatar {
       width: 44px;
       height: 44px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #10B981, #059669);
+      background: linear-gradient(135deg, #00a884, #059669);
+      color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      color: #fff;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
+      flex-shrink: 0;
     }
-    .chat-header-stats {
+    .wa-item-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .wa-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .wa-item-name {
+      color: #e9edef;
+      font-weight: 700;
+      font-size: 0.92rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wa-item-time {
+      color: #8696a0;
+      font-size: 0.72rem;
+      flex-shrink: 0;
+    }
+    .wa-item-workshop {
+      color: #00a884;
+      font-size: 0.8rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .wa-item-lastmsg {
+      color: #8696a0;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wa-item-pill-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+    .wa-pill-tok {
+      background: rgba(0, 168, 132, 0.15);
+      color: #00a884;
+      border: 1px solid rgba(0, 168, 132, 0.3);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .wa-pill-cop {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .wa-pill-live {
+      background: rgba(0, 168, 132, 0.2);
+      color: #25d366;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+
+    /* Right Main Chat Area */
+    .wa-chat-window {
+      background: #0b141a;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+    }
+    .wa-chat-header {
+      background: #202c33;
+      padding: 10px 18px;
+      border-bottom: 1px solid #222d34;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      min-height: 62px;
+      z-index: 2;
+    }
+    .wa-header-contact {
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    .chat-stat-box {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--card-border);
-      padding: 6px 12px;
-      border-radius: 8px;
-      text-align: right;
-    }
-    .chat-stat-val {
+    .wa-header-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00a884, #059669);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: 800;
-      font-size: 0.95rem;
-      color: #10B981;
+      font-size: 1.1rem;
     }
-    .chat-stat-sub {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-    }
-    .chat-live-toggle {
+    .wa-header-titles h3 {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #e9edef;
+      margin: 0;
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      cursor: pointer;
+    }
+    .wa-header-titles p {
+      font-size: 0.78rem;
+      color: #8696a0;
+      margin: 2px 0 0 0;
+    }
+    .wa-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .wa-header-cost-pill {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid #374248;
+      border-radius: 8px;
+      padding: 6px 12px;
+      text-align: right;
+    }
+    .wa-cost-cop-val {
+      color: #00a884;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    .wa-cost-sub-val {
+      color: #8696a0;
+      font-size: 0.7rem;
     }
 
-    .chat-body {
+    .wa-messages-container {
       flex: 1;
-      padding: 24px;
       overflow-y: auto;
+      padding: 20px 24px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      background: #0B0E14;
+      gap: 12px;
+      background: #0b141a;
+      background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 0);
+      background-size: 24px 24px;
     }
-    .chat-bubble-row {
+    .wa-date-divider {
+      align-self: center;
+      background: #182229;
+      color: #8696a0;
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      margin: 6px 0;
+    }
+
+    .wa-bubble-row {
       display: flex;
       flex-direction: column;
-      max-width: 75%;
+      max-width: 76%;
     }
-    .chat-bubble-row.user {
+    .wa-bubble-row.incoming {
       align-self: flex-start;
     }
-    .chat-bubble-row.assistant {
+    .wa-bubble-row.outgoing {
       align-self: flex-end;
     }
-    .chat-bubble {
-      padding: 12px 16px;
-      border-radius: 12px;
+
+    .wa-bubble {
+      padding: 10px 14px;
+      position: relative;
       font-size: 0.92rem;
       line-height: 1.45;
-      position: relative;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      word-break: break-word;
     }
-    .chat-bubble-row.user .chat-bubble {
-      background: #1B2130;
-      color: #fff;
-      border: 1px solid #2B3347;
-      border-bottom-left-radius: 4px;
+    .wa-bubble-row.incoming .wa-bubble {
+      background: #202c33;
+      color: #e9edef;
+      border-radius: 0 10px 10px 10px;
     }
-    .chat-bubble-row.assistant .chat-bubble {
-      background: #142328;
-      color: #E2E8F0;
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      border-bottom-right-radius: 4px;
+    .wa-bubble-row.outgoing .wa-bubble {
+      background: #005c4b;
+      color: #e9edef;
+      border-radius: 10px 0 10px 10px;
     }
-    .chat-bubble-author {
-      font-size: 0.72rem;
+
+    .wa-bubble-sender {
+      font-size: 0.75rem;
       font-weight: 700;
       margin-bottom: 4px;
       display: flex;
       justify-content: space-between;
-      gap: 10px;
+      gap: 12px;
     }
-    .chat-bubble-row.user .chat-bubble-author {
-      color: #60A5FA;
+    .wa-bubble-row.incoming .wa-bubble-sender {
+      color: #53bdeb;
     }
-    .chat-bubble-row.assistant .chat-bubble-author {
-      color: #10B981;
+    .wa-bubble-row.outgoing .wa-bubble-sender {
+      color: #25d366;
     }
-    .chat-bubble-tokens-footer {
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+
+    .wa-token-cost-box {
+      margin-top: 8px;
+      padding: 7px 10px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.72rem;
-      color: #10B981;
+      gap: 10px;
+      font-size: 0.75rem;
+      flex-wrap: wrap;
     }
-    .chat-bubble-time {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      align-self: flex-end;
-      margin-top: 2px;
+    .wa-token-left {
+      color: #25d366;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .wa-token-right {
+      color: #f59e0b;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .wa-bubble-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      margin-top: 3px;
+      font-size: 0.68rem;
+      color: #8696a0;
+    }
+    .wa-check-blue {
+      color: #53bdeb;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .wa-footer-bar {
+      background: #202c33;
+      padding: 10px 18px;
+      border-top: 1px solid #222d34;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #8696a0;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
     /* ML Banner */
@@ -1409,93 +1631,129 @@
 
     <!-- View: Tokens y Conversaciones en Vivo -->
     <div id="viewTokens" style="display: none;">
-      <!-- Banner -->
+      <!-- Banner con Controles y Tarifas -->
       <div class="tokens-header-banner">
         <div>
           <div class="tokens-banner-title">
-            <span>🪙 Motor Conversacional Gemini • Monitor de Tokens y Costos</span>
-            <span class="live-badge-pulse">LIVE</span>
+            <span>💬 Monitor WhatsApp en Vivo & Tokens Gemini</span>
+            <span class="live-badge-pulse" id="liveBadgePulse">LIVE</span>
           </div>
           <p class="tokens-banner-desc">
-            Supervisión en tiempo real de tokens consumidos e inversión económica por cada turno de Mateo. El 100% de las interacciones pasan por Gemini para entender contexto, eliminar fricciones y responder en tiempo récord.
+            Supervisión en tiempo real de conversaciones WhatsApp. El 100% de los mensajes son procesados por <strong>Gemini Flash Lite</strong> con contexto completo, lenguaje motero paisa y sin trabarse.
           </p>
         </div>
-        <div class="tokens-banner-rates">
-          <div class="rate-pill">Tarifa Prompt: <strong>$0.075 USD / 1M</strong></div>
-          <div class="rate-pill">Tarifa Respuesta: <strong>$0.30 USD / 1M</strong></div>
-          <div class="rate-pill">Tasa de Cambio: <strong>$4,000 COP / USD</strong></div>
+        <div class="tokens-banner-controls">
+          <div class="rate-pill">Tasa: <strong>$4,000 COP / USD</strong></div>
+          <div class="rate-pill">Prompt: <strong>$0.075 / 1M</strong></div>
+          <div class="rate-pill">Respuesta: <strong>$0.30 / 1M</strong></div>
+          <button class="btn-wa-action" id="btnManualRefresh" onclick="loadTokensData()">
+            🔄 Actualizar Datos
+          </button>
+          <button class="btn-wa-secondary" id="btnToggleLiveTimer" onclick="toggleTokensLiveMode()">
+            <span id="liveDotIndicator">🟢</span> <span id="liveBtnText">En Vivo (4s): ACTIVO</span>
+          </button>
         </div>
       </div>
 
-      <!-- KPI Grid Tokens -->
-      <div class="kpi-grid">
-        <div class="kpi-card" style="border-left: 4px solid #10B981;">
-          <span class="kpi-label">🪙 Total Tokens Gastados</span>
-          <div class="kpi-value" id="tokKpiTotal">0</div>
-          <span class="kpi-sub" id="tokKpiBreakdown">0 Prompt • 0 Respuesta</span>
+      <!-- KPI Grid: Tokens, COP y USD Claramente Destacados -->
+      <div class="tok-kpi-grid">
+        <div class="tok-kpi-card green">
+          <div class="tok-kpi-label">🪙 Total Tokens Gemini</div>
+          <div class="tok-kpi-main-val" id="tokKpiTotal">0</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiBreakdown">0 Prompt (in) • 0 Respuesta (out)</div>
         </div>
-        <div class="kpi-card" style="border-left: 4px solid #F59E0B;">
-          <span class="kpi-label">💵 Inversión Económica Real</span>
-          <div class="kpi-value" id="tokKpiCostCop" style="color: #F59E0B;">$0 COP</div>
-          <span class="kpi-sub" id="tokKpiCostUsd">$0.0000 USD</span>
+
+        <div class="tok-kpi-card amber">
+          <div class="tok-kpi-label">💵 Inversión Total en Pesos</div>
+          <div class="tok-kpi-main-val" id="tokKpiCostCop" style="color: #F59E0B;">$0 COP</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiCostUsd">≈ $0.0000 USD (Tasa $4,000 COP)</div>
         </div>
-        <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
-          <span class="kpi-label">⚡ Costo Promedio / Chat</span>
-          <div class="kpi-value" id="tokKpiAvgCop" style="color: #3B82F6;">$0 COP</div>
-          <span class="kpi-sub" id="tokKpiAvgTokens">0 tokens / taller</span>
+
+        <div class="tok-kpi-card blue">
+          <div class="tok-kpi-label">⚡ Costo Promedio / Chat</div>
+          <div class="tok-kpi-main-val" id="tokKpiAvgCop" style="color: #3B82F6;">$0 COP</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiAvgTokens">0 tokens • ≈ $0.00000 USD</div>
         </div>
-        <div class="kpi-card" style="border-left: 4px solid #8B5CF6;">
-          <span class="kpi-label">💬 Conversaciones y Turnos</span>
-          <div class="kpi-value" id="tokKpiConvs">0</div>
-          <span class="kpi-sub" id="tokKpiTurns">0 turnos interactivos</span>
+
+        <div class="tok-kpi-card purple">
+          <div class="tok-kpi-label">💬 Conversaciones y Turnos</div>
+          <div class="tok-kpi-main-val" id="tokKpiConvs">0</div>
+          <div class="tok-kpi-sub-usd" id="tokKpiTurns">0 turnos interactivos con talleres</div>
         </div>
       </div>
 
-      <!-- Split Layout: Conversation List + Live Chat Viewer -->
-      <div class="tokens-layout">
-        <!-- Columna Izquierda: Lista de Conversaciones -->
-        <div class="conv-list-panel">
-          <div class="conv-list-header">
-            <input type="text" id="convSearchInput" class="conv-search-input" placeholder="🔍 Buscar por nombre, taller o teléfono...">
+      <!-- WhatsApp Web Layout -->
+      <div class="wa-web-app">
+        <!-- Sidebar: Chat list -->
+        <div class="wa-sidebar">
+          <div class="wa-sidebar-header">
+            <div class="wa-sidebar-title">
+              <span>💬 Chats de WhatsApp</span>
+              <span id="waSidebarCount" style="font-size: 0.72rem; background: rgba(0,168,132,0.2); color: #25d366; padding: 2px 8px; border-radius: 10px;">0 activos</span>
+            </div>
+            <button class="btn-wa-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="loadLiveConversationsList()">
+              🔄 Refrescar
+            </button>
           </div>
-          <div class="conv-items-container" id="convItemsList">
+
+          <div class="wa-search-bar">
+            <div class="wa-search-input-box">
+              <span>🔍</span>
+              <input type="text" id="convSearchInput" class="wa-search-input" placeholder="Buscar por mecánico, taller o teléfono...">
+            </div>
+          </div>
+
+          <div class="wa-chats-scroll" id="convItemsList">
             <div style="padding: 30px; text-align: center; color: var(--text-muted);">
               Cargando conversaciones...
             </div>
           </div>
         </div>
 
-        <!-- Columna Derecha: Visor de Chat en Vivo -->
-        <div class="conv-chat-panel">
-          <div class="chat-header" id="chatHeaderBox">
-            <div class="chat-header-info">
-              <div class="chat-avatar" id="chatAvatar">M</div>
-              <div>
-                <h3 id="chatMechanicName" style="color: #fff; font-size: 1.05rem;">Selecciona una conversación</h3>
-                <p id="chatWorkshopSubtitle" style="font-size: 0.8rem; color: var(--text-muted);">Haz clic en cualquier conversación de la izquierda para ver el chat en vivo y sus costos</p>
+        <!-- Main WhatsApp Chat View -->
+        <div class="wa-chat-window">
+          <!-- Top Chat Header -->
+          <div class="wa-chat-header" id="chatHeaderBox">
+            <div class="wa-header-contact">
+              <div class="wa-header-avatar" id="chatAvatar">M</div>
+              <div class="wa-header-titles">
+                <h3 id="chatMechanicName">Selecciona una conversación</h3>
+                <p id="chatWorkshopSubtitle">Haz clic en un chat para ver los mensajes en vivo y el consumo detallado en COP y USD</p>
               </div>
             </div>
-            <div class="chat-header-stats" id="chatHeaderStats" style="display: none;">
-              <div class="chat-stat-box">
-                <div class="chat-stat-val" id="chatTokensVal">0</div>
-                <div class="chat-stat-sub">Tokens del chat</div>
+
+            <div class="wa-header-actions" id="chatHeaderActions" style="display: none;">
+              <!-- Cost Pill -->
+              <div class="wa-header-cost-pill">
+                <div class="wa-cost-cop-val" id="chatCostVal">$0 COP</div>
+                <div class="wa-cost-sub-val" id="chatCostUsdVal">🪙 0 tokens • $0.00000 USD</div>
               </div>
-              <div class="chat-stat-box">
-                <div class="chat-stat-val" id="chatCostVal" style="color: #F59E0B;">$0 COP</div>
-                <div class="chat-stat-sub" id="chatCostUsdVal">$0.00 USD</div>
-              </div>
-              <label class="chat-live-toggle">
-                <input type="checkbox" id="liveRefreshToggle" checked>
-                <span>🔴 En Vivo (4s)</span>
-              </label>
+
+              <!-- Friendly Buttons -->
+              <button class="btn-wa-action" id="btnOpenWhatsAppDirect" title="Abrir chat en WhatsApp Web" onclick="openSelectedInWhatsApp()">
+                💬 WhatsApp
+              </button>
+              <button class="btn-wa-secondary" id="btnOpenFichaDirect" title="Ver ficha maestra de este taller" onclick="openSelectedFicha()">
+                📋 Ver Ficha
+              </button>
+              <button class="btn-wa-secondary" title="Recargar esta conversación" onclick="refreshCurrentChat()">
+                🔄
+              </button>
             </div>
           </div>
 
-          <div class="chat-body" id="chatMessagesContainer">
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); gap: 10px;">
-              <span style="font-size: 2.5rem;">💬</span>
-              <p>Selecciona un chat en la lista para inspeccionar los mensajes y los tokens consumidos.</p>
+          <!-- Messages Area -->
+          <div class="wa-messages-container" id="chatMessagesContainer">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); gap: 12px;">
+              <span style="font-size: 3rem;">💬</span>
+              <p style="font-size: 0.95rem;">Selecciona una conversación de la izquierda para ver los mensajes en estilo WhatsApp Web.</p>
             </div>
+          </div>
+
+          <!-- Footer Status Bar -->
+          <div class="wa-footer-bar">
+            <span>⚡ Conversaciones 100% orquestadas por <strong>Gemini Flash Lite</strong></span>
+            <span>💵 Pesos Colombianos calculados a <strong>$4,000 COP / USD</strong></span>
           </div>
         </div>
       </div>
@@ -2290,6 +2548,7 @@
     let allLiveConversations = [];
     let selectedPhone = null;
     let tokensLiveTimer = null;
+    let isTokensLiveActive = true;
 
     async function loadTokensData() {
       await Promise.all([
@@ -2311,14 +2570,14 @@
         const data = await res.json();
         if (data.success && data.metricas) {
           const m = data.metricas;
-          document.getElementById('tokKpiTotal').textContent = m.totalTokens.toLocaleString();
-          document.getElementById('tokKpiBreakdown').textContent = `${m.totalInputTokens.toLocaleString()} Prompt • ${m.totalOutputTokens.toLocaleString()} Respuesta`;
+          document.getElementById('tokKpiTotal').textContent = `${m.totalTokens.toLocaleString()} Tokens`;
+          document.getElementById('tokKpiBreakdown').textContent = `${m.totalInputTokens.toLocaleString()} Entrada (Prompt) • ${m.totalOutputTokens.toLocaleString()} Salida (Respuesta)`;
           document.getElementById('tokKpiCostCop').textContent = `$${m.totalCostCop.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
-          document.getElementById('tokKpiCostUsd').textContent = `$${m.totalCostUsd.toFixed(4)} USD`;
-          document.getElementById('tokKpiAvgCop').textContent = `$${m.promedioCostoCopPorConversacion.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
-          document.getElementById('tokKpiAvgTokens').textContent = `${m.promedioTokensPorConversacion.toLocaleString()} tokens / taller`;
-          document.getElementById('tokKpiConvs').textContent = m.totalConversaciones;
-          document.getElementById('tokKpiTurns').textContent = `${m.totalTurnosInteractivos} turnos interactivos`;
+          document.getElementById('tokKpiCostUsd').textContent = `≈ $${m.totalCostUsd.toFixed(5)} USD ($4,000 COP/USD)`;
+          document.getElementById('tokKpiAvgCop').textContent = `$${m.promedioCostoCopPorConversacion.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP / taller`;
+          document.getElementById('tokKpiAvgTokens').textContent = `${m.promedioTokensPorConversacion.toLocaleString()} tokens • ≈ $${(m.promedioCostoCopPorConversacion / 4000).toFixed(5)} USD`;
+          document.getElementById('tokKpiConvs').textContent = `${m.totalConversaciones} Conversación${m.totalConversaciones === 1 ? '' : 'es'}`;
+          document.getElementById('tokKpiTurns').textContent = `${m.totalTurnosInteractivos} turnos interactivos intercambiados`;
         }
       } catch (err) {
         console.warn('Error cargando resumen de tokens:', err);
@@ -2360,8 +2619,13 @@
         return matchName || matchWorkshop || matchPhone || matchBarrio;
       });
 
+      const countBadge = document.getElementById('waSidebarCount');
+      if (countBadge) {
+        countBadge.textContent = `${filtered.length} activo${filtered.length === 1 ? '' : 's'}`;
+      }
+
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted);">No se encontraron conversaciones que coincidan.</div>`;
+        container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">No se encontraron conversaciones con "${escapeHtml(filter)}".</div>`;
         return;
       }
 
@@ -2369,8 +2633,8 @@
         const isAct = c.phone === selectedPhone ? 'active' : '';
         const isLive = c.estado !== 'finalizada';
         const statusBadge = isLive 
-          ? `<span class="status-badge-live">🟢 En Vivo</span>` 
-          : `<span class="status-badge-done">🏁 Finalizada</span>`;
+          ? `<span class="wa-pill-live">🟢 En Vivo</span>` 
+          : `<span class="wa-pill-live" style="background: rgba(59,130,246,0.2); color:#60a5fa;">🏁 Finalizada</span>`;
         
         const lastMsgTxt = c.ultimoMensaje ? c.ultimoMensaje.content : 'Sin mensajes aún';
         const timeStr = c.ultimoMensaje && c.ultimoMensaje.timestamp 
@@ -2379,24 +2643,28 @@
 
         const tok = c.tokens || {};
         const totalTok = tok.totalTokens || 0;
-        const costCop = tok.totalCostCop ? `$${tok.totalCostCop.toFixed(1)} COP` : '$0 COP';
+        const costCop = tok.totalCostCop ? `$${tok.totalCostCop.toFixed(2)} COP` : '$0.00 COP';
+        const costUsd = tok.totalCostUsd ? `$${tok.totalCostUsd.toFixed(4)} USD` : '$0.0000 USD';
+        const initial = (c.nombres_apellidos || 'M').charAt(0).toUpperCase();
 
         return `
-          <div class="conv-card ${isAct}" onclick="selectConversation('${c.phone}')">
-            <div class="conv-card-top">
-              <span class="conv-name">${escapeHtml(c.nombres_apellidos || 'Mecánico')}</span>
-              <span class="conv-time">${timeStr}</span>
-            </div>
-            <div class="conv-workshop">
-              <span>🔧 ${escapeHtml(c.nombre_taller || 'Taller')}</span>
-              <span>· ${escapeHtml(c.barrio_taller || 'Medellín')}</span>
-            </div>
-            <div class="conv-last-msg">${escapeHtml(lastMsgTxt)}</div>
-            <div class="conv-meta-badges">
-              ${statusBadge}
-              <span class="token-badge">🪙 ${totalTok.toLocaleString()} tok</span>
-              <span class="cost-badge">💵 ${costCop}</span>
-              <span style="font-size: 0.72rem; color: var(--text-dim);">💬 ${c.mensajesTotales} msgs</span>
+          <div class="wa-chat-item ${isAct}" onclick="selectConversation('${c.phone}')">
+            <div class="wa-item-avatar">${initial}</div>
+            <div class="wa-item-body">
+              <div class="wa-item-top">
+                <span class="wa-item-name">${escapeHtml(c.nombres_apellidos || 'Mecánico')}</span>
+                <span class="wa-item-time">${timeStr}</span>
+              </div>
+              <div class="wa-item-workshop">
+                <span>🔧 ${escapeHtml(c.nombre_taller || 'Taller')}</span>
+                <span style="color:#8696a0; font-weight:normal;">· ${escapeHtml(c.barrio_taller || 'Medellín')}</span>
+              </div>
+              <div class="wa-item-lastmsg">${escapeHtml(lastMsgTxt)}</div>
+              <div class="wa-item-pill-row">
+                ${statusBadge}
+                <span class="wa-pill-tok">🪙 ${totalTok.toLocaleString()} tok</span>
+                <span class="wa-pill-cop">💵 ${costCop} <small style="color:#8696a0;">(${costUsd})</small></span>
+              </div>
             </div>
           </div>
         `;
@@ -2405,8 +2673,8 @@
 
     async function selectConversation(phone) {
       selectedPhone = phone;
-      document.querySelectorAll('.conv-card').forEach(el => el.classList.remove('active'));
-      const activeCard = Array.from(document.querySelectorAll('.conv-card')).find(el => el.getAttribute('onclick')?.includes(phone));
+      document.querySelectorAll('.wa-chat-item').forEach(el => el.classList.remove('active'));
+      const activeCard = Array.from(document.querySelectorAll('.wa-chat-item')).find(el => el.getAttribute('onclick')?.includes(phone));
       if (activeCard) activeCard.classList.add('active');
 
       await refreshSelectedChat(phone, true);
@@ -2428,7 +2696,7 @@
 
         // Header
         const name = d.nombres_apellidos || 'Mecánico WhatsApp';
-        const workshop = d.nombre_taller || 'Taller sin nombre';
+        const workshop = d.nombre_taller || 'Taller sin registrar';
         const barrio = d.barrio_taller || d.ciudad_taller || 'Medellín';
         const initial = name.charAt(0).toUpperCase() || 'M';
 
@@ -2436,10 +2704,15 @@
         document.getElementById('chatMechanicName').textContent = `${name} (+${phone})`;
         document.getElementById('chatWorkshopSubtitle').textContent = `🔧 ${workshop} · 📍 ${barrio} · Rol: ${d.relacion_taller || 'Mecánico'}`;
 
-        document.getElementById('chatHeaderStats').style.display = 'flex';
-        document.getElementById('chatTokensVal').textContent = (tok.totalTokens || 0).toLocaleString();
-        document.getElementById('chatCostVal').textContent = `$${(tok.totalCostCop || 0).toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
-        document.getElementById('chatCostUsdVal').textContent = `$${(tok.totalCostUsd || 0).toFixed(5)} USD`;
+        const headerActions = document.getElementById('chatHeaderActions');
+        if (headerActions) headerActions.style.display = 'flex';
+
+        const totalCostCopNum = tok.totalCostCop || 0;
+        const totalCostUsdNum = tok.totalCostUsd || 0;
+        const totalTokNum = tok.totalTokens || 0;
+
+        document.getElementById('chatCostVal').textContent = `$${totalCostCopNum.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} COP`;
+        document.getElementById('chatCostUsdVal').textContent = `🪙 ${totalTokNum.toLocaleString()} tokens • ≈ $${totalCostUsdNum.toFixed(5)} USD`;
 
         // Body
         const container = document.getElementById('chatMessagesContainer');
@@ -2448,7 +2721,9 @@
           return;
         }
 
-        container.innerHTML = history.map(msg => {
+        const dateTag = `<div class="wa-date-divider">📅 CONVERSACIÓN WHATSAPP • REGISTRO EN VIVO</div>`;
+
+        const messagesHtml = history.map(msg => {
           const isUser = msg.role === 'user';
           const author = isUser ? `👤 ${name.split(' ')[0] || 'Mecánico'} (+${phone})` : `⚡ Mateo NITROX`;
           const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -2456,27 +2731,56 @@
           let tokenPill = '';
           if (!isUser && msg.tokens && msg.tokens.totalTokens) {
             const t = msg.tokens;
+            const copVal = (t.costCop || 0).toFixed(2);
+            const usdVal = (t.costUsd || 0).toFixed(5);
             tokenPill = `
-              <div class="chat-bubble-tokens-footer">
-                <span>🪙 <strong>${t.totalTokens} tokens</strong> (${t.inputTokens} prompt / ${t.outputTokens} gen)</span>
-                <span>💵 $${(t.costCop || 0).toFixed(2)} COP &bull; $${(t.costUsd || 0).toFixed(5)} USD</span>
+              <div class="wa-token-cost-box">
+                <div class="wa-token-left">
+                  <span>🪙</span>
+                  <span><strong>${t.totalTokens.toLocaleString()} tokens</strong> (${t.inputTokens.toLocaleString()} in / ${t.outputTokens.toLocaleString()} out)</span>
+                </div>
+                <div class="wa-token-right">
+                  <span>💵 <strong>$${copVal} COP</strong></span>
+                  <span style="font-weight:normal; color:#8696a0; font-size:0.72rem;">($${usdVal} USD)</span>
+                </div>
               </div>
             `;
           }
 
-          return `
-            <div class="chat-bubble-row ${isUser ? 'user' : 'assistant'}">
-              <div class="chat-bubble">
-                <div class="chat-bubble-author">
-                  <span>${author}</span>
-                  <span style="opacity: 0.6; font-size: 0.7rem;">${time}</span>
+          if (isUser) {
+            return `
+              <div class="wa-bubble-row incoming">
+                <div class="wa-bubble">
+                  <div class="wa-bubble-sender">
+                    <span>${author}</span>
+                  </div>
+                  <div style="white-space: pre-wrap;">${escapeHtml(msg.content)}</div>
+                  <div class="wa-bubble-footer">
+                    <span>${time}</span>
+                  </div>
                 </div>
-                <div style="white-space: pre-wrap;">${escapeHtml(msg.content)}</div>
-                ${tokenPill}
               </div>
-            </div>
-          `;
+            `;
+          } else {
+            return `
+              <div class="wa-bubble-row outgoing">
+                <div class="wa-bubble">
+                  <div class="wa-bubble-sender">
+                    <span>${author}</span>
+                  </div>
+                  <div style="white-space: pre-wrap;">${escapeHtml(msg.content)}</div>
+                  ${tokenPill}
+                  <div class="wa-bubble-footer">
+                    <span>${time}</span>
+                    <span class="wa-check-blue">✓✓</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
         }).join('');
+
+        container.innerHTML = dateTag + messagesHtml;
 
         if (shouldScroll) {
           container.scrollTop = container.scrollHeight;
@@ -2486,11 +2790,60 @@
       }
     }
 
+    function openSelectedInWhatsApp() {
+      if (!selectedPhone) {
+        alert('Por favor selecciona una conversación de la lista.');
+        return;
+      }
+      const clean = selectedPhone.replace(/\D/g, '');
+      window.open(`https://wa.me/${clean}`, '_blank');
+    }
+
+    function openSelectedFicha() {
+      if (!selectedPhone) {
+        alert('Por favor selecciona una conversación de la lista.');
+        return;
+      }
+      const clean = selectedPhone.replace(/\D/g, '');
+      const mech = allMechanics.find(item => {
+        const mPhone = (item.celular_whatsapp || '').replace(/\D/g, '');
+        return mPhone.includes(clean) || clean.includes(mPhone);
+      });
+      if (mech && mech.id_unico) {
+        window.openFichaMaestra(mech.id_unico);
+      } else {
+        alert(`ℹ️ El taller de este chat (+${selectedPhone}) aún se encuentra en proceso de conversación con Mateo y no ha sido finalizado en la base de datos.`);
+      }
+    }
+
+    function refreshCurrentChat() {
+      if (selectedPhone) {
+        refreshSelectedChat(selectedPhone, false);
+      }
+    }
+
+    function toggleTokensLiveMode() {
+      isTokensLiveActive = !isTokensLiveActive;
+      const dot = document.getElementById('liveDotIndicator');
+      const txt = document.getElementById('liveBtnText');
+      const badge = document.getElementById('liveBadgePulse');
+      if (isTokensLiveActive) {
+        if (dot) dot.textContent = '🟢';
+        if (txt) txt.textContent = 'En Vivo (4s): ACTIVO';
+        if (badge) badge.style.display = 'inline-block';
+        startTokensLiveAutoRefresh();
+      } else {
+        if (dot) dot.textContent = '⚪';
+        if (txt) txt.textContent = 'En Vivo: PAUSADO';
+        if (badge) badge.style.display = 'none';
+        stopTokensLiveAutoRefresh();
+      }
+    }
+
     function startTokensLiveAutoRefresh() {
       if (tokensLiveTimer) clearInterval(tokensLiveTimer);
       tokensLiveTimer = setInterval(() => {
-        const toggle = document.getElementById('liveRefreshToggle');
-        if (toggle && toggle.checked) {
+        if (isTokensLiveActive) {
           loadTokensResumen();
           loadLiveConversationsList();
         }
