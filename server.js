@@ -5,7 +5,6 @@ const path = require('path');
 const { generateMateoResponse, admin, localMecanicosStore, getAllSessions, saveSession, memoryCache, resetMemoryCache } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
-const { generateCardImage } = require('./card_generator');
 
 const app = express();
 app.use(express.json());
@@ -126,6 +125,7 @@ app.get('/api/card-image/:id.png', async (req, res) => {
       motos_por_semana: 'Alto Flujo'
     };
 
+    const { generateCardImage } = require('./card_generator');
     const imageBuffer = await generateCardImage(mechanicData);
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Length', imageBuffer.length);

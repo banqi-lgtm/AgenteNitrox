@@ -1,6 +1,13 @@
 const admin = require('firebase-admin');
 const { normalizeMechanicData, calculateMechanicScore, calculateNitroxLevel } = require('./scoring');
-const { processGeminiBrainTurn } = require('./gemini_brain');
+let _processGeminiBrainTurn = null;
+function getProcessGeminiBrainTurn() {
+  if (!_processGeminiBrainTurn) {
+    const { processGeminiBrainTurn } = require('./gemini_brain');
+    _processGeminiBrainTurn = processGeminiBrainTurn;
+  }
+  return _processGeminiBrainTurn;
+}
 
 function triggerMlAnalysis(phoneNumber, session) {
   setImmediate(async () => {
@@ -639,7 +646,7 @@ async function generateMateoResponse(fromNumber, userText) {
   }
 
   // 1. Send turn to Gemini Conversational Brain (Gemini analyzes context, user intent, history & generates the natural reply)
-  const brainResult = await processGeminiBrainTurn(session, raw);
+  const brainResult = await getProcessGeminiBrainTurn()(session, raw);
 
   // 2. Merge extracted semantic data from Gemini Brain
   if (brainResult.updates && typeof brainResult.updates === 'object') {
