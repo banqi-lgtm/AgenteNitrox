@@ -789,49 +789,86 @@ app.post('/api/admin/actualizar-sesion/:phone', requireAuth, async (req, res) =>
   }
 });
 
-// Admin Reset Endpoint: Deletes all conversation sessions and marks Mateo at zero
+// Admin Reset Endpoint: Deletes all conversation sessions, token stats and ML learnings, marking Mateo at zero
 app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
   try {
     let deletedSessions = 0;
     let deletedProcessed = 0;
+    let deletedMl = 0;
 
-    // 1. Delete all docs in sesiones_mateo
-    try {
-      const snapSessions = await admin.firestore().collection('sesiones_mateo').get();
-      const batch1 = admin.firestore().batch();
-      snapSessions.forEach(doc => {
-        batch1.delete(doc.ref);
-        deletedSessions++;
-      });
-      if (deletedSessions > 0) await batch1.commit();
-    } catch (e) {
-      console.warn('[RESET SESSIONS]', e.message);
+    // Si corre en localhost, propagar el reset a producción primero
+    if (!isRunningInCloud) {
+      try {
+        await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/admin/reset-conversations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${ADMIN_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+      } catch (fwdErr) {
+        console.warn('⚠️ [RESET FWD TO PROD WARNING]:', fwdErr.message);
+      }
     }
 
-    // 2. Delete all docs in mensajes_procesados
-    try {
-      const snapMsg = await admin.firestore().collection('mensajes_procesados').get();
-      const batch2 = admin.firestore().batch();
-      snapMsg.forEach(doc => {
-        batch2.delete(doc.ref);
-        deletedProcessed++;
-      });
-      if (deletedProcessed > 0) await batch2.commit();
-    } catch (e) {
-      console.warn('[RESET PROCESSED]', e.message);
+    // 1. Delete all docs in sesiones_mateo (en la nube)
+    if (isRunningInCloud) {
+      try {
+        const snapSessions = await admin.firestore().collection('sesiones_mateo').get();
+        const batch1 = admin.firestore().batch();
+        snapSessions.forEach(doc => {
+          batch1.delete(doc.ref);
+          deletedSessions++;
+        });
+        if (deletedSessions > 0) await batch1.commit();
+      } catch (e) {
+        console.warn('[RESET SESSIONS]', e.message);
+      }
+
+      // 2. Delete all docs in mensajes_procesados
+      try {
+        const snapMsg = await admin.firestore().collection('mensajes_procesados').get();
+        const batch2 = admin.firestore().batch();
+        snapMsg.forEach(doc => {
+          batch2.delete(doc.ref);
+          deletedProcessed++;
+        });
+        if (deletedProcessed > 0) await batch2.commit();
+      } catch (e) {
+        console.warn('[RESET PROCESSED]', e.message);
+      }
+
+      // 3. Delete all docs in aprendizajes_ml
+      try {
+        const snapMl = await admin.firestore().collection('aprendizajes_ml').get();
+        const batch3 = admin.firestore().batch();
+        snapMl.forEach(doc => {
+          batch3.delete(doc.ref);
+          deletedMl++;
+        });
+        if (deletedMl > 0) await batch3.commit();
+      } catch (e) {
+        console.warn('[RESET ML]', e.message);
+      }
     }
 
-    // 3. Clear memory caches
+    // 4. Clear memory caches
     resetMemoryCache();
     processedMessageIds.clear();
+    try {
+      const { resetMlLearnings } = require('./ml_service');
+      if (resetMlLearnings) resetMlLearnings();
+    } catch (e) {}
 
-    console.log(`🧹 [RESET CONVERSACIONES] ${deletedSessions} sesiones y ${deletedProcessed} mensajes borrados. Mateo está en cero.`);
+    console.log(`🧹 [RESET CONVERSACIONES] ${deletedSessions} sesiones, ${deletedProcessed} mensajes y ${deletedMl} auditorías ML borradas. Mateo y sus métricas están en cero.`);
 
     return res.json({
       success: true,
-      message: 'Todas las conversaciones de Mateo han sido borradas. Mateo está en cero como si no reconociera a nadie.',
+      message: 'Todas las conversaciones, estadísticas de tokens y aprendizajes de Mateo han sido reiniciados a cero.',
       deletedSessions,
-      deletedProcessed
+      deletedProcessed,
+      deletedMl
     });
   } catch (err) {
     console.error('Error al resetear conversaciones:', err);

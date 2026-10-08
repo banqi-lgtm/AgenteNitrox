@@ -2350,17 +2350,24 @@
 
     // Reset Mateo conversations
     document.getElementById('btnResetMateo').addEventListener('click', async () => {
-      if (!confirm('⚠️ ¿Estás seguro de reiniciar todas las conversaciones de Mateo?\\n\\nEsto borrará todas las sesiones y mensajes en progreso, dejando a Mateo en cero como si no reconociera a nadie. (Los mecánicos guardados en el CRM no se borran).')) {
+      if (!confirm('⚠️ ¿Estás seguro de reiniciar todas las conversaciones de Mateo?\n\nEsto borrará todas las sesiones, mensajes en progreso y métricas de tokens, dejando a Mateo en cero como si no reconociera a nadie. (Los mecánicos guardados en el CRM no se borran).')) {
         return;
       }
       try {
         const res = await fetch('/api/admin/reset-conversations', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
         });
         const d = await res.json();
         if (d.success) {
-          alert(`✅ ${d.message}\\n(${d.deletedSessions || 0} sesiones y ${d.deletedProcessed || 0} mensajes borrados)`);
+          alert(`✅ ${d.message}\n(${d.deletedSessions || 0} sesiones, ${d.deletedProcessed || 0} mensajes borrados)`);
+          if (typeof loadTokensData === 'function') loadTokensData();
+          if (typeof loadMlData === 'function') loadMlData();
+          if (typeof loadMechanics === 'function') loadMechanics();
         } else {
           alert('❌ Error: ' + (d.message || 'No se pudo reiniciar'));
         }

@@ -268,10 +268,15 @@ async function analyzeAllStoredSessions(sessionsSource) {
   return results;
 }
 
+function resetMlLearnings() {
+  localMlLearningsStore.length = 0;
+}
+
 module.exports = {
   analyzeConversation,
   analyzeConversationAsync,
   getAllLearnings,
   analyzeAllStoredSessions,
-  localMlLearningsStore
+  localMlLearningsStore,
+  resetMlLearnings
 };
