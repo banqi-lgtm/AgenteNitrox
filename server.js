@@ -163,9 +163,25 @@ app.post('/api/auth/login', (req, res) => {
 // In-memory fallback for local dev / resilience
 let localMecanicosCache = localMecanicosStore;
 
-// ===== Formulario corto con link único por mecánico (/completar/:token) =====
-const COMPLETAR_FIELDS = ['correo', 'cedula', 'fecha_nacimiento', 'experiencia_mecanico', 'personas_taller', 'horario_ruta'];
-const isEmptyField = (v) => v === undefined || v === null || v === '' || /^no especificad/i.test(String(v)) || (Array.isArray(v) && v.length === 0);
+// ===== Formulario corto con link único por mecánico (/completar/:token) + Perfil (/perfil/:token) =====
+const REG_ENGINE = require('./registration_engine');
+const PUBLIC_BASE_URL = 'https://webhook-my2e3j2ecq-uc.a.run.app';
+// Campos de la ficha maestra que se pueden completar en el formulario (en orden de prioridad).
+// Solo se muestran los que NO quedaron respondidos en la conversación con Mateo.
+const COMPLETAR_FIELDS = [
+  'correo', 'cedula', 'barrio_taller', 'direccion_taller', 'experiencia_mecanico',
+  'antiguedad_taller', 'personas_taller', 'quien_decide_repuesto', 'donde_compra_repuestos', 'marcas_repuestos_usadas'
+];
+const COMPLETAR_ARRAY_FIELDS = ['donde_compra_repuestos', 'marcas_repuestos_usadas'];
+const COMPLETAR_MAX = 5;
+
+function getFormPendingFields(m) {
+  return COMPLETAR_FIELDS.filter(k => {
+    const def = REG_ENGINE.MASTER_FIELDS[k];
+    if (!def) return false;
+    try { return !def.isValid(m[k]); } catch (_) { return true; }
+  }).slice(0, COMPLETAR_MAX);
+}
 
 async function findMechanicByToken(token) {
   if (!token || token.length < 8) return null;
@@ -180,21 +196,39 @@ async function findMechanicByToken(token) {
   return null;
 }
 
+// Registra en el historial de la conversación (CRM) un mensaje enviado fuera del flujo del webhook
+async function appendAssistantMessageToSession(phone, content) {
+  const entry = { role: 'assistant', content, timestamp: Date.now() };
+  try {
+    if (memoryCache[phone]) {
+      memoryCache[phone].history = memoryCache[phone].history || [];
+      memoryCache[phone].history.push(entry);
+    }
+    await admin.firestore().collection('sesiones_mateo').doc(phone)
+      .set({ history: admin.firestore.FieldValue.arrayUnion(entry) }, { merge: true });
+  } catch (e) {
+    console.warn('[SESSION APPEND]', e.message);
+  }
+}
+
 app.get('/completar/:token', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'completar.html'));
+});
+
+app.get('/perfil/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'perfil.html'));
 });
 
 app.get('/api/completar/:token', async (req, res) => {
   const m = await findMechanicByToken(req.params.token);
   if (!m) return res.status(404).json({ success: false, message: 'Link no válido' });
-  const pending = COMPLETAR_FIELDS.filter(k => isEmptyField(m[k]));
   return res.json({
     success: true,
     nombre: m.nombres_apellidos || '',
     taller: m.nombre_taller || '',
     ubicacion: [m.barrio_taller, m.ciudad_taller].filter(Boolean).join(', '),
     id_unico: m.id_unico,
-    pending,
+    pending: getFormPendingFields(m),
     intereses: m.actividades_interes || [],
     completado: Boolean(m.formulario_completado_en)
   });
@@ -205,14 +239,22 @@ app.post('/api/completar/:token', async (req, res) => {
   if (!m) return res.status(404).json({ success: false, message: 'Link no válido' });
   const body = req.body || {};
   const clean = (v, max = 120) => String(v || '').trim().slice(0, max);
+  const pending = getFormPendingFields(m);
   const updates = {};
-  for (const k of COMPLETAR_FIELDS) {
-    if (isEmptyField(m[k]) && clean(body[k])) updates[k] = clean(body[k]);
+  for (const k of pending) {
+    const v = clean(body[k]);
+    if (!v) continue;
+    updates[k] = COMPLETAR_ARRAY_FIELDS.includes(k)
+      ? v.split(/[,;\/]| y /i).map(s => s.trim()).filter(Boolean).slice(0, 8)
+      : v;
   }
   if (updates.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.correo)) {
     return res.status(400).json({ success: false, message: 'El correo no parece válido' });
   }
-  if (updates.cedula) updates.cedula = updates.cedula.replace(/\D/g, '').slice(0, 12);
+  if (updates.cedula) {
+    updates.cedula = updates.cedula.replace(/\D/g, '').slice(0, 12);
+    if (updates.cedula.length < 6) return res.status(400).json({ success: false, message: 'La cédula no parece válida' });
+  }
   const allowedInterests = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
   if (Array.isArray(body.intereses)) {
     const ints = body.intereses.filter(i => allowedInterests.includes(i));
@@ -222,6 +264,7 @@ app.post('/api/completar/:token', async (req, res) => {
     }
   }
   if (body.acepta_comunicaciones === true) updates.autorizacion_comunicaciones_comerciales = true;
+  const firstTime = !m.formulario_completado_en;
   updates.formulario_completado_en = new Date().toISOString();
 
   Object.assign(m, updates);
@@ -230,7 +273,53 @@ app.post('/api/completar/:token', async (req, res) => {
   } catch (e) {
     console.warn('[COMPLETAR SAVE]', e.message);
   }
-  return res.json({ success: true });
+
+  // Confirmación por WhatsApp con el link único al perfil
+  const profileUrl = `${PUBLIC_BASE_URL}/perfil/${encodeURIComponent(req.params.token)}`;
+  const phone = String(m.celular_whatsapp || '').replace(/\D/g, '');
+  if (phone && firstTime) {
+    const msg = `✅ *Recibimos tu información.* ¡Gracias!\n\nAquí puedes ver tu perfil RED NITROX cuando quieras:\n👉 ${profileUrl}`;
+    try {
+      await sendWhatsAppMessage(phone, msg);
+      await appendAssistantMessageToSession(phone, msg);
+    } catch (e) {
+      console.warn('[COMPLETAR WHATSAPP]', e.message);
+    }
+  }
+  return res.json({ success: true, profileUrl });
+});
+
+// Perfil público del mecánico (solo con su token privado)
+app.get('/api/perfil/:token', async (req, res) => {
+  const m = await findMechanicByToken(req.params.token);
+  if (!m) return res.status(404).json({ success: false, message: 'Perfil no encontrado' });
+  const arr = v => (Array.isArray(v) ? v : (v ? [v] : [])).filter(x => x && !/^no especificad|^no aplica/i.test(String(x)));
+  const val = v => (v && !/^no especificad|^no aplica/i.test(String(v)) ? v : '');
+  return res.json({
+    success: true,
+    id_unico: m.id_unico,
+    nombre: m.nombres_apellidos || '',
+    taller: m.nombre_taller || '',
+    rol: val(m.relacion_taller),
+    ciudad: m.ciudad_taller || '',
+    barrio: m.barrio_taller || '',
+    direccion: m.direccion_taller || '',
+    experiencia: val(m.experiencia_mecanico),
+    antiguedad: val(m.antiguedad_taller),
+    personas: val(m.personas_taller),
+    motos_semana: val(m.motos_por_semana),
+    especialidad: arr(m.especialidad),
+    marcas_motos: arr(m.marcas_motos),
+    repuestos: arr(m.repuestos_frecuentes),
+    marcas_repuestos: arr(m.marcas_repuestos_usadas),
+    intereses: arr(m.actividades_interes),
+    nivel: m.nivel_relacion_numero || 1,
+    nivel_nombre: m.nivel_relacion_nombre || 'Registrado',
+    fecha_registro: m.fecha_registro || '',
+    card_image: `/api/card-image/${encodeURIComponent(m.id_unico)}.png`,
+    form_url: `/completar/${encodeURIComponent(req.params.token)}`,
+    pendientes: getFormPendingFields(m).length
+  });
 });
 
 // Formulario Lookup API (Permite al formulario web precargar los datos ya capturados por WhatsApp)

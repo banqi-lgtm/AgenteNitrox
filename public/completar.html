@@ -68,8 +68,9 @@
 
   <div id="done" class="card done hidden">
     <div class="ok">✓</div>
-    <h1>¡Listo, gracias!</h1>
-    <p class="muted">Te avisaremos de las próximas capacitaciones, premios y visitas de la Ruta NITROX.</p>
+    <h1>Recibimos tu información</h1>
+    <p class="muted">Te enviamos por WhatsApp el link de tu perfil RED NITROX.</p>
+    <a id="profileBtn" href="#" style="display:block;margin-top:18px;padding:14px;border-radius:12px;background:#111;color:#fff;font-weight:700;text-decoration:none">Ver mi perfil</a>
   </div>
 
   <div class="foot">RED NITROX · Colombia</div>
@@ -77,13 +78,18 @@
 
 <script>
 const token = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+const sel = (name, opts) => `<select name="${name}"><option value="">Selecciona</option>${opts.map(o => `<option>${o}</option>`).join('')}</select>`;
 const FIELD_DEF = {
   correo: { label: 'Correo electrónico', html: '<input type="email" name="correo" placeholder="tucorreo@gmail.com" autocomplete="email">' },
   cedula: { label: 'Cédula', html: '<input type="text" name="cedula" inputmode="numeric" placeholder="Número de cédula">' },
-  fecha_nacimiento: { label: 'Fecha de nacimiento', html: '<input type="date" name="fecha_nacimiento">' },
-  experiencia_mecanico: { label: 'Años de experiencia como mecánico', html: '<select name="experiencia_mecanico"><option value="">Selecciona</option><option>Menos de 2 años</option><option>2 a 5 años</option><option>6 a 10 años</option><option>Más de 10 años</option></select>' },
-  personas_taller: { label: '¿Cuántas personas trabajan en el taller?', html: '<select name="personas_taller"><option value="">Selecciona</option><option>1</option><option>2–3</option><option>4–5</option><option>Más de 5</option></select>' },
-  horario_ruta: { label: 'Mejor horario para visitarte (Ruta NITROX)', html: '<select name="horario_ruta"><option value="">Selecciona</option><option>Mañana (8–12)</option><option>Tarde (12–5)</option><option>Final de la tarde (5–7)</option></select>' }
+  barrio_taller: { label: 'Barrio del taller', html: '<input type="text" name="barrio_taller" placeholder="Ej: Belén, Castilla, Itagüí centro">' },
+  direccion_taller: { label: 'Dirección del taller', html: '<input type="text" name="direccion_taller" placeholder="Ej: Calle 50 # 40-20">' },
+  experiencia_mecanico: { label: '¿Cuántos años llevas como mecánico?', html: sel('experiencia_mecanico', ['Menos de 2 años', '2 a 5 años', '6 a 10 años', 'Más de 10 años']) },
+  antiguedad_taller: { label: '¿Hace cuánto funciona el taller?', html: sel('antiguedad_taller', ['Menos de 1 año', '1 a 3 años', '4 a 10 años', 'Más de 10 años']) },
+  personas_taller: { label: '¿Cuántas personas trabajan en el taller?', html: sel('personas_taller', ['1', '2–3', '4–5', 'Más de 5']) },
+  quien_decide_repuesto: { label: '¿Quién decide la marca del repuesto?', html: sel('quien_decide_repuesto', ['Yo (el mecánico)', 'El dueño del taller', 'El cliente', 'Entre el cliente y yo']) },
+  donde_compra_repuestos: { label: '¿Dónde compras los repuestos?', html: sel('donde_compra_repuestos', ['Almacén de repuestos del barrio', 'Distribuidor que me visita', 'Centro (almacenes grandes)', 'Por WhatsApp / internet']) },
+  marcas_repuestos_usadas: { label: '¿Qué marcas de repuestos usas más?', html: '<input type="text" name="marcas_repuestos_usadas" placeholder="Ej: NITROX, Casarella, originales">' }
 };
 const INTERESTS = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
 const $ = id => document.getElementById(id);
@@ -92,7 +98,8 @@ const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 fetch('/api/completar/' + encodeURIComponent(token)).then(r => r.json()).then(d => {
   $('loading').classList.add('hidden');
   if (!d.success) { $('invalid').classList.remove('hidden'); return; }
-  const first = (d.nombre || '').split(' ')[0];
+  if (d.completado && (!d.pending || d.pending.length === 0)) { location.replace('/perfil/' + encodeURIComponent(token)); return; }
+  const first = ((d.nombre || '').split(' ')[0] || '').replace(/^./, c => c.toUpperCase());
   $('hello').textContent = first ? `¡Hola, ${first}!` : '¡Hola!';
   $('known').innerHTML = [d.taller && `<span class="chip">🔧 <b>${esc(d.taller)}</b></span>`, d.ubicacion && `<span class="chip">${esc(d.ubicacion)}</span>`].filter(Boolean).join('');
   $('fields').innerHTML = d.pending.map(k => FIELD_DEF[k] ? `<label class="f">${FIELD_DEF[k].label}</label>${FIELD_DEF[k].html}` : '').join('');
@@ -116,6 +123,7 @@ $('form').addEventListener('submit', async e => {
     const r = await fetch('/api/completar/' + encodeURIComponent(token), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const d = await r.json();
     if (!d.success) throw new Error(d.message || 'No se pudo guardar');
+    if (d.profileUrl) { $('profileBtn').href = '/perfil/' + encodeURIComponent(token); }
     $('form').classList.add('hidden'); $('done').classList.remove('hidden');
     window.scrollTo(0, 0);
   } catch (err) {
