@@ -106,8 +106,8 @@ function getPendingTopics(memory) {
   const confirmed = memory.confirmedFacts || {};
   const rejected = memory.rejectedFields || {};
 
-  // Si ya está finalizado o tiene ID único oficial, cero temas pendientes
-  if (confirmed._finished || confirmed.id_unico) {
+  // Si ya está finalizado oficialmente con carnet y registro completado, cero temas pendientes
+  if (confirmed._finished?.value === true && confirmed.id_unico?.value) {
     return [];
   }
 
@@ -198,7 +198,7 @@ async function processGeminiBrainTurn(session, userText) {
     session.data[k] = v.value;
   }
 
-  const isAlreadyRegistered = Boolean(session.data._finished || session.data.id_unico);
+  const isAlreadyRegistered = Boolean(session.data._finished === true && session.data.id_unico);
   const pendingTopics = getPendingTopics(memory);
   const memorySummary = buildConversationSummary(memory);
 
@@ -349,12 +349,16 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     const costUsd = Number(((inTok * 0.000000075) + (outTok * 0.00000030)).toFixed(7));
     const costCop = Number((costUsd * 4000).toFixed(4));
 
-    // Determinar si ya está listo para finalizar
-    const isFinished = Boolean(
-      parsed.listo_para_finalizar &&
+    // Determinar si ya está listo para finalizar (requiere taller, nombre, ubicación, rol y autorización de datos respondida)
+    const hasRequired = Boolean(
+      memory.confirmedFacts['nombres_apellidos']?.value &&
+      memory.confirmedFacts['nombre_taller']?.value &&
+      (memory.confirmedFacts['ciudad_taller']?.value || memory.confirmedFacts['barrio_taller']?.value || memory.confirmedFacts['direccion_taller']?.value) &&
+      memory.confirmedFacts['relacion_taller']?.value &&
       memory.confirmedFacts['autorizacion_tratamiento_datos']?.value !== undefined &&
-      memory.confirmedFacts['nombre_taller']?.value
+      pendingTopics.length <= 1
     );
+    const isFinished = Boolean(parsed.listo_para_finalizar && hasRequired);
 
     return {
       analysis: parsed.analisis_interno || {},

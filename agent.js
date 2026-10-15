@@ -599,8 +599,13 @@ async function saveSession(phoneNumber, session) {
 // Global in-memory cache for mechanics fallback
 const localMecanicosStore = [];
 
-async function saveMechanicToFirestore(phone, data) {
+async function saveMechanicToFirestore(phone, data, isFinal = false) {
   const cleanPhone = (phone || '').replace(/\D/g, '');
+  if (!isFinal && !data._finished) {
+    // Durante la conversación activa NO asignar id_unico para no confundir a Gemini con un taller ya registrado
+    return data;
+  }
+
   if (!data.id_unico) {
     const rawId = (cleanPhone.slice(-4) || 'RN') + Math.random().toString(36).substring(2, 6).toUpperCase();
     data.id_unico = `RN-MED-${rawId}`;
@@ -696,16 +701,6 @@ async function generateMateoResponse(fromNumber, userText) {
     session.data.nombres_apellidos = cleanPersonName(session.data.nombres_apellidos) || session.data.nombres_apellidos;
   }
 
-  // Check Habeas Data resolution
-  if (session.data.autorizacion_tratamiento_datos !== undefined && session.data.autorizacion_tratamiento_datos !== null) {
-    session.data._habeasDataRespondido = true;
-  }
-
-  // Progressive sync with Firestore / CRM
-  if (session.data.nombres_apellidos || session.data.nombre_taller) {
-    await saveMechanicToFirestore(fromNumber, session.data);
-  }
-
   // Token usage tracking and economics calculation
   session.tokenStats = session.tokenStats || {
     totalInputTokens: 0,
@@ -727,7 +722,7 @@ async function generateMateoResponse(fromNumber, userText) {
     session.tokenStats.lastUpdated = new Date().toISOString();
   }
 
-  // 4. Update session history with token metrics
+  // Update session history with token metrics
   session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
   session.history.push({
     role: 'assistant',
@@ -737,11 +732,20 @@ async function generateMateoResponse(fromNumber, userText) {
   });
 
   // 5. Final Delivery Check (QR Credential & Digital Carnet)
-  const isFinished = Boolean(brainResult.isFinished || (session.data._habeasDataRespondido && session.data.nombre_taller));
+  // La vinculación solo finaliza si Gemini lo determina Y se han conocido TODOS los datos esenciales
+  const hasEssentialData = Boolean(
+    session.data.nombres_apellidos &&
+    session.data.nombre_taller &&
+    (session.data.ciudad_taller || session.data.barrio_taller || session.data.direccion_taller) &&
+    session.data.relacion_taller &&
+    session.data.autorizacion_tratamiento_datos !== undefined &&
+    session.data.autorizacion_tratamiento_datos !== null
+  );
+  const isFinished = Boolean(brainResult.isFinished && hasEssentialData);
 
   if (isFinished && !session.data._finished) {
     session.data._finished = true;
-    const mechanic = await saveMechanicToFirestore(fromNumber, session.data);
+    const mechanic = await saveMechanicToFirestore(fromNumber, session.data, true);
     await saveSession(fromNumber, session);
     triggerMlAnalysis(fromNumber, session);
 

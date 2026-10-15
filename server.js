@@ -851,11 +851,22 @@ app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
       } catch (e) {
         console.warn('[RESET ML]', e.message);
       }
+
+      // 4. Clean accidental test mechanic record if created prematurely
+      try {
+        const snapTest = await admin.firestore().collection('mecanicos_red_nitrox').where('id_unico', '==', 'RN-MED-5796DKR9').get();
+        snapTest.forEach(async doc => await doc.ref.delete());
+        const snapTest2 = await admin.firestore().collection('mecanicos_red_nitrox').where('nombre_taller', '==', 'Taller Leones La 50').get();
+        snapTest2.forEach(async doc => await doc.ref.delete());
+      } catch (e) {
+        console.warn('[RESET TEST MECHANIC]', e.message);
+      }
     }
 
-    // 4. Clear memory caches
+    // 5. Clear memory caches
     resetMemoryCache();
     processedMessageIds.clear();
+    localMecanicosCache = localMecanicosCache.filter(m => m.id_unico !== 'RN-MED-5796DKR9' && m.nombre_taller !== 'Taller Leones La 50');
     try {
       const { resetMlLearnings } = require('./ml_service');
       if (resetMlLearnings) resetMlLearnings();

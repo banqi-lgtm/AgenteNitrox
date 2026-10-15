@@ -233,6 +233,36 @@ runTest('K. Detección de protesta ("Ya te dije que Yamaha y Suzuki")', () => {
   assert.deepStrictEqual(nlp.entities.marcas_motos, ['Yamaha', 'Suzuki'], 'Debe extraer las marcas recordadas');
 });
 
+// -------------------------------------------------------------
+// TEST 12: Blindaje contra finalización prematura (Caso Johan / Leones la 50)
+// -------------------------------------------------------------
+runTest('L. No finaliza la vinculación si solo se conoce nombre y taller sin ubicación, rol ni Habeas Data', () => {
+  const session = { data: {}, memory: null };
+  const memory = initOrLoadMemory(session);
+
+  // Turno 1 y 2: Mecánico da nombre y taller
+  integrateFactsIntoMemory(memory, {
+    nombres_apellidos: 'Johan González',
+    nombre_taller: 'Taller Leones La 50'
+  });
+
+  const pending = getPendingTopics(memory);
+  // Debe haber temas pendientes de ubicación, rol, etc.
+  assert.ok(pending.length >= 4, 'Deben quedar temas pendientes esenciales');
+  assert.ok(pending.includes('Ubicación (barrio o municipio)'), 'Ubicación debe estar pendiente');
+  assert.ok(pending.includes('Rol en el taller (dueño, mecánico o ambos)'), 'Rol debe estar pendiente');
+
+  // Comprobar que NO está listo para finalizar
+  const hasEssentialData = Boolean(
+    memory.confirmedFacts['nombres_apellidos']?.value &&
+    memory.confirmedFacts['nombre_taller']?.value &&
+    (memory.confirmedFacts['ciudad_taller']?.value || memory.confirmedFacts['barrio_taller']?.value || memory.confirmedFacts['direccion_taller']?.value) &&
+    memory.confirmedFacts['relacion_taller']?.value &&
+    memory.confirmedFacts['autorizacion_tratamiento_datos']?.value !== undefined
+  );
+  assert.strictEqual(hasEssentialData, false, 'No debe considerarse con datos esenciales completos');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {
