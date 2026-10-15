@@ -82,7 +82,7 @@ REGLAS CONVERSACIONALES SUPREMAS (OBLIGATORIAS):
 9. RESPUESTA OBLIGATORIA EN JSON ESTRUCTURADO:
    Debes responder ÚNICAMENTE con un JSON válido con esta estructura:
    {
-     "analisis_interno": {
+     "analisis_interno": { /* valores MUY breves, máximo 6 palabras cada uno */
        "lo_que_dijo": string,
        "intencion": string,
        "es_pregunta_comercial": boolean,
@@ -146,6 +146,121 @@ function getPendingTopics(memory) {
   const topics = getConversationalPendingTopics({}, memory);
   return topics.map(t => `[${t.section}] ${t.label}${t.mandatory ? ' (Obligatorio)' : ''}`);
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// RESILIENCIA GEMINI: cascada con "hedging", cortacircuitos por modelo y timeouts duros.
+// Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
+// ───────────────────────────────────────────────────────────────────────────
+const MODEL_CHAIN = [
+  'googleai/gemini-3.8-flash',        // prioridad: modelo principal
+  'googleai/gemini-flash-lite-latest', // respaldo rápido
+  'googleai/gemini-3.1-flash-lite'     // segundo respaldo (se lanza en paralelo si el anterior tarda)
+];
+const HEDGE_DELAYS_MS = [0, 3500, 7000];   // cuándo lanzar cada candidato si nadie ha respondido
+const PER_CALL_TIMEOUT_MS = 16000;
+const TOTAL_BUDGET_MS = 20000;
+const modelCooldownUntil = {};
+
+function cooldownFor(err) {
+  const msg = String((err && err.message) || err || '');
+  if (/429|quota|Too Many Requests/i.test(msg)) return 3 * 60 * 1000;     // cuota agotada: reintentar en 3 min
+  if (/503|high demand|overloaded|unavailable/i.test(msg)) return 45 * 1000;
+  if (/404|no longer available|not found|400|invalid argument/i.test(msg)) return 60 * 60 * 1000;
+  if (/HARD-TIMEOUT/i.test(msg)) return 30 * 1000;
+  return 20 * 1000;
+}
+
+function withTimeout(promise, ms, label) {
+  let t;
+  const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error('HARD-TIMEOUT ' + label + ' ' + ms + 'ms')), ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+/**
+ * Lanza los modelos en cascada: el siguiente arranca de inmediato si el anterior falla,
+ * o tras un pequeño retraso si el anterior sigue sin responder. Gana el primero que responda.
+ */
+function generateResilient(params) {
+  const now = Date.now();
+  let candidates = MODEL_CHAIN.filter(m => !(modelCooldownUntil[m] > now));
+  if (candidates.length === 0) candidates = MODEL_CHAIN.slice();
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let launched = 0;
+    let failed = 0;
+    const errors = [];
+    const startedAt = Date.now();
+
+    const budgetTimer = setTimeout(() => {
+      if (!settled) { settled = true; reject(new Error('TOTAL-BUDGET agotado: ' + errors.join(' | '))); }
+    }, TOTAL_BUDGET_MS);
+
+    const launchNext = () => {
+      if (settled || launched >= candidates.length) return;
+      const model = candidates[launched++];
+      withTimeout(ai.generate({ ...params, model }), PER_CALL_TIMEOUT_MS, model)
+        .then(res => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(budgetTimer);
+          console.log('⚡ [GEMINI OK] ' + model + ' en ' + (Date.now() - startedAt) + 'ms');
+          res.__model = model;
+          resolve(res);
+        })
+        .catch(err => {
+          modelCooldownUntil[model] = Date.now() + cooldownFor(err);
+          const brief = String(err.message || err).replace(/.*generateContent: /, '').slice(0, 120);
+          errors.push(model + ': ' + brief);
+          console.warn('⚠️ [GEMINI FALLÓ] ' + model + ' → ' + brief);
+          failed++;
+          if (settled) return;
+          if (launched < candidates.length) launchNext();           // el siguiente entra de inmediato
+          else if (failed >= candidates.length) {
+            settled = true; clearTimeout(budgetTimer);
+            reject(new Error('Todos los modelos fallaron: ' + errors.join(' | ')));
+          }
+        });
+    };
+
+    launchNext();
+    // Hedging: si el primero tarda, lanza los siguientes en paralelo
+    for (let i = 1; i < candidates.length; i++) {
+      setTimeout(launchNext, HEDGE_DELAYS_MS[i] || (3500 * i));
+    }
+  });
+}
+
+/** Recorta localmente (sin llamar a la IA) una respuesta demasiado larga para WhatsApp. */
+function trimReplyLocally(reply, maxWords = 22) {
+  if (countWords(reply) <= maxWords) return reply;
+  const sentences = (reply.match(/[^.!?¡¿]*[.!?]+|[^.!?]+$/g) || [reply]).map(x => x.trim()).filter(Boolean);
+  const question = [...sentences].reverse().find(x => x.includes('?'));
+  const first = sentences[0];
+  if (question && first && first !== question && countWords(first + ' ' + question) <= maxWords + 3) return first + ' ' + question;
+  if (question && countWords(question) <= maxWords + 3) return question;
+  if (first && countWords(first) <= maxWords + 3) return first;
+  return reply.split(/\s+/).slice(0, maxWords).join(' ').replace(/[,;:]$/, '') + '…';
+}
+
+// Preguntas de respaldo (sin IA) para que la conversación avance aunque Gemini no responda
+const FALLBACK_QUESTIONS = {
+  nombres_apellidos: '¿Cómo te llamas?',
+  nombre_taller: '¿Cómo se llama tu taller y en qué ciudad queda?',
+  ciudad_taller: '¿En qué ciudad queda tu taller?',
+  barrio_taller: '¿En qué barrio queda el taller?',
+  direccion_taller: '¿Me regalas la dirección del taller?',
+  relacion_taller: '¿Eres propietario o mecánico del taller?',
+  marcas_motos: '¿Qué marcas de motos atiendes más, como Bajaj, AKT o Suzuki?',
+  motos_por_semana: '¿Cuántas motos atienden por semana?',
+  repuestos_frecuentes: '¿Qué repuestos rotas más, kits de arrastre, frenos o motor?',
+  marcas_repuestos_usadas: '¿Manejas marcas como Casarella, NITROX u otras?',
+  conoce_nitrox: '¿Ya conocías NITROX?',
+  quiere_muestras: '¿Te gustaría recibir muestras y beneficios de NITROX?',
+  correo: '¿Me compartes tu correo electrónico?',
+  cedula: '¿Me regalas tu cédula para los beneficios?',
+  autorizacion_tratamiento_datos: '¿Autorizas a RED NITROX a registrar los datos de tu taller?'
+};
 
 /**
  * Procesa un turno conversacional aplicando la canalización de NLP, memoria semántica y Gemini Brain.
@@ -245,31 +360,16 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
   }
 
   try {
-    let response;
-    try {
-      // 1. Prioridad: Procesar con Gemini 3.8 Flash
-      response = await ai.generate({
-        model: 'googleai/gemini-3.8-flash',
-        system: SYSTEM_PROMPT,
-        prompt: contextPrompt,
-        config: {
-          temperature: 0.35,
-          responseMimeType: 'application/json'
-        }
-      });
-    } catch (err38) {
-      console.warn('⚠️ [PRIORIDAD GEMINI 3.8 SPIKE / FALLBACK A FLASH LITE]:', err38.message);
-      // 2. Fallback de alta disponibilidad
-      response = await ai.generate({
-        model: 'googleai/gemini-flash-lite-latest',
-        system: SYSTEM_PROMPT,
-        prompt: contextPrompt,
-        config: {
-          temperature: 0.35,
-          responseMimeType: 'application/json'
-        }
-      });
-    }
+    // Prioridad Gemini 3.8 Flash; si está saturado o sin cuota, cascada rápida con hedging
+    const response = await generateResilient({
+      system: SYSTEM_PROMPT,
+      prompt: contextPrompt,
+      config: {
+        temperature: 0.35,
+        maxOutputTokens: 700,
+        responseMimeType: 'application/json'
+      }
+    });
 
     const rawJson = response.text || '{}';
     let parsed;
@@ -290,32 +390,8 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
 
     let reply = cleanResponseText(parsed.respuesta_mateo || '');
 
-    // Refinamiento de longitud estricta si excede el rango WhatsApp
-    const wc = countWords(reply);
-    if (wc > 25 || wc < 3) {
-      const refinePrompt = `Acorta y pule esta respuesta de Mateo para que suene 100% natural, amena, paisa y tenga entre 5 y 18 palabras estrictas. Responde únicamente con el texto final pulido:\n"${reply}"`;
-      let refined;
-      try {
-        refined = await ai.generate({
-          model: 'googleai/gemini-3.8-flash',
-          prompt: refinePrompt,
-          config: { temperature: 0.2 }
-        });
-      } catch (_) {
-        refined = await ai.generate({
-          model: 'googleai/gemini-flash-lite-latest',
-          prompt: refinePrompt,
-          config: { temperature: 0.2 }
-        });
-      }
-      const refinedUsage = refined.usage || {};
-      inTok += refinedUsage.inputTokens || Math.round(refinePrompt.length / 4);
-      outTok += refinedUsage.outputTokens || Math.round((refined.text || '').length / 4);
-      const refinedText = cleanResponseText(refined.text);
-      if (refinedText && countWords(refinedText) <= 25) {
-        reply = refinedText;
-      }
-    }
+    // Longitud WhatsApp: recorte local instantáneo (sin una segunda llamada a la IA)
+    reply = trimReplyLocally(reply);
 
     // 4. GUARDABARRERAS SEMÁNTICO Y ANTI-REPETICIÓN
     // Inspecciona si la respuesta generada intenta formular una pregunta sobre un dato que ya se conoce.
@@ -382,11 +458,16 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     };
 
   } catch (err) {
-    console.error('[GEMINI BRAIN ERROR]:', err);
+    console.error('[GEMINI BRAIN ERROR]:', err.message || err);
+    // Respaldo sin IA: sigue la conversación con la siguiente pregunta pendiente
+    const nextKey = (pendingTopics && pendingTopics[0] && pendingTopics[0].key) || null;
+    const nextQ = (nextKey && FALLBACK_QUESTIONS[nextKey]) || '¿Me cuentas un poco más de tu taller?';
+    const fallbackReply = (isAlreadyRegistered ? '¡Con gusto! Ya estás en la red. ¿En qué más te ayudo?' : nextQ);
+    if (!isAlreadyRegistered && nextKey) recordAskedQuestion(memory, nextKey, fallbackReply);
     return {
-      analysis: { error: err.message },
+      analysis: { error: err.message, fallback: true },
       updates: {},
-      reply: '¡Qué pena que se me cayó un segundo la señal! Contame, ¿en qué íbamos?',
+      reply: fallbackReply,
       isFinished: false,
       tokenUsage: {
         inputTokens: 0,
@@ -401,6 +482,8 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
 
 module.exports = {
   processGeminiBrainTurn,
+  generateResilient,
+  trimReplyLocally,
   getPendingTopics,
   SYSTEM_PROMPT,
   countWords,
