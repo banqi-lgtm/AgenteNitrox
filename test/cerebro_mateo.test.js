@@ -329,6 +329,16 @@ runTest('P. Ficha completa con celular_whatsapp autoriza canFinalize = true', ()
   assert.ok(progress.progressPercentage >= 80, 'Progreso debe ser >= 80%');
 });
 
+// -------------------------------------------------------------
+// TEST 17: Respuesta genérica ('todas', 'de todo') no marca marcas_motos como confirmadas
+// -------------------------------------------------------------
+runTest('Q. Respuesta genérica ("todas") activa marcas_genericas y no confirma marcas_motos', () => {
+  const userText = "de todas recibo";
+  const nlp = processNlpPipeline(userText, { _askingBrands: true });
+  assert.strictEqual(nlp.entities.marcas_motos, null, 'marcas_motos debe permanecer null para forzar precisión');
+  assert.strictEqual(nlp.entities.marcas_genericas, true, 'marcas_genericas debe ser true');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

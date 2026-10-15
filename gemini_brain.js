@@ -245,14 +245,31 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
   }
 
   try {
-    const response = await ai.generate({
-      system: SYSTEM_PROMPT,
-      prompt: contextPrompt,
-      config: {
-        temperature: 0.35,
-        responseMimeType: 'application/json'
-      }
-    });
+    let response;
+    try {
+      // 1. Prioridad: Procesar con Gemini 3.8 Flash
+      response = await ai.generate({
+        model: 'googleai/gemini-3.8-flash',
+        system: SYSTEM_PROMPT,
+        prompt: contextPrompt,
+        config: {
+          temperature: 0.35,
+          responseMimeType: 'application/json'
+        }
+      });
+    } catch (err38) {
+      console.warn('⚠️ [PRIORIDAD GEMINI 3.8 SPIKE / FALLBACK A FLASH LITE]:', err38.message);
+      // 2. Fallback de alta disponibilidad
+      response = await ai.generate({
+        model: 'googleai/gemini-flash-lite-latest',
+        system: SYSTEM_PROMPT,
+        prompt: contextPrompt,
+        config: {
+          temperature: 0.35,
+          responseMimeType: 'application/json'
+        }
+      });
+    }
 
     const rawJson = response.text || '{}';
     let parsed;
@@ -277,10 +294,20 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     const wc = countWords(reply);
     if (wc > 25 || wc < 3) {
       const refinePrompt = `Acorta y pule esta respuesta de Mateo para que suene 100% natural, amena, paisa y tenga entre 5 y 18 palabras estrictas. Responde únicamente con el texto final pulido:\n"${reply}"`;
-      const refined = await ai.generate({
-        prompt: refinePrompt,
-        config: { temperature: 0.2 }
-      });
+      let refined;
+      try {
+        refined = await ai.generate({
+          model: 'googleai/gemini-3.8-flash',
+          prompt: refinePrompt,
+          config: { temperature: 0.2 }
+        });
+      } catch (_) {
+        refined = await ai.generate({
+          model: 'googleai/gemini-flash-lite-latest',
+          prompt: refinePrompt,
+          config: { temperature: 0.2 }
+        });
+      }
       const refinedUsage = refined.usage || {};
       inTok += refinedUsage.inputTokens || Math.round(refinePrompt.length / 4);
       outTok += refinedUsage.outputTokens || Math.round((refined.text || '').length / 4);

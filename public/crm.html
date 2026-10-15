@@ -1446,8 +1446,11 @@
       <span class="nav-tag">Piloto Medellín</span>
     </a>
     <div class="nav-actions">
-      <button id="btnResetMateo" class="btn-outline" style="border-color: rgba(239, 35, 60, 0.4); color: #EF233C;" title="Borrar conversaciones y dejar a Mateo en cero">
-        <span>🧹 Reiniciar Mateo (0)</span>
+      <button id="btnWipeCrm" class="btn-outline" style="border-color: #EF233C; color: #fff; background: rgba(239, 35, 60, 0.25); font-weight: 700;" title="Borrar toda la base de datos para empezar de cero (mecánicos, sesiones y métricas)">
+        <span>🗑️ Limpiar Todo el CRM</span>
+      </button>
+      <button id="btnResetMateo" class="btn-outline" style="border-color: rgba(239, 35, 60, 0.4); color: #EF233C;" title="Borrar sólo las sesiones activas">
+        <span>🧹 Reiniciar Sesiones</span>
       </button>
       <a href="/formulario" target="_blank" class="btn-outline">
         <span>📝 Abrir Formulario Virtual</span>
@@ -1463,19 +1466,19 @@
   <!-- Top Navigation Tabs -->
   <div class="nav-tabs-bar">
     <div class="nav-tabs-container">
-      <button class="nav-tab active" id="tabBtnMechanics">
+      <button class="nav-tab active" id="tabBtnTokens">
+        <span class="tab-icon">💬</span>
+        <span>Última Conversación & En Vivo</span>
+        <span class="live-badge-pulse">LIVE</span>
+      </button>
+      <button class="nav-tab" id="tabBtnMechanics">
         <span class="tab-icon">👥</span>
-        <span>Mecánicos y Talleres</span>
+        <span>Base de Mecánicos</span>
       </button>
       <button class="nav-tab" id="tabBtnMl">
         <span class="tab-icon">🧠</span>
         <span>Machine Learning</span>
         <span class="ai-badge-pulse">AI LIVE</span>
-      </button>
-      <button class="nav-tab" id="tabBtnTokens">
-        <span class="tab-icon">💬</span>
-        <span>Tokens y Conversaciones</span>
-        <span class="live-badge-pulse">LIVE</span>
       </button>
     </div>
   </div>
@@ -1484,7 +1487,7 @@
   <div class="container">
 
     <!-- View: Mechanics -->
-    <div id="viewMechanics">
+    <div id="viewMechanics" style="display: none;">
       <!-- KPI Summary Row -->
       <div class="kpi-grid">
       <div class="kpi-card">
@@ -1673,12 +1676,12 @@
     </div>
     <!-- End View: Machine Learning -->
 
-    <!-- View: Tokens y Conversaciones en Vivo -->
-    <div id="viewTokens" style="display: none;">
+    <!-- View: Tokens y Conversaciones en Vivo (VISTA PRINCIPAL POR DEFECTO) -->
+    <div id="viewTokens" style="display: block;">
       <!-- Slim Top Bar -->
       <div class="tokens-slim-bar">
         <div class="tokens-slim-title">
-          <span>💬 Conversaciones WhatsApp & Tokens Gemini</span>
+          <span>💬 Conversación WhatsApp en Vivo & Auditoría Gemini</span>
           <span class="live-badge-pulse" id="liveBadgePulse" style="font-size: 0.62rem; padding: 2px 7px;">LIVE</span>
         </div>
         <div class="tokens-slim-actions">
@@ -1698,23 +1701,23 @@
       <div class="tok-kpi-compact-row">
         <div class="kpi-mini green">
           <span class="kpi-mini-lbl">🪙 Tokens Gemini</span>
-          <div class="kpi-mini-val" id="tokKpiTotal">9,382 Tokens</div>
-          <span class="kpi-mini-sub" id="tokKpiBreakdown">9,100 in • 282 out</span>
+          <div class="kpi-mini-val" id="tokKpiTotal">0 Tokens</div>
+          <span class="kpi-mini-sub" id="tokKpiBreakdown">0 in • 0 out</span>
         </div>
         <div class="kpi-mini amber">
           <span class="kpi-mini-lbl">💵 Inversión Total Real</span>
-          <div class="kpi-mini-val" id="tokKpiCostCop" style="color: #F59E0B;">$3.07 COP</div>
-          <span class="kpi-mini-sub" id="tokKpiCostUsd">3 Pesos Colombianos (Literal $3 COP)</span>
+          <div class="kpi-mini-val" id="tokKpiCostCop" style="color: #F59E0B;">$0.00 COP</div>
+          <span class="kpi-mini-sub" id="tokKpiCostUsd">US$ 0.0000 USD</span>
         </div>
         <div class="kpi-mini blue">
           <span class="kpi-mini-lbl">⚡ Promedio / Taller</span>
-          <div class="kpi-mini-val" id="tokKpiAvgCop" style="color: #3B82F6;">$3.07 COP</div>
-          <span class="kpi-mini-sub" id="tokKpiAvgTokens">Tres pesos por taller registrado</span>
+          <div class="kpi-mini-val" id="tokKpiAvgCop" style="color: #3B82F6;">$0.00 COP</div>
+          <span class="kpi-mini-sub" id="tokKpiAvgTokens">0 tokens promedio</span>
         </div>
         <div class="kpi-mini purple">
           <span class="kpi-mini-lbl">💬 Conversaciones</span>
-          <div class="kpi-mini-val" id="tokKpiConvs">1 Conversación</div>
-          <span class="kpi-mini-sub" id="tokKpiTurns">14 turnos interactivos</span>
+          <div class="kpi-mini-val" id="tokKpiConvs">0 Conversaciones</div>
+          <span class="kpi-mini-sub" id="tokKpiTurns">0 turnos interactivos</span>
         </div>
       </div>
 
@@ -1736,6 +1739,13 @@
             <div class="wa-search-input-box">
               <span>🔍</span>
               <input type="text" id="convSearchInput" class="wa-search-input" placeholder="Buscar por mecánico, taller o teléfono...">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px solid #222d34; font-size: 0.76rem;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; color: #e9edef;">
+                <input type="checkbox" id="chkOnlyLatestConv" checked style="accent-color: #00a884; cursor: pointer;">
+                <span style="font-weight: 600;">Solo última conversación</span>
+              </label>
+              <span id="lblConvMode" style="font-size: 0.68rem; color: #00a884; font-weight: 600;">ENFOCADO</span>
             </div>
           </div>
 
@@ -1759,13 +1769,22 @@
             </div>
 
             <div class="wa-header-actions" id="chatHeaderActions" style="display: none;">
+              <!-- Ficha Maestra Progress Pill -->
+              <div class="wa-header-cost-pill" id="chatProgressPill" style="border-color: rgba(16, 185, 129, 0.4); display: none;">
+                <div class="wa-cost-cop-val" id="chatProgressPct" style="color: #10B981;">📋 Ficha: 0%</div>
+                <div class="wa-cost-sub-val" id="chatProgressSub">Calculando...</div>
+              </div>
+
               <!-- Cost Pill Compact -->
               <div class="wa-header-cost-pill">
-                <div class="wa-cost-cop-val" id="chatCostVal">$3.07 COP (Tres pesos)</div>
-                <div class="wa-cost-sub-val" id="chatCostUsdVal">🪙 9,382 tokens • US$ 0.00077 USD</div>
+                <div class="wa-cost-cop-val" id="chatCostVal">$0.00 COP</div>
+                <div class="wa-cost-sub-val" id="chatCostUsdVal">🪙 0 tokens • US$ 0.0000 USD</div>
               </div>
 
               <!-- Compact Friendly Buttons -->
+              <button class="btn-wa-action" id="btnOpenCarnetDirect" style="display: none; background: linear-gradient(135deg, #10B981, #059669); border-color: #10B981; color: #fff;" title="Ver Carnet Digital Oficial" onclick="openSelectedCarnet()">
+                💳 Ver Carnet
+              </button>
               <button class="btn-wa-action" id="btnOpenWhatsAppDirect" title="Abrir chat en WhatsApp Web" onclick="openSelectedInWhatsApp()">
                 💬 WhatsApp
               </button>
@@ -1788,7 +1807,7 @@
 
           <!-- Footer Status Bar -->
           <div class="wa-footer-bar">
-            <span>⚡ Conversaciones 100% orquestadas por <strong>Gemini Flash Lite</strong></span>
+            <span>⚡ Conversaciones 100% orquestadas por <strong>Gemini 3.8 Flash</strong></span>
             <span>💵 Pesos Colombianos calculados a <strong>$4,000 COP / USD</strong></span>
           </div>
         </div>
@@ -2348,6 +2367,40 @@
       window.location.href = `/api/crm/export?token=${token}`;
     });
 
+    // Limpiar Todo el CRM de 0 (Mecánicos, Sesiones, Mensajes y Métricas)
+    const btnWipe = document.getElementById('btnWipeCrm');
+    if (btnWipe) {
+      btnWipe.addEventListener('click', async () => {
+        const confirmed = confirm('⚠️ ¿Estás COMPLETAMENTE seguro de borrar TODO el CRM?\n\nEsta acción eliminará de forma irreversible:\n- Todos los mecánicos registrados\n- Todas las sesiones y conversaciones activas\n- Todos los mensajes procesados\n- Todas las auditorías de Machine Learning\n\nEl CRM y el agente quedarán completamente nuevos (en 0). ¿Deseas continuar?');
+        if (!confirmed) return;
+
+        try {
+          const res = await fetch('/api/admin/wipe-crm', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+          });
+          const d = await res.json();
+          if (d.success) {
+            alert(`✅ CRM LIMPIO CON ÉXITO:\n${d.message}`);
+            selectedPhone = null;
+            allLiveConversations = [];
+            if (typeof loadTokensData === 'function') loadTokensData();
+            if (typeof loadLiveConversationsList === 'function') loadLiveConversationsList();
+            if (typeof loadMechanics === 'function') loadMechanics();
+            if (typeof loadMlLearnings === 'function') loadMlLearnings();
+          } else {
+            alert('❌ Error: ' + (d.message || 'No se pudo limpiar el CRM'));
+          }
+        } catch (err) {
+          alert('❌ Error de conexión al limpiar CRM: ' + err.message);
+        }
+      });
+    }
+
     // Reset Mateo conversations
     document.getElementById('btnResetMateo').addEventListener('click', async () => {
       if (!confirm('⚠️ ¿Estás seguro de reiniciar todas las conversaciones de Mateo?\n\nEsto borrará todas las sesiones, mensajes en progreso y métricas de tokens, dejando a Mateo en cero como si no reconociera a nadie. (Los mecánicos guardados en el CRM no se borran).')) {
@@ -2719,8 +2772,9 @@
     function renderConversationsList() {
       const container = document.getElementById('convItemsList');
       const filter = (document.getElementById('convSearchInput').value || '').toLowerCase().trim();
+      const onlyLatest = document.getElementById('chkOnlyLatestConv')?.checked ?? true;
 
-      const filtered = allLiveConversations.filter(c => {
+      let filtered = allLiveConversations.filter(c => {
         const matchName = (c.nombres_apellidos || '').toLowerCase().includes(filter);
         const matchWorkshop = (c.nombre_taller || '').toLowerCase().includes(filter);
         const matchPhone = (c.phone || '').includes(filter);
@@ -2728,13 +2782,22 @@
         return matchName || matchWorkshop || matchPhone || matchBarrio;
       });
 
+      if (onlyLatest && filtered.length > 0) {
+        filtered = [filtered[0]];
+      }
+
       const countBadge = document.getElementById('waSidebarCount');
       if (countBadge) {
-        countBadge.textContent = `${filtered.length} activo${filtered.length === 1 ? '' : 's'}`;
+        countBadge.textContent = onlyLatest ? '1 enfocada' : `${filtered.length} activo${filtered.length === 1 ? '' : 's'}`;
+      }
+      const lblMode = document.getElementById('lblConvMode');
+      if (lblMode) {
+        lblMode.textContent = onlyLatest ? 'ENFOCADO' : 'TODOS';
+        lblMode.style.color = onlyLatest ? '#00a884' : '#8D99AE';
       }
 
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">No se encontraron conversaciones con "${escapeHtml(filter)}".</div>`;
+        container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">No hay conversaciones registradas aún.</div>`;
         return;
       }
 
@@ -2819,12 +2882,52 @@
         const headerActions = document.getElementById('chatHeaderActions');
         if (headerActions) headerActions.style.display = 'flex';
 
+        // Calculate progress of Ficha Maestra
+        const tracked = [
+          Boolean(d.nombres_apellidos),
+          Boolean(d.nombre_taller),
+          Boolean(d.barrio_taller || d.direccion_taller || d.ciudad_taller),
+          Boolean(d.relacion_taller),
+          Boolean(d.marcas_motos && d.marcas_motos.length > 0),
+          Boolean(d.motos_por_semana),
+          Boolean(d.repuestos_frecuentes && d.repuestos_frecuentes.length > 0),
+          Boolean(d.conoce_nitrox),
+          Boolean(d.recomienda_repuestos || d.marcas_repuestos_usadas),
+          Boolean(d.quiere_muestras || d.interes_red_nitrox),
+          Boolean(d.cedula || d.correo)
+        ];
+        const filledCount = tracked.filter(Boolean).length;
+        const pct = Math.round((filledCount / tracked.length) * 100);
+
+        const pill = document.getElementById('chatProgressPill');
+        const pctEl = document.getElementById('chatProgressPct');
+        const subEl2 = document.getElementById('chatProgressSub');
+        if (pill && pctEl && subEl2) {
+          pill.style.display = 'flex';
+          pctEl.textContent = `📋 Ficha: ${pct}%`;
+          subEl2.textContent = `${filledCount}/${tracked.length} campos capturados`;
+          pctEl.style.color = pct >= 80 ? '#10B981' : (pct >= 40 ? '#F59E0B' : '#EF233C');
+        }
+
+        // Check if digital card is available
+        const cleanP = phone.replace(/\D/g, '');
+        const matchedMech = allMechanics.find(item => {
+          const mP = (item.celular_whatsapp || '').replace(/\D/g, '');
+          return mP.includes(cleanP) || cleanP.includes(mP);
+        });
+        currentSelectedCardId = (matchedMech && (matchedMech.id_unico || matchedMech.cedula)) || d.id || d.cedula || null;
+
+        const btnCarnet = document.getElementById('btnOpenCarnetDirect');
+        if (btnCarnet) {
+          btnCarnet.style.display = currentSelectedCardId ? 'inline-flex' : 'none';
+        }
+
         const totalCostCopNum = tok.totalCostCop || 0;
         const totalCostUsdNum = tok.totalCostUsd || 0;
         const totalTokNum = tok.totalTokens || 0;
 
-        document.getElementById('chatCostVal').textContent = `$${totalCostCopNum.toFixed(2)} COP (Tres pesos colombianos)`;
-        document.getElementById('chatCostUsdVal').textContent = `🪙 ${totalTokNum.toLocaleString()} tokens • US$ ${totalCostUsdNum.toFixed(5)} USD (Menos de $0.001 USD)`;
+        document.getElementById('chatCostVal').textContent = `$${totalCostCopNum.toFixed(2)} COP`;
+        document.getElementById('chatCostUsdVal').textContent = `🪙 ${totalTokNum.toLocaleString()} tokens • US$ ${totalCostUsdNum.toFixed(5)} USD`;
 
         // Body
         const container = document.getElementById('chatMessagesContainer');
@@ -2924,6 +3027,16 @@
       }
     }
 
+    let currentSelectedCardId = null;
+
+    function openSelectedCarnet() {
+      if (currentSelectedCardId) {
+        window.open(`/carnet/${currentSelectedCardId}`, '_blank');
+      } else {
+        alert('Este taller aún no cuenta con carnet digital generado.');
+      }
+    }
+
     function openSelectedInWhatsApp() {
       if (!selectedPhone) {
         alert('Por favor selecciona una conversación de la lista.');
@@ -2992,8 +3105,13 @@
     }
 
     document.getElementById('convSearchInput').addEventListener('input', renderConversationsList);
+    const chkLatestEl = document.getElementById('chkOnlyLatestConv');
+    if (chkLatestEl) {
+      chkLatestEl.addEventListener('change', renderConversationsList);
+    }
 
-    // Init
+    // Init: Cargar por defecto la Última Conversación en Vivo (Diseño limpio y enfocado)
+    switchTab('tokens');
     loadMechanics();
   </script>
 </body>

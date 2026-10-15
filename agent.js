@@ -783,6 +783,16 @@ async function generateMateoResponse(fromNumber, userText) {
     const cardImageUrl = `${baseUrl}/api/card-image/${encodeURIComponent(uniqueId)}.png`;
     const workshopLabel = session.data.nombre_taller || 'tu taller';
 
+    // Pre-generar la imagen en RAM inmediatamente para que Meta la descargue en < 5ms
+    try {
+      const { generateCardImage } = require('./card_generator');
+      generateCardImage(mechanic).then(buf => {
+        if (global.cardImageCache) {
+          global.cardImageCache.set(uniqueId, buf);
+        }
+      }).catch(console.warn);
+    } catch (_) {}
+
     const qrBubble = {
       type: 'image',
       url: cardImageUrl,

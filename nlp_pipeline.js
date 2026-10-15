@@ -409,10 +409,15 @@ function extractSemanticEntities(text, sessionContext = {}) {
       detectedBrands.push(b.name);
     }
   }
-  if (/todas|de todas|variadas|de todo tipo/i.test(lower) && !detectedBrands.includes('Variadas / Todas')) {
-    detectedBrands.push('Variadas / Todas');
-  }
-  if (detectedBrands.length > 0) {
+  const isGenericBrandsOnly = /^(?:de\s+)?todas$|^(?:de\s+)?todo(?:\s+tipo)?$|^variadas?$|^muchas$/i.test(lower) ||
+    (/(?:todas|de todas|variadas|de todo tipo|muchas)/i.test(lower) && detectedBrands.length === 0);
+
+  if (isGenericBrandsOnly) {
+    extracted.marcas_genericas = true;
+    if (extracted.protesta_repeticion) {
+      extracted.marcas_motos = ['Variadas / Todas'];
+    }
+  } else if (detectedBrands.length > 0) {
     extracted.marcas_motos = detectedBrands;
   }
 
@@ -448,10 +453,15 @@ function extractSemanticEntities(text, sessionContext = {}) {
       detectedParts.push(p.name);
     }
   }
-  if (/de todo|variados|lo que llegue|todo tipo/i.test(lower) && !detectedParts.includes('Variados / De todo')) {
-    detectedParts.push('Variados / De todo');
-  }
-  if (detectedParts.length > 0) {
+  const isGenericPartsOnly = /^(?:de\s+)?todo$|^variados?$|^lo que llegue$/i.test(lower) ||
+    (/(?:de todo|variados|lo que llegue)/i.test(lower) && detectedParts.length === 0);
+
+  if (isGenericPartsOnly) {
+    extracted.repuestos_genericos = true;
+    if (extracted.protesta_repeticion) {
+      extracted.repuestos_frecuentes = ['Variados / De todo'];
+    }
+  } else if (detectedParts.length > 0) {
     extracted.repuestos_frecuentes = detectedParts;
   }
 

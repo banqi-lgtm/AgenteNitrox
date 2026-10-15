@@ -96,10 +96,22 @@ app.get('/api/qr/:id.png', async (req, res) => {
   }
 });
 
+// Caché en memoria para entrega ultrarrápida (<5ms) de la imagen de credencial y QR a WhatsApp
+const cardImageCache = new Map();
+global.cardImageCache = cardImageCache;
+
 // Endpoint generador de la Credencial Completa Oficial con QR en formato imagen PNG
 app.get('/api/card-image/:id.png', async (req, res) => {
   try {
     const id = req.params.id;
+    if (cardImageCache.has(id)) {
+      const cached = cardImageCache.get(id);
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Length', cached.length);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(cached);
+    }
+
     let mechanic = (localMecanicosCache || []).find(m => m.id_unico === id);
 
     if (!mechanic) {
@@ -127,6 +139,8 @@ app.get('/api/card-image/:id.png', async (req, res) => {
 
     const { generateCardImage } = require('./card_generator');
     const imageBuffer = await generateCardImage(mechanicData);
+    cardImageCache.set(id, imageBuffer);
+
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Length', imageBuffer.length);
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -887,6 +901,91 @@ app.post('/api/admin/reset-conversations', requireAuth, async (req, res) => {
   }
 });
 
+// Endpoint Maestro: Limpia el CRM completo (Mecánicos, Sesiones, Mensajes Procesados, Auditorías ML y Caches)
+app.post('/api/admin/wipe-crm', requireAuth, async (req, res) => {
+  try {
+    let deletedMecanicos = 0;
+    let deletedSessions = 0;
+    let deletedProcessed = 0;
+    let deletedMl = 0;
+
+    // Si corre en localhost, propagar a producción
+    if (!isRunningInCloud) {
+      try {
+        await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/admin/wipe-crm', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${ADMIN_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+      } catch (fwdErr) {
+        console.warn('⚠️ [WIPE FWD WARNING]:', fwdErr.message);
+      }
+    }
+
+    if (isRunningInCloud) {
+      // 1. Borrar todos los mecánicos en Firestore
+      try {
+        const snapMecs = await admin.firestore().collection('mecanicos_red_nitrox').get();
+        const batch1 = admin.firestore().batch();
+        snapMecs.forEach(doc => { batch1.delete(doc.ref); deletedMecanicos++; });
+        if (deletedMecanicos > 0) await batch1.commit();
+      } catch (e) { console.warn('[WIPE MECANICOS]', e.message); }
+
+      // 2. Borrar todas las sesiones
+      try {
+        const snapSess = await admin.firestore().collection('sesiones_mateo').get();
+        const batch2 = admin.firestore().batch();
+        snapSess.forEach(doc => { batch2.delete(doc.ref); deletedSessions++; });
+        if (deletedSessions > 0) await batch2.commit();
+      } catch (e) { console.warn('[WIPE SESSIONS]', e.message); }
+
+      // 3. Borrar mensajes procesados
+      try {
+        const snapMsg = await admin.firestore().collection('mensajes_procesados').get();
+        const batch3 = admin.firestore().batch();
+        snapMsg.forEach(doc => { batch3.delete(doc.ref); deletedProcessed++; });
+        if (deletedProcessed > 0) await batch3.commit();
+      } catch (e) { console.warn('[WIPE MSG]', e.message); }
+
+      // 4. Borrar auditorías ML
+      try {
+        const snapMl = await admin.firestore().collection('aprendizajes_ml').get();
+        const batch4 = admin.firestore().batch();
+        snapMl.forEach(doc => { batch4.delete(doc.ref); deletedMl++; });
+        if (deletedMl > 0) await batch4.commit();
+      } catch (e) { console.warn('[WIPE ML]', e.message); }
+    }
+
+    // 5. Vaciar caches en memoria
+    resetMemoryCache();
+    processedMessageIds.clear();
+    localMecanicosCache.length = 0;
+    localMecanicosStore.length = 0;
+    if (global.cardImageCache) global.cardImageCache.clear();
+    try {
+      const { resetMlLearnings } = require('./ml_service');
+      if (resetMlLearnings) resetMlLearnings();
+    } catch (e) {}
+
+    console.log(`💥 [WIPE TOTAL CRM] ${deletedMecanicos} mecánicos, ${deletedSessions} sesiones, ${deletedProcessed} mensajes eliminados. CRM limpio a cero.`);
+
+    return res.json({
+      success: true,
+      message: 'CRM, base de datos y memoria limpiados al 100%. Todo en cero para empezar de nuevo.',
+      deletedMecanicos,
+      deletedSessions,
+      deletedProcessed,
+      deletedMl
+    });
+  } catch (err) {
+    console.error('Error al limpiar CRM:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Mark message as read and show 3 dots typing indicator ("escribiendo...") in WhatsApp
 async function markMessageAsReadAndTyping(messageId) {
   try {
@@ -998,15 +1097,15 @@ async function handleIncomingMessage(req, res) {
     // 1. Mark message as read and show 3 dots typing indicator in WhatsApp
     await markMessageAsReadAndTyping(messageId);
 
-    // 2. Natural human pause: 1000ms - 1500ms while user sees 3 dots "escribiendo..." in WhatsApp
-    const initialDelay = Math.floor(Math.random() * 500) + 1000;
-    console.log(`⏳ [ESCRIBIENDO...] Mostrando 3 puntos en WhatsApp por ${(initialDelay / 1000).toFixed(1)}s...`);
+    // 2. Pausa natural ágil de escritura en WhatsApp (200ms - 350ms)
+    const initialDelay = Math.floor(Math.random() * 150) + 200;
+    console.log(`⏳ [ESCRIBIENDO...] Mostrando indicador de escritura por ${(initialDelay / 1000).toFixed(2)}s...`);
     await sleep(initialDelay);
 
     // 3. Generate response bubbles
     const bubbles = await generateMateoResponse(from, incomingText);
 
-    // 4. Send bubbles with smooth natural interval (350ms)
+    // 4. Send bubbles with snappy interval (150ms)
     for (let i = 0; i < bubbles.length; i++) {
       const bubble = bubbles[i];
       if (bubble && typeof bubble === 'object' && bubble.type === 'image') {
@@ -1018,7 +1117,7 @@ async function handleIncomingMessage(req, res) {
       }
 
       if (i < bubbles.length - 1) {
-        await sleep(400);
+        await sleep(150);
       }
     }
     console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
