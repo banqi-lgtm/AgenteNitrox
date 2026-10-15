@@ -1,0 +1,541 @@
+// nlp_pipeline.js - Procesamiento de Lenguaje Natural en Español para MATEO (RED NITROX Colombia)
+// Etapas:
+// A. Normalización (expansión de modismos y abreviaciones WhatsApp sin alterar significado original)
+// B. Tokenización (unidades léxicas y expresiones multipalabra)
+// C. Lematización contextual (diferenciación sustantivo vs. verbo, mapeo a lemas estándar)
+// D. Extracción Semántica (ciudades, marcas, repuestos, volumen, roles, consultas comerciales, negaciones)
+
+/**
+ * Normaliza el texto de WhatsApp tolerando informalidad y abreviaciones colombianas
+ * Mantiene intacto el mensaje original para referencias posteriores.
+ */
+function normalizeText(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    return { original: '', normalized: '' };
+  }
+
+  const original = rawText.trim();
+  let text = original;
+
+  // 1. Limpieza de caracteres de control y normalización de espacios
+  text = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
+  text = text.replace(/\s+/g, ' ').trim();
+
+  // 2. Diccionario de abreviaturas y modismos frecuentes en WhatsApp Colombia
+  const abbreviations = [
+    // Preposiciones y conjunciones (con límites Unicode para no afectar palabras con tildes)
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:q|ke)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'que' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:xq|pq|xk)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'por qué' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:d)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'de' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:tb|tbn|tmb)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'también' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:pa)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'para' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:ala)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'a la' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:dnd|x dnd)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'dónde' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:porfa|xfa|xfav)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'por favor' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:uds|ustes)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'ustedes' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:ps)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'pues' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:bn)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'bien' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:pto)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'punto' },
+    // Términos mecánicos y repuestos abreviados
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:kt\s+d\s+arrastre|kit\s+d\s+arrastre|kit\s+arrastre)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'kit de arrastre' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:taller\s+d\s+motos)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'taller de motos' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:rep|repuests)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'repuestos' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:ptas|pastillitas)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'pastillas' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:inyecc)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'inyección' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:electr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'electricidad' }
+  ];
+
+  for (const item of abbreviations) {
+    text = text.replace(item.pattern, item.replacement);
+  }
+
+  // 3. Normalizar puntuación excesiva (ej. "???" -> "?", "!!!" -> "!")
+  text = text.replace(/([?!.,;:]){2,}/g, '$1');
+  text = text.replace(/\s+([,.:!?])/g, '$1');
+
+  return {
+    original: original,
+    normalized: text
+  };
+}
+
+/**
+ * Tokeniza el texto reconociendo palabras individuales y frases compuestas de alto valor semántico.
+ */
+function tokenize(text) {
+  if (!text) return [];
+
+  // Expresiones multipalabra prioritarias del dominio motero / comercial
+  const multiWordExpressions = [
+    'kit de arrastre',
+    'pastillas de freno',
+    'inyección electrónica',
+    'mecánica general',
+    'alto cilindraje',
+    'bajo cilindraje',
+    'por semana',
+    'al día',
+    'a la semana',
+    'al mes',
+    'red nitrox',
+    'muestras gratis',
+    'tratamiento de datos',
+    'propietario y mecánico',
+    'dueño y mecánico'
+  ];
+
+  let workingText = text.toLowerCase();
+  const detectedMultiWords = [];
+
+  for (const mwe of multiWordExpressions) {
+    if (workingText.includes(mwe)) {
+      detectedMultiWords.push(mwe);
+    }
+  }
+
+  // Separar tokens individuales
+  const cleanForTokens = text.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿]/g, ' ');
+  const rawTokens = cleanForTokens.split(/\s+/).filter(Boolean);
+
+  return {
+    rawTokens,
+    multiWords: detectedMultiWords
+  };
+}
+
+/**
+ * Lematizador contextual en español.
+ * Distingue explícitamente entre sustantivos y verbos según su contexto gramatical
+ * (ej. "el trabajo" [sustantivo] vs. "trabajo con yamaha" [verbo]).
+ */
+function lemmatize(tokenInfo, fullText) {
+  const { rawTokens } = tokenInfo;
+  const lowerFull = (fullText || '').toLowerCase();
+
+  // Diccionario morfológico de formas verbales
+  const verbMap = {
+    // trabajar
+    'trabajo': 'trabajar',
+    'trabajas': 'trabajar',
+    'trabaja': 'trabajar',
+    'trabajamos': 'trabajar',
+    'trabajan': 'trabajar',
+    'trabajando': 'trabajar',
+    'trabajé': 'trabajar',
+    // cambiar
+    'cambio': 'cambiar',
+    'cambias': 'cambiar',
+    'cambia': 'cambiar',
+    'cambiamos': 'cambiar',
+    'cambian': 'cambiar',
+    'cambiando': 'cambiar',
+    'cambié': 'cambiar',
+    // atender
+    'atiendo': 'atender',
+    'atiendes': 'atender',
+    'atiende': 'atender',
+    'atendemos': 'atender',
+    'atienden': 'atender',
+    'atendiendo': 'atender',
+    'atendí': 'atender',
+    // reparar / arreglar
+    'reparo': 'reparar',
+    'repara': 'reparar',
+    'reparamos': 'reparar',
+    'reparan': 'reparar',
+    'reparando': 'reparar',
+    'arreglo': 'arreglar',
+    'arreglas': 'arreglar',
+    'arregla': 'arreglar',
+    'arreglamos': 'arreglar',
+    'arreglan': 'arreglar',
+    'arreglando': 'arreglar',
+    // comprar
+    'compro': 'comprar',
+    'compras': 'comprar',
+    'compra': 'comprar',
+    'compramos': 'comprar',
+    'compran': 'comprar',
+    'comprando': 'comprar',
+    // recomendar
+    'recomiendo': 'recomendar',
+    'recomiendas': 'recomendar',
+    'recomienda': 'recomendar',
+    'recomendamos': 'recomendar',
+    'recomiendan': 'recomendar',
+    'recomendando': 'recomendar',
+    // llegar
+    'llego': 'llegar',
+    'llega': 'llegar',
+    'llegan': 'llegar',
+    'llegamos': 'llegar',
+    'llegando': 'llegar'
+  };
+
+  // Diccionario de formas plurales a singulares
+  const nounPluralMap = {
+    'repuestos': 'repuesto',
+    'motos': 'moto',
+    'motocicletas': 'motocicleta',
+    'talleres': 'taller',
+    'pastillas': 'pastilla',
+    'bandas': 'banda',
+    'discos': 'disco',
+    'cadenas': 'cadena',
+    'motores': 'motor',
+    'cilindros': 'cilindro',
+    'pistones': 'pistón',
+    'válvulas': 'válvula',
+    'valvulas': 'válvula',
+    'rodamientos': 'rodamiento',
+    'balineras': 'balinera',
+    'llantas': 'llanta',
+    'mecánicos': 'mecánico',
+    'mecanicos': 'mecánico',
+    'marcas': 'marca',
+    'clientes': 'cliente',
+    'muestras': 'muestra'
+  };
+
+  const lemmatizedTokens = rawTokens.map((token, idx) => {
+    const lower = token.toLowerCase();
+
+    // 1. Desambiguación contextual de "trabajo": ¿Sustantivo o Verbo?
+    if (lower === 'trabajo') {
+      const prevWord = idx > 0 ? rawTokens[idx - 1].toLowerCase() : '';
+      if (['el', 'mi', 'su', 'nuestro', 'mucho', 'bastante', 'buen', 'un', 'este'].includes(prevWord) ||
+          lowerFull.includes('bastante trabajo') || lowerFull.includes('mucho trabajo')) {
+        return { token, lemma: 'trabajo', pos: 'sustantivo' };
+      }
+      return { token, lemma: 'trabajar', pos: 'verbo' };
+    }
+
+    // 2. Desambiguación contextual de "cambio": ¿Sustantivo o Verbo?
+    if (lower === 'cambio') {
+      const prevWord = idx > 0 ? rawTokens[idx - 1].toLowerCase() : '';
+      if (['el', 'un', 'este', 'primer', 'segundo'].includes(prevWord) || lowerFull.includes('cambio de aceite')) {
+        return { token, lemma: 'cambio', pos: 'sustantivo' };
+      }
+      return { token, lemma: 'cambiar', pos: 'verbo' };
+    }
+
+    // 3. Verbos conocidos
+    if (verbMap[lower]) {
+      return { token, lemma: verbMap[lower], pos: 'verbo' };
+    }
+
+    // 4. Plurales de sustantivos
+    if (nounPluralMap[lower]) {
+      return { token, lemma: nounPluralMap[lower], pos: 'sustantivo' };
+    }
+
+    return { token, lemma: lower, pos: 'desconocido' };
+  });
+
+  return lemmatizedTokens;
+}
+
+/**
+ * Extracción Semántica de Entidades y Hechos desde el mensaje.
+ * Extrae simultáneamente múltiples hechos independientes en el mismo turno.
+ */
+function extractSemanticEntities(text, sessionContext = {}) {
+  const raw = (text || '').trim();
+  const lower = raw.toLowerCase().replace(/[.,!¡?¿]+/g, ' ');
+
+  const extracted = {
+    // Entidades clave
+    ciudad_taller: null,
+    barrio_taller: null,
+    direccion_taller: null,
+    nombres_apellidos: null,
+    nombre_taller: null,
+    relacion_taller: null,
+    equipo_taller: null,
+    especialidad: null,
+    motos_por_semana: null,
+    marcas_motos: null,
+    repuestos_frecuentes: null,
+    marcas_repuestos_usadas: null,
+    criterio_compra: null,
+    canal_compra: null,
+
+    // Relación comercial e intereses
+    conoce_nitrox: null,
+    quiere_muestras: null,
+    interes_comercial_detalles: null,
+
+    // Datos de contacto y formalización
+    correo: null,
+    cedula: null,
+
+    // Señales conversacionales y de control
+    es_pregunta_comercial: false,
+    pregunta_comercial_tema: null,
+    protesta_repeticion: false,
+    rechazo_dato: {},
+    autorizacion_habeas_data: null
+  };
+
+  // 1. PROTESTA POR REPETICIÓN (Regla: "Ya te dije", "Ya respondí", etc.)
+  if (/(?:ya\s+(?:me\s+)?hab[ií]as|ya\s+te\s+(?:dije|respond[ií])|eso\s+ya|ya\s+lo\s+dije|ya\s+respond[ií]|pregunta\s+ya)/i.test(lower)) {
+    extracted.protesta_repeticion = true;
+  }
+
+  // 2. RECHAZOS Y NEGATIVAS EXPLÍCITAS DE DATOS (Regla: "Prefiero no dar cédula", "no tengo correo")
+  if (/no\s*(?:quiero|prefiero\s*no|doy|voy\s*a\s*dar)\s*(?:la\s*)?(?:c[eé]dula|cc|nit)/i.test(lower) ||
+      /(?:prefiero\s*no\s*dar\s*la\s*c[eé]dula|sin\s*c[eé]dula)/i.test(lower)) {
+    extracted.rechazo_dato.cedula = 'Rechazado expresamente por el usuario';
+    extracted.cedula = 'No proporcionada (rechazada por el usuario)';
+  }
+
+  if (/(?:no\s*tengo\s*correo|no\s*uso\s*correo|no\s*manejo\s*correo|sin\s*correo)/i.test(lower)) {
+    extracted.rechazo_dato.correo = 'No dispone o no usa correo';
+    extracted.correo = 'No disponible / No usa';
+  }
+
+  // 3. CONSULTAS COMERCIALES DEL USUARIO (Regla: Responder primero a sus dudas antes de seguir con vinculación)
+  // Ejemplos: "¿Ustedes quiénes son o qué hacen?", "¿Tienen pastillas para una NKD?", "¿Dónde quedan?"
+  if (/\b(?:qui[eé]nes\s+son|qu[eé]\s+hacen|de\s+qu[eé]\s+es\s+nitrox|qu[eé]\s+es\s+red\s+nitrox)\b/i.test(lower)) {
+    extracted.es_pregunta_comercial = true;
+    extracted.pregunta_comercial_tema = 'identidad_empresa';
+  } else if (/\b(?:tienen|manejan|venden|hay|consiguen)\b.*?\b(?:pastillas?|frenos?|kit|arrastre|repuesto|bater[ií]a|llanta|cadena|aceite|cilindro)\b/i.test(lower) ||
+             /\b(?:pastillas?|kit\s+de\s+arrastre|repuestos?)\b.*?\b(?:para|pa)\b.*?\b(?:nkd|boxer|pulsar|yamaha|akt|honda|nmax|fz|gixxer)\b/i.test(lower)) {
+    extracted.es_pregunta_comercial = true;
+    extracted.pregunta_comercial_tema = 'consulta_repuesto_referencia';
+  } else if (/\b(?:d[oó]nde\s+quedan|d[oó]nde\s+est[aá]n|ubicaci[oó]n\s+de\s+ustedes|tienen\s+sede)\b/i.test(lower)) {
+    extracted.es_pregunta_comercial = true;
+    extracted.pregunta_comercial_tema = 'ubicacion_empresa';
+  } else if (/\b(?:cu[aá]nto\s+cuesta|qu[eé]\s+precio|precios|cat[aá]logo)\b/i.test(lower)) {
+    extracted.es_pregunta_comercial = true;
+    extracted.pregunta_comercial_tema = 'precios_catalogo';
+  }
+
+  // 4. CIUDADES Y MUNICIPIOS (Medellín y Antioquia)
+  const municipalities = [
+    { name: 'Medellín', regex: /\b(?:medell[ií]n|medallo)\b/i },
+    { name: 'Bello', regex: /\b(?:bello)\b/i },
+    { name: 'Itagüí', regex: /\b(?:itag[uü][ií]|itagui)\b/i },
+    { name: 'Envigado', regex: /\b(?:envigado)\b/i },
+    { name: 'Sabaneta', regex: /\b(?:sabaneta)\b/i },
+    { name: 'La Estrella', regex: /\b(?:la\s+estrella|estrella)\b/i },
+    { name: 'Caldas', regex: /\b(?:caldas)\b/i },
+    { name: 'Copacabana', regex: /\b(?:copacabana)\b/i },
+    { name: 'Girardota', regex: /\b(?:girardota)\b/i },
+    { name: 'Barbosa', regex: /\b(?:barbosa)\b/i },
+    { name: 'Rionegro', regex: /\b(?:rionegro)\b/i }
+  ];
+
+  for (const m of municipalities) {
+    if (m.regex.test(lower)) {
+      extracted.ciudad_taller = m.name;
+      break;
+    }
+  }
+
+  // Si responde con una sola palabra que es ciudad (Ejemplo 2: "Envigado")
+  if (!extracted.ciudad_taller && raw.split(/\s+/).length <= 2) {
+    for (const m of municipalities) {
+      if (m.regex.test(raw)) {
+        extracted.ciudad_taller = m.name;
+        break;
+      }
+    }
+  }
+
+  // 5. BARRIOS (Medellín y Área Metropolitana)
+  const barrios = [
+    'Belén', 'Laureles', 'Guayabal', 'Robledo', 'Castilla', 'Aranjuez', 'Manrique',
+    'Prado', 'San Javier', 'Buenos Aires', 'Centro', 'La América', 'El Poblado',
+    'Floresta', 'Estadio', 'Calasanz', 'Santa Cruz', 'Popular', 'Villa Hermosa',
+    'San Cristóbal', 'San Antonio de Prado', 'Niquía', 'Cabañas', 'Boston', 'Ditaires',
+    'Santa María', 'Simón Bolívar', 'La Castellana', 'El Dorado'
+  ];
+
+  for (const b of barrios) {
+    const bRegex = new RegExp(`\\b(?:en\\s+|barrio\\s+)?${b.replace('El ', '')}\\b`, 'i');
+    if (bRegex.test(lower)) {
+      extracted.barrio_taller = b;
+      if (!extracted.ciudad_taller) extracted.ciudad_taller = 'Medellín';
+      break;
+    }
+  }
+
+  // 6. DIRECCIÓN DEL TALLER
+  const addrMatch = raw.match(/\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|cra\.|cll\.)\b\s+[0-9a-zA-Z#\s\-\.\°]+/i)
+    || raw.match(/\b\d+\s*#\s*\d+[\s\-0-9a-zA-Z]*/i);
+  if (addrMatch) {
+    extracted.direccion_taller = addrMatch[0].trim();
+  }
+
+  // 7. MARCAS DE MOTOS ATENDIDAS
+  const brandsList = [
+    { name: 'Yamaha', regex: /\byamaha\b/i },
+    { name: 'Bajaj', regex: /\b(?:bajaj|pulsar|boxer|discover|platino)\b/i },
+    { name: 'AKT', regex: /\b(?:akt|nkd|tt|special)\b/i },
+    { name: 'Honda', regex: /\b(?:honda|cb|cbr|xr|wave)\b/i },
+    { name: 'Suzuki', regex: /\b(?:suzuki|gixxer|gn|vivax)\b/i },
+    { name: 'TVS', regex: /\b(?:tvs|apache|stryker)\b/i },
+    { name: 'Hero', regex: /\b(?:hero|eco|hunk)\b/i },
+    { name: 'KTM', regex: /\b(?:ktm|duke)\b/i },
+    { name: 'Kymco', regex: /\bkymco\b/i },
+    { name: 'Victory', regex: /\bvictory\b/i }
+  ];
+
+  const detectedBrands = [];
+  for (const b of brandsList) {
+    if (b.regex.test(lower)) {
+      detectedBrands.push(b.name);
+    }
+  }
+  if (/todas|de todas|variadas|de todo tipo/i.test(lower) && !detectedBrands.includes('Variadas / Todas')) {
+    detectedBrands.push('Variadas / Todas');
+  }
+  if (detectedBrands.length > 0) {
+    extracted.marcas_motos = detectedBrands;
+  }
+
+  // 8. VOLUMEN DE MOTOS POR SEMANA O DÍA
+  // Detecta patrones como "15 motos por semana", "20 motos", "como 12 motos al día"
+  const volumeMatch = raw.match(/(?:como|unas|unos|alrededor\s+de)?\s*(\d+)\s*(?:motos|veh[ií]culos)?\s*(?:por\s+semana|ala\s+semana|a\s+la\s+semana|semanales|al\s+d[ií]a|diarias)/i)
+    || raw.match(/(?:atiendo|recibo|arreglo|llegan|hago)\s*(?:como|unas|unos)?\s*(\d+)\s*(?:motos)?(?:\s*(?:por|a\s*la)\s*semana|\s*al\s*d[ií]a)?/i);
+
+  if (volumeMatch && volumeMatch[1]) {
+    const isDaily = /d[ií]a|diarias/i.test(volumeMatch[0]);
+    const num = volumeMatch[1];
+    extracted.motos_por_semana = isDaily ? `Aproximadamente ${num} motos al día` : `Aproximadamente ${num} motos por semana`;
+  } else if (/bastantes|muchas|harto|full|bastante movimiento/i.test(lower)) {
+    extracted.motos_por_semana = 'Alto volumen (+25 motos por semana)';
+  }
+
+  // 9. TIPOS DE REPUESTOS Y REPUESTOS FRECUENTES
+  const partsList = [
+    { name: 'Kits de arrastre', regex: /\b(?:kit\s+d[e]?\s+arrastre|arrastre|cadenas?|pi[ñn][oó]n|corona)\b/i },
+    { name: 'Pastillas de freno', regex: /\b(?:pastillas?(?:\s+de\s+freno)?|frenos?|bandas?|discos?)\b/i },
+    { name: 'Partes de motor', regex: /\b(?:motor|motores|cilindros?|pist[oó]n|pistones|anillos|v[aá]lvulas?|empaques?)\b/i },
+    { name: 'Lubricación / Filtros', regex: /\b(?:aceites?|filtros?|lubricantes?)\b/i },
+    { name: 'Suspensión', regex: /\b(?:suspensi[oó]n|amortiguadores?|retenes|retenedores)\b/i },
+    { name: 'Electricidad / Baterías', regex: /\b(?:bater[ií]as?|buj[ií]as?|bobinas?|bombillos?|luces|el[eé]ctrico|electricidad)\b/i },
+    { name: 'Llantas / Neumáticos', regex: /\b(?:llantas?|neum[aá]ticos?|rines)\b/i },
+    { name: 'Guayas y mandos', regex: /\b(?:guayas?|cables?|mandos?|manecillas?)\b/i },
+    { name: 'Rodamientos', regex: /\b(?:rodamientos?|balineras?|cunas?)\b/i }
+  ];
+
+  const detectedParts = [];
+  for (const p of partsList) {
+    if (p.regex.test(lower)) {
+      detectedParts.push(p.name);
+    }
+  }
+  if (/de todo|variados|lo que llegue|todo tipo/i.test(lower) && !detectedParts.includes('Variados / De todo')) {
+    detectedParts.push('Variados / De todo');
+  }
+  if (detectedParts.length > 0) {
+    extracted.repuestos_frecuentes = detectedParts;
+  }
+
+  // 10. ROLES EN EL TALLER
+  // Detecta dueño, mecánico, o rol dual ("yo soy el dueño pero también arreglo")
+  const isOwner = /\b(?:due[ñn]o|propietario|patr[oó]n|el\s+taller\s+es\s+m[ií]o|socio|creador)\b/i.test(lower);
+  const isMechanic = /\b(?:mec[aá]nico|empleado|trabajador|t[eé]cnico|yo\s+arreglo|arreglo\s+las\s+motos|las\s+arreglo\s+yo)\b/i.test(lower);
+  const isBoth = /\b(?:ambas|las\s+dos|ambos|ambas\s+cosas|due[ñn]o\s+y\s+mec[aá]nico|propietario\s+y\s+mec[aá]nico)\b/i.test(lower) ||
+                 (isOwner && isMechanic);
+
+  if (isBoth) {
+    extracted.relacion_taller = 'Propietario y Mecánico';
+  } else if (isOwner) {
+    extracted.relacion_taller = 'Propietario';
+  } else if (isMechanic) {
+    extracted.relacion_taller = 'Mecánico';
+  }
+
+  // 11. EQUIPO / PERSONAL EN EL TALLER
+  const teamMatch = raw.match(/somos\s*(\d+|dos|tres|cuatro|cinco)\s*mec[aá]nicos?/i)
+    || raw.match(/(?:somos|trabajamos)\s*(\d+)\s*(?:personas|en\s+el\s+taller)?/i);
+  if (teamMatch) {
+    extracted.equipo_taller = teamMatch[0];
+  } else if (/trabajo\s+solo|estoy\s+solo/i.test(lower)) {
+    extracted.equipo_taller = 'Trabaja solo';
+  }
+
+  // 12. ESPECIALIDAD TÉCNICA
+  const specs = [];
+  if (/de todo|mec[aá]nica general|reparaci[oó]n general|todo/i.test(lower)) specs.push('Mecánica general');
+  if (/motor|motores|ajuste|anillado/i.test(lower)) specs.push('Motor / 4T');
+  if (/inyecci[oó]n|electr[oó]nica|inyeccion electr[oó]nica/i.test(lower)) specs.push('Inyección electrónica');
+  if (/frenos|suspensi[oó]n/i.test(lower)) specs.push('Frenos / Suspensión');
+  if (/electricidad|el[eé]ctrico/i.test(lower)) specs.push('Electricidad');
+  if (specs.length > 0) {
+    extracted.especialidad = specs;
+  }
+
+  // 13. CRITERIO DE COMPRA Y MARCAS DE REPUESTOS USADAS
+  if (/m[aá]s\s+econ[oó]mico|donde\s+me\s+salga\s+m[aá]s\s+barato|precio|econom[ií]a/i.test(lower)) {
+    extracted.criterio_compra = 'Precio / Economía';
+  } else if (/calidad|original|garant[ií]a|durabilidad/i.test(lower)) {
+    extracted.criterio_compra = 'Calidad y Garantía';
+  }
+
+  if (/\bnitrox\b/i.test(lower)) {
+    extracted.conoce_nitrox = 'Sí';
+  }
+
+  // 14. INTERÉS EN BENEFICIOS NITROX (Muestras / Catálogo / Capacitación)
+  if (/\b(?:muestras|cat[aá]logo|capacitaci[oó]n|capacitaciones|conocer\s+el\s+cat[aá]logo|recibir\s+muestras)\b/i.test(lower) ||
+      (/\b(?:me\s+interesa|me\s+gustar[ií]a|claro|de\s+una)\b/i.test(lower) && sessionContext._offeringNitrox)) {
+    extracted.quiere_muestras = 'Sí';
+    extracted.interes_comercial_detalles = 'Interés manifestado en muestras de repuestos y catálogo oficial';
+  }
+
+  // 15. CONTACTO: CORREO Y CÉDULA / NIT (Extracción de alta precisión)
+  const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) {
+    extracted.correo = emailMatch[0].toLowerCase();
+  }
+
+  const idMatch = raw.match(/(?:c[eé]dula|cc|nit)?\s*(\b\d{7,10}(?:-\d)?\b)/i);
+  if (idMatch && (!extracted.correo || !idMatch[1].includes('@'))) {
+    extracted.cedula = idMatch[1];
+  }
+
+  // 16. HABEAS DATA - AUTORIZACIÓN LEGAL DE TRATAMIENTO DE DATOS
+  // OJO: REGLA EJEMPLO 9: El interés comercial NO es consentimiento de datos.
+  // Solo se aprueba si se le preguntó explícitamente y responde afirmativamente.
+  if (sessionContext._waitingHabeasData) {
+    if (/(?:no\s*gracias|no\s*acepto|no\s*autorizo|^no\b|para\s*nada|negativo)/i.test(lower)) {
+      extracted.autorizacion_habeas_data = false;
+    } else if (/(?:s[ií]|acepto|autorizo|claro|de\s+una|h[aá]gale|con\s+gusto|de\s+acuerdo|ok|listo)/i.test(lower)) {
+      extracted.autorizacion_habeas_data = true;
+    }
+  }
+
+  return extracted;
+}
+
+/**
+ * Pipeline integral de NLP en Español para MATEO.
+ * Ejecuta: Normalización -> Tokenización -> Lematización -> Extracción Semántica.
+ */
+function processNlpPipeline(rawText, sessionContext = {}) {
+  const norm = normalizeText(rawText);
+  const tokenInfo = tokenize(norm.normalized);
+  const lemmas = lemmatize(tokenInfo, norm.normalized);
+  const entities = extractSemanticEntities(norm.normalized, sessionContext);
+
+  return {
+    originalText: norm.original,
+    normalizedText: norm.normalized,
+    tokens: tokenInfo.rawTokens,
+    multiWords: tokenInfo.multiWords,
+    lemmas: lemmas,
+    entities: entities
+  };
+}
+
+module.exports = {
+  normalizeText,
+  tokenize,
+  lemmatize,
+  extractSemanticEntities,
+  processNlpPipeline
+};

@@ -181,12 +181,13 @@ function normalizeMechanicData(input, origin = 'Web') {
       : (input.temas_capacitacion ? [input.temas_capacitacion] : []),
 
     // H. AUTORIZACIONES (Habeas Data)
+    // El interés comercial o dar cédula/correo NO constituye autorización legal; debe ser explícita
     autorizacion_tratamiento_datos: input.autorizacion_tratamiento_datos !== undefined
-      ? input.autorizacion_tratamiento_datos
-      : Boolean(input.cedula || input.correo || input.acepta_registro || input.autoriza_datos),
+      ? Boolean(input.autorizacion_tratamiento_datos)
+      : (Boolean(input.acepta_registro || input.autoriza_datos) ? true : false),
     autorizacion_comunicaciones_comerciales: input.autorizacion_comunicaciones_comerciales !== undefined
-      ? input.autorizacion_comunicaciones_comerciales
-      : Boolean(input.cedula || input.correo || input.acepta_registro || input.autoriza_datos),
+      ? Boolean(input.autorizacion_comunicaciones_comerciales)
+      : (Boolean(input.acepta_registro || input.autoriza_datos) ? true : false),
 
     notas_seguimiento: input.notas_seguimiento || []
   };

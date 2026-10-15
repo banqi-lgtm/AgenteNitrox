@@ -630,14 +630,36 @@ async function saveMechanicToFirestore(phone, data) {
   return normalized;
 }
 
+// Per-phone concurrency lock map to serialize concurrent WhatsApp webhooks
+const phoneLocks = new Map();
+
+async function runWithPhoneLock(phone, fn) {
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+  while (phoneLocks.has(cleanPhone)) {
+    try {
+      await phoneLocks.get(cleanPhone);
+    } catch (_) {}
+  }
+  let resolveLock;
+  const lockPromise = new Promise(resolve => { resolveLock = resolve; });
+  phoneLocks.set(cleanPhone, lockPromise);
+  try {
+    return await fn();
+  } finally {
+    phoneLocks.delete(cleanPhone);
+    resolveLock();
+  }
+}
+
 // Core Conversational Brain: 100% of user messages are processed by Gemini first
 async function generateMateoResponse(fromNumber, userText) {
-  const session = await getSession(fromNumber);
-  session.history = session.history || [];
-  session.data = session.data || {};
+  return runWithPhoneLock(fromNumber, async () => {
+    const session = await getSession(fromNumber);
+    session.history = session.history || [];
+    session.data = session.data || {};
 
-  const raw = (userText || '').trim();
-  const lower = raw.toLowerCase();
+    const raw = (userText || '').trim();
+    const lower = raw.toLowerCase();
 
   // Reset session if user explicitly requests to start over
   if (/(?:otro taller|nuevo taller|registrar otro|reiniciar|borrar datos)/i.test(lower)) {
@@ -750,6 +772,7 @@ async function generateMateoResponse(fromNumber, userText) {
   await saveSession(fromNumber, session);
 
   return [brainResult.reply];
+  });
 }
 
 async function getAllSessions() {
