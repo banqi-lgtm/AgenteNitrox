@@ -311,7 +311,7 @@ function extractSemanticEntities(text, sessionContext = {}) {
     extracted.pregunta_comercial_tema = 'precios_catalogo';
   }
 
-  // 4. CIUDADES Y MUNICIPIOS (Medellín y Antioquia)
+  // 4. CIUDADES, MUNICIPIOS Y TALLERES COMPUESTOS ("La 50 en Medellín", "Taller El Paisa en Bello")
   const municipalities = [
     { name: 'Medellín', regex: /\b(?:medell[ií]n|medallo)\b/i },
     { name: 'Bello', regex: /\b(?:bello)\b/i },
@@ -325,6 +325,27 @@ function extractSemanticEntities(text, sessionContext = {}) {
     { name: 'Barbosa', regex: /\b(?:barbosa)\b/i },
     { name: 'Rionegro', regex: /\b(?:rionegro)\b/i }
   ];
+
+  // 4a. Detección de taller y ciudad expresados juntos (ej: "La 50 en Medellín", "Taller Central en Envigado")
+  const workshopCityMatch = raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{2,30}?)\s+(?:en|de|ubicado\s+en)\s+(medell[ií]n|bello|itag[uü][ií]|envigado|sabaneta|la\s+estrella|caldas|copacabana|girardota|barbosa|rionegro)\b/i);
+  if (workshopCityMatch) {
+    const rawShop = workshopCityMatch[1].trim();
+    if (rawShop.length >= 2 && !/^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop)) {
+      const formattedShop = rawShop.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(rawShop) ? rawShop : `Taller ${rawShop}`;
+      extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      const matchedCity = municipalities.find(m => m.regex.test(workshopCityMatch[2]));
+      if (matchedCity) extracted.ciudad_taller = matchedCity.name;
+    }
+  }
+
+  // 4b. Detección de taller explícito ("se llama La 50", "el taller es Moto Sol")
+  const explicitShopMatch = raw.match(/^(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|nombre\s+del\s+taller\s+es)\s+([A-Za-z0-9\s#\-\.]{2,30})$/i);
+  if (explicitShopMatch && !extracted.nombre_taller) {
+    let s = explicitShopMatch[1].trim();
+    s = s.replace(/\s+(?:en|de|ubicado\s+en)\s+(?:medell[ií]n|bello|itag[uü][ií]|envigado|sabaneta|la\s+estrella|caldas|copacabana|girardota|barbosa|rionegro).*$/i, '').trim();
+    const formattedShop = s.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(s) ? s : `Taller ${s}`;
+    extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  }
 
   for (const m of municipalities) {
     if (m.regex.test(lower)) {
@@ -469,20 +490,37 @@ function extractSemanticEntities(text, sessionContext = {}) {
     extracted.especialidad = specs;
   }
 
-  // 13. CRITERIO DE COMPRA Y MARCAS DE REPUESTOS USADAS
+  // 13. MARCAS DE REPUESTOS RECOMENDADAS O USADAS (Casarella, Nitrox, originales, etc.)
+  const repBrandsList = ['Casarella', 'NITROX', 'Yamaha', 'Honda', 'AKT', 'Bajaj', 'DID', 'Choho', 'Ichiban', 'Repsol', 'Motul', 'Castrol', 'NGK'];
+  const detectedRepBrands = [];
+  for (const rb of repBrandsList) {
+    if (new RegExp(`\\b${rb}\\b`, 'i').test(lower)) {
+      detectedRepBrands.push(rb);
+    }
+  }
+  if (detectedRepBrands.length > 0) {
+    extracted.marcas_repuestos_usadas = detectedRepBrands;
+  }
+
+  // Criterio de compra
   if (/m[aá]s\s+econ[oó]mico|donde\s+me\s+salga\s+m[aá]s\s+barato|precio|econom[ií]a/i.test(lower)) {
     extracted.criterio_compra = 'Precio / Economía';
   } else if (/calidad|original|garant[ií]a|durabilidad/i.test(lower)) {
     extracted.criterio_compra = 'Calidad y Garantía';
   }
 
-  if (/\bnitrox\b/i.test(lower)) {
+  // 14. CONOCIMIENTO DE LA MARCA NITROX (Sí / No)
+  if (/(?:no\s+(?:lo\s+|la\s+|los\s+)?conozco|primera\s+vez|no\s+he\s+escuchado|ni\s+idea|^no\b|para\s+nada|nunca\s+los\s+he\s+visto)/i.test(lower)) {
+    if (sessionContext._askingNitrox || /\bnitrox\b/i.test(lower) || lower.split(/\s+/).length <= 4) {
+      extracted.conoce_nitrox = 'No';
+    }
+  } else if (/\bnitrox\b/i.test(lower) || ((sessionContext._askingNitrox) && /^(?:s[ií]|claro|de\s+una|obvio)/i.test(lower))) {
     extracted.conoce_nitrox = 'Sí';
   }
 
-  // 14. INTERÉS EN BENEFICIOS NITROX (Muestras / Catálogo / Capacitación)
-  if (/\b(?:muestras|cat[aá]logo|capacitaci[oó]n|capacitaciones|conocer\s+el\s+cat[aá]logo|recibir\s+muestras)\b/i.test(lower) ||
-      (/\b(?:me\s+interesa|me\s+gustar[ií]a|claro|de\s+una)\b/i.test(lower) && sessionContext._offeringNitrox)) {
+  // 15. INTERÉS EN BENEFICIOS NITROX (Recomendar, Premios, Muestras, Catálogo)
+  if (/\b(?:muestras|cat[aá]logo|capacitaci[oó]n|capacitaciones|conocer\s+el\s+cat[aá]logo|recibir\s+muestras|premios|beneficios)\b/i.test(lower) ||
+      (/\b(?:me\s+interesa|me\s+gustar[ií]a|claro|de\s+una|h[aá]gale|obvio|por\s+supuesto|s[ií])\b/i.test(lower) && (sessionContext._offeringNitrox || sessionContext._askingRecommendNitrox))) {
     extracted.quiere_muestras = 'Sí';
     extracted.interes_comercial_detalles = 'Interés manifestado en muestras de repuestos y catálogo oficial';
   }

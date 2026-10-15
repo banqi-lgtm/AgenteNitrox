@@ -298,6 +298,18 @@ function getRegistrationProgress(sessionData = {}, memory = {}) {
       continue;
     }
 
+    // 3b. Regla C: Si no se especificó especialidad pero ya se conocen marcas o repuestos, asume 'Mecánica general'
+    if (key === 'especialidad' && (!rawVal || (Array.isArray(rawVal) && rawVal.length === 0))) {
+      if (data.marcas_motos || confirmedData['marcas_motos'] || data.repuestos_frecuentes || confirmedData['repuestos_frecuentes']) {
+        rawVal = ['Mecánica general'];
+      }
+    }
+
+    // 3c. Regla A: Si no se especificó ciudad de residencia, hereda la ciudad del taller
+    if (key === 'ciudad_residencia' && !rawVal) {
+      rawVal = data.ciudad_taller || confirmedData['ciudad_taller']?.value;
+    }
+
     // 4. Validar valor contra validador estricto del campo
     const isValidValue = def.isValid(rawVal);
 
@@ -360,13 +372,12 @@ function getConversationalPendingTopics(sessionData = {}, memory = {}) {
     'nombre_taller',
     'ciudad_taller',
     'barrio_taller',
+    'direccion_taller',
     'relacion_taller',
-    'especialidad',
     'marcas_motos',
     'motos_por_semana',
     'repuestos_frecuentes',
     'marcas_repuestos_usadas',
-    'factores_eleccion_repuesto',
     'conoce_nitrox',
     'quiere_muestras',
     'correo',

@@ -90,6 +90,8 @@ function cleanWorkshopName(str) {
   if (/^(?:no tengo taller|a domicilio|independiente|trabajo a domicilio|particular)/i.test(s)) {
     return 'Mecánico Independiente / A domicilio';
   }
+  // Remove attached trailing city ("La 50 en Medellín" -> "La 50")
+  s = s.replace(/\s+(?:en|de|ubicado\s+en)\s+(?:medell[ií]n|bello|itag[uü][ií]|envigado|sabaneta|la\s+estrella|caldas|copacabana|girardota|barbosa|rionegro).*$/i, '').trim();
   // Remove introductory and trailing filler
   s = s.replace(/^(?:y\s+)?(?:mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|se\s+llama\s+el\s+taller|se\s+llama|el\s+taller|taller:\s*|es\s+el\s+taller|del\s+taller)\s+/gi, '').trim();
   s = s.replace(/\s+(?:el\s+taller|mi\s+taller)$/gi, '').trim();
@@ -560,28 +562,43 @@ function extractEntities(text, sessionData) {
 
 // Persistent session management via Firestore + RAM cache
 async function getSession(phoneNumber) {
+  const cleanPhone = (phoneNumber || '').replace(/\D/g, '');
   try {
     const doc = await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).get();
     if (doc.exists) {
-      const fsData = doc.data();
+      const fsData = doc.data() || {};
       const local = memoryCache[phoneNumber];
+      let sess = fsData;
       // Si Firestore tiene historial igual o más largo, o no hay local, tomamos Firestore
       if (!local || (fsData.history && fsData.history.length >= (local.history?.length || 0))) {
-        memoryCache[phoneNumber] = fsData;
-        return fsData;
+        sess = fsData;
+      } else {
+        sess = local;
       }
-      return local;
+      sess.data = sess.data || {};
+      if (cleanPhone && (!sess.data.celular_whatsapp || sess.data.celular_whatsapp.length < 10)) {
+        sess.data.celular_whatsapp = cleanPhone;
+      }
+      memoryCache[phoneNumber] = sess;
+      return sess;
     }
   } catch (e) {
     // Si no hay Firestore o falla credencial (ej. local), fallback a memoria
   }
 
   if (memoryCache[phoneNumber]) {
-    return memoryCache[phoneNumber];
+    const sess = memoryCache[phoneNumber];
+    sess.data = sess.data || {};
+    if (cleanPhone && (!sess.data.celular_whatsapp || sess.data.celular_whatsapp.length < 10)) {
+      sess.data.celular_whatsapp = cleanPhone;
+    }
+    return sess;
   }
 
   const newSession = {
-    data: {},
+    data: {
+      celular_whatsapp: cleanPhone
+    },
     history: []
   };
   memoryCache[phoneNumber] = newSession;
@@ -667,9 +684,14 @@ async function generateMateoResponse(fromNumber, userText) {
     const raw = (userText || '').trim();
     const lower = raw.toLowerCase();
 
+    const cleanPhone = (fromNumber || '').replace(/\D/g, '');
+    if (cleanPhone && (!session.data.celular_whatsapp || session.data.celular_whatsapp.length < 10)) {
+      session.data.celular_whatsapp = cleanPhone;
+    }
+
   // Reset session if user explicitly requests to start over
   if (/(?:otro taller|nuevo taller|registrar otro|reiniciar|borrar datos)/i.test(lower)) {
-    session.data = {};
+    session.data = { celular_whatsapp: cleanPhone };
     session.history = [];
   }
 
@@ -692,6 +714,11 @@ async function generateMateoResponse(fromNumber, userText) {
     if (val !== null && val !== undefined && val !== '' && !session.data[key]) {
       session.data[key] = val;
     }
+  }
+
+  // Auto-default especialidad a Mecánica general si ya atiende marcas o cambia repuestos
+  if (!session.data.especialidad && (session.data.marcas_motos || session.data.repuestos_frecuentes)) {
+    session.data.especialidad = ['Mecánica general'];
   }
 
   // Clean formatting for workshop and personal names
@@ -813,5 +840,7 @@ module.exports = {
   getAllSessions,
   saveSession,
   memoryCache,
-  resetMemoryCache
+  resetMemoryCache,
+  cleanWorkshopName,
+  cleanPersonName
 };

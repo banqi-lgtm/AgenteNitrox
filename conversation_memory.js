@@ -95,6 +95,43 @@ const TOPIC_SEMANTIC_PATTERNS = {
       /hacen\s+motor\s+o\s+de\s+todo/i
     ]
   },
+  direccion_taller: {
+    topic: 'Dirección o referencia del taller',
+    patterns: [
+      /direcci[oó]n/i,
+      /carrera|calle|cra|cll|transversal|diagonal/i,
+      /en\s+qu[eé]\s+direcci[oó]n/i,
+      /por\s+cu[aá]l\s+calle/i
+    ]
+  },
+  marcas_repuestos_usadas: {
+    topic: 'Marcas de repuestos que recomienda o utiliza',
+    patterns: [
+      /recomiendas\s+alguna\s+marca/i,
+      /qu[eé]\s+marcas?\s+de\s+repuestos/i,
+      /como\s+casarella/i,
+      /marcas\s+como\s+casarella/i,
+      /repuestos\s+recomiendas/i
+    ]
+  },
+  conoce_nitrox: {
+    topic: 'Conocimiento de la marca NITROX',
+    patterns: [
+      /conoces\s+(?:la\s+marca\s+)?nitrox/i,
+      /has\s+escuchado\s+(?:hablar\s+)?de\s+nitrox/i,
+      /conoces\s+a\s+nitrox/i
+    ]
+  },
+  quiere_muestras: {
+    topic: 'Interés en recomendar NITROX y recibir muestras',
+    patterns: [
+      /recomendar\s+nitrox/i,
+      /ganar\s+(?:muchos\s+)?premios/i,
+      /recibir\s+(?:las\s+)?muestras/i,
+      /muestras\s+oficiales/i,
+      /premios\s+y\s+beneficios/i
+    ]
+  },
   correo_y_cedula: {
     topic: 'Datos para envío de beneficios (correo y cédula)',
     patterns: [

@@ -22,8 +22,10 @@ const {
   buildConversationSummary,
   TOPIC_SEMANTIC_PATTERNS
 } = require('../conversation_memory');
-const { getPendingTopics } = require('../gemini_brain');
+const { getPendingTopics, cleanResponseText } = require('../gemini_brain');
 const { normalizeMechanicData } = require('../scoring');
+const { cleanWorkshopName } = require('../agent');
+const { getRegistrationProgress } = require('../registration_engine');
 
 console.log('🧪 =======================================================');
 console.log('🚀 INICIANDO AUDITORÍA Y TEST SUITE DEL CEREBRO DE MATEO');
@@ -261,6 +263,70 @@ runTest('L. No finaliza la vinculación si solo se conoce nombre y taller sin ub
     memory.confirmedFacts['autorizacion_tratamiento_datos']?.value !== undefined
   );
   assert.strictEqual(hasEssentialData, false, 'No debe considerarse con datos esenciales completos');
+});
+
+// -------------------------------------------------------------
+// TEST 13: Extracción de taller y ciudad compuestos ("La 50 en Medellín")
+// -------------------------------------------------------------
+runTest('M. Extracción de taller y ciudad compuestos ("La 50 en Medellín")', () => {
+  const userText = "La 50 en Medellín";
+  const nlp = processNlpPipeline(userText);
+  assert.ok(nlp.entities.nombre_taller.includes('La 50'), 'Debe extraer nombre del taller con La 50');
+  assert.strictEqual(nlp.entities.ciudad_taller, 'Medellín', 'Debe extraer ciudad Medellín');
+  const cleaned = cleanWorkshopName(userText);
+  assert.strictEqual(cleaned, 'Taller La 50', 'cleanWorkshopName debe formatear como Taller La 50');
+});
+
+// -------------------------------------------------------------
+// TEST 14: Anti-muletilla estricta (Eliminación de "Contame," / "Y contame,")
+// -------------------------------------------------------------
+runTest('N. Sanitizador de muletillas elimina "Contame," y "Y contame,"', () => {
+  const text1 = "Contame, ¿en qué barrio está ubicado tu taller?";
+  const cleaned1 = cleanResponseText(text1);
+  assert.ok(!cleaned1.toLowerCase().startsWith('contame'), 'No debe empezar con contame');
+
+  const text2 = "Y contame, ¿qué marcas atiendes más?";
+  const cleaned2 = cleanResponseText(text2);
+  assert.ok(!cleaned2.toLowerCase().startsWith('y contame'), 'No debe empezar con y contame');
+});
+
+// -------------------------------------------------------------
+// TEST 15: Detección de conocimiento de Nitrox (No los conozco -> 'No')
+// -------------------------------------------------------------
+runTest('O. Detección de conocimiento de Nitrox (No los conozco -> No)', () => {
+  const userText = "La verdad no los conozco";
+  const nlp = processNlpPipeline(userText, { _askingNitrox: true });
+  assert.strictEqual(nlp.entities.conoce_nitrox, 'No', 'Debe extraer conoce_nitrox: No');
+});
+
+// -------------------------------------------------------------
+// TEST 16: Validación de cierre y entrega de carnet con celular_whatsapp
+// -------------------------------------------------------------
+runTest('P. Ficha completa con celular_whatsapp autoriza canFinalize = true', () => {
+  const sessionData = {
+    nombres_apellidos: 'Fidel González',
+    nombre_taller: 'Taller La 50',
+    ciudad_taller: 'Medellín',
+    barrio_taller: 'Aranjuez',
+    direccion_taller: 'Calle 50 #40-20',
+    celular_whatsapp: '573208185796',
+    relacion_taller: 'Propietario',
+    especialidad: ['Mecánica general'],
+    marcas_motos: ['Bajaj', 'AKT', 'Suzuki'],
+    motos_por_semana: '15 motos por semana',
+    repuestos_frecuentes: ['Kits de arrastre', 'Pastillas de freno'],
+    marcas_repuestos_usadas: ['Casarella', 'NITROX'],
+    conoce_nitrox: 'No',
+    quiere_muestras: 'Sí',
+    correo: 'fidel@gmail.com',
+    cedula: '1020304050',
+    autorizacion_tratamiento_datos: true
+  };
+
+  const progress = getRegistrationProgress(sessionData, {});
+  assert.strictEqual(progress.missingMandatory.length, 0, 'No debe faltar ningún campo obligatorio');
+  assert.strictEqual(progress.canFinalize, true, 'canFinalize debe ser true para entregar carnet digital y QR');
+  assert.ok(progress.progressPercentage >= 80, 'Progreso debe ser >= 80%');
 });
 
 console.log('\n=======================================================');
