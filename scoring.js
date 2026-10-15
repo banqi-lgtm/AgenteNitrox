@@ -189,7 +189,13 @@ function normalizeMechanicData(input, origin = 'Web') {
       ? Boolean(input.autorizacion_comunicaciones_comerciales)
       : (Boolean(input.acepta_registro || input.autoriza_datos) ? true : false),
 
-    notas_seguimiento: input.notas_seguimiento || []
+    notas_seguimiento: input.notas_seguimiento || [],
+
+    // I. FORMULARIO ÚNICO POST-VINCULACIÓN (/completar/:token)
+    form_token: input.form_token || '',
+    fecha_nacimiento: input.fecha_nacimiento || '',
+    horario_ruta: input.horario_ruta || '',
+    formulario_completado_en: input.formulario_completado_en || ''
   };
 }
 

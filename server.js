@@ -163,6 +163,76 @@ app.post('/api/auth/login', (req, res) => {
 // In-memory fallback for local dev / resilience
 let localMecanicosCache = localMecanicosStore;
 
+// ===== Formulario corto con link único por mecánico (/completar/:token) =====
+const COMPLETAR_FIELDS = ['correo', 'cedula', 'fecha_nacimiento', 'experiencia_mecanico', 'personas_taller', 'horario_ruta'];
+const isEmptyField = (v) => v === undefined || v === null || v === '' || /^no especificad/i.test(String(v)) || (Array.isArray(v) && v.length === 0);
+
+async function findMechanicByToken(token) {
+  if (!token || token.length < 8) return null;
+  const local = (localMecanicosCache || []).find(m => m.form_token === token);
+  if (local) return local;
+  try {
+    const snap = await admin.firestore().collection('mecanicos_red_nitrox').where('form_token', '==', token).limit(1).get();
+    if (!snap.empty) return snap.docs[0].data();
+  } catch (e) {
+    console.warn('[COMPLETAR LOOKUP]', e.message);
+  }
+  return null;
+}
+
+app.get('/completar/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'completar.html'));
+});
+
+app.get('/api/completar/:token', async (req, res) => {
+  const m = await findMechanicByToken(req.params.token);
+  if (!m) return res.status(404).json({ success: false, message: 'Link no válido' });
+  const pending = COMPLETAR_FIELDS.filter(k => isEmptyField(m[k]));
+  return res.json({
+    success: true,
+    nombre: m.nombres_apellidos || '',
+    taller: m.nombre_taller || '',
+    ubicacion: [m.barrio_taller, m.ciudad_taller].filter(Boolean).join(', '),
+    id_unico: m.id_unico,
+    pending,
+    intereses: m.actividades_interes || [],
+    completado: Boolean(m.formulario_completado_en)
+  });
+});
+
+app.post('/api/completar/:token', async (req, res) => {
+  const m = await findMechanicByToken(req.params.token);
+  if (!m) return res.status(404).json({ success: false, message: 'Link no válido' });
+  const body = req.body || {};
+  const clean = (v, max = 120) => String(v || '').trim().slice(0, max);
+  const updates = {};
+  for (const k of COMPLETAR_FIELDS) {
+    if (isEmptyField(m[k]) && clean(body[k])) updates[k] = clean(body[k]);
+  }
+  if (updates.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.correo)) {
+    return res.status(400).json({ success: false, message: 'El correo no parece válido' });
+  }
+  if (updates.cedula) updates.cedula = updates.cedula.replace(/\D/g, '').slice(0, 12);
+  const allowedInterests = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
+  if (Array.isArray(body.intereses)) {
+    const ints = body.intereses.filter(i => allowedInterests.includes(i));
+    updates.actividades_interes = Array.from(new Set([...(m.actividades_interes || []), ...ints]));
+    if (ints.includes('Capacitaciones técnicas')) {
+      updates.temas_capacitacion = Array.from(new Set([...(m.temas_capacitacion || []), 'Capacitaciones técnicas']));
+    }
+  }
+  if (body.acepta_comunicaciones === true) updates.autorizacion_comunicaciones_comerciales = true;
+  updates.formulario_completado_en = new Date().toISOString();
+
+  Object.assign(m, updates);
+  try {
+    await admin.firestore().collection('mecanicos_red_nitrox').doc(m.id_unico).set(updates, { merge: true });
+  } catch (e) {
+    console.warn('[COMPLETAR SAVE]', e.message);
+  }
+  return res.json({ success: true });
+});
+
 // Formulario Lookup API (Permite al formulario web precargar los datos ya capturados por WhatsApp)
 app.get('/api/formulario/lookup', async (req, res) => {
   try {
@@ -747,11 +817,32 @@ app.get('/api/crm/conversacion-en-vivo/:phone', requireAuth, async (req, res) =>
       return msg;
     });
 
+    let progress = null;
+    try {
+      const { getRegistrationProgress, MASTER_FIELDS } = require('./registration_engine');
+      const p = getRegistrationProgress(sess.data || {}, sess.memory || {});
+      progress = {
+        percentage: p.progressPercentage,
+        canFinalize: p.canFinalize,
+        fields: Object.entries(MASTER_FIELDS).map(([key, def]) => ({
+          key,
+          label: def.label,
+          section: def.section,
+          mandatory: def.mandatory,
+          state: p.fieldStatus[key]?.state || 'PENDIENTE',
+          value: p.fieldStatus[key]?.value ?? null
+        }))
+      };
+    } catch (e) {
+      progress = null;
+    }
+
     return res.json({
       success: true,
       phone: cleanPhone,
       data: sess.data || {},
       tokenStats: stats,
+      progress,
       history: historyWithTokens
     });
   } catch (err) {

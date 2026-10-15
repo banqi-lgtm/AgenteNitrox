@@ -484,6 +484,7 @@ module.exports = {
   processGeminiBrainTurn,
   generateResilient,
   trimReplyLocally,
+  FALLBACK_QUESTIONS,
   getPendingTopics,
   SYSTEM_PROMPT,
   countWords,

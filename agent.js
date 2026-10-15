@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 const { normalizeMechanicData, calculateMechanicScore, calculateNitroxLevel } = require('./scoring');
 const { getRegistrationProgress } = require('./registration_engine');
 let _processGeminiBrainTurn = null;
@@ -760,47 +761,59 @@ async function generateMateoResponse(fromNumber, userText) {
   });
 
   // 5. Final Delivery Check (QR Credential & Digital Carnet)
-  // La vinculación solo finaliza si Gemini lo determina Y el motor central autoriza canFinalize
+  // Cierre DETERMINÍSTICO: si el motor central dice canFinalize (todos los obligatorios + Habeas Data = true),
+  // se finaliza SIEMPRE, sin depender de que Gemini marque listo_para_finalizar.
   const progress = getRegistrationProgress(session.data, session.memory);
-  const isFinished = Boolean(brainResult.isFinished && progress.canFinalize);
+  const isFinished = Boolean(progress.canFinalize && session.data.autorizacion_tratamiento_datos === true);
 
-  if (isFinished && !session.data._finished) {
+  if (isFinished && (!session.data._finished || !session.data.id_unico)) {
     session.data._finished = true;
-    const mechanic = await saveMechanicToFirestore(fromNumber, session.data, true);
-    await saveSession(fromNumber, session);
-    triggerMlAnalysis(fromNumber, session);
-
-    // If mechanic declined Habeas Data
-    if (session.data.autorizacion_tratamiento_datos === false) {
-      return [brainResult.reply];
+    if (!session.data.form_token) {
+      session.data.form_token = crypto.randomBytes(9).toString('base64url');
     }
+    const mechanic = await saveMechanicToFirestore(fromNumber, session.data, true);
+    session.data.id_unico = mechanic.id_unico || session.data.id_unico;
 
-    // Mechanic accepted Habeas Data -> Deliver QR card image + digital carnet link
-    const cleanPhone = (fromNumber || '').replace(/\D/g, '');
-    const uniqueId = mechanic.id_unico || session.data.id_unico || (`RN-MED-${(cleanPhone.slice(-4) || 'RN') + Math.random().toString(36).substring(2, 6).toUpperCase()}`);
+    const uniqueId = session.data.id_unico;
     const baseUrl = 'https://webhook-my2e3j2ecq-uc.a.run.app';
-    const cardUrl = `${baseUrl}/carnet/${encodeURIComponent(uniqueId)}`;
     const cardImageUrl = `${baseUrl}/api/card-image/${encodeURIComponent(uniqueId)}.png`;
-    const workshopLabel = session.data.nombre_taller || 'tu taller';
+    const formUrl = `${baseUrl}/completar/${encodeURIComponent(session.data.form_token)}`;
+    const firstName = String(session.data.nombres_apellidos || '').trim().split(/\s+/)[0] || '';
 
-    // Pre-generar la imagen en RAM inmediatamente para que Meta la descargue en < 5ms
+    // Pre-generar la imagen en RAM para que Meta la descargue al instante
     try {
       const { generateCardImage } = require('./card_generator');
-      generateCardImage(mechanic).then(buf => {
-        if (global.cardImageCache) {
-          global.cardImageCache.set(uniqueId, buf);
-        }
-      }).catch(console.warn);
-    } catch (_) {}
+      const buf = await generateCardImage(mechanic);
+      if (global.cardImageCache) global.cardImageCache.set(uniqueId, buf);
+    } catch (e) { console.warn('[CARD PRERENDER]', e.message); }
+
+    // Reemplazar la despedida de Gemini por un cierre fijo y claro
+    const closing = `¡Listo${firstName ? ', ' + firstName : ''}! 🏁 Ya haces parte oficialmente de la *RED NITROX*. Aquí va tu credencial:`;
+    session.history[session.history.length - 1].content = closing;
 
     const qrBubble = {
       type: 'image',
       url: cardImageUrl,
-      caption: `Credencial Oficial y Código QR RED NITROX • ${workshopLabel}`
+      caption: `Credencial RED NITROX • ${session.data.nombre_taller || ''}`.trim()
     };
-    const bubble2 = `🏁 *¡Ya haces parte de la RED NITROX!*\n\nAquí tienes tu enlace y credencial digital oficial de ${workshopLabel}:\n👉 ${cardUrl}\n\n¡Bienvenido a la red de talleres aliados!`;
+    const formBubble = `Si quieres recibir información de *capacitaciones, premios y la Ruta NITROX*, completa aquí unos poquitos datos (es tu link personal):\n👉 ${formUrl}`;
+    session.history.push({ role: 'assistant', content: '[Credencial QR enviada]', timestamp: Date.now() });
+    session.history.push({ role: 'assistant', content: formBubble, timestamp: Date.now() });
 
-    return [brainResult.reply, qrBubble, bubble2];
+    await saveSession(fromNumber, session);
+    triggerMlAnalysis(fromNumber, session);
+
+    return [closing, qrBubble, formBubble];
+  }
+
+  // Guardabarrera: si NO se puede finalizar pero Gemini se despide como si ya estuviera vinculado,
+  // reemplazar por la siguiente pregunta pendiente.
+  if (!session.data._finished && /(ya\s+)?(quedaste|qued[oó]|est[aá]s|eres|haces)\s+(parte|vinculad|registrad|oficialmente)/i.test(brainResult.reply || '')) {
+    const nextKey = progress.missingMandatory[0]?.key;
+    const { FALLBACK_QUESTIONS } = require('./gemini_brain');
+    const safe = (nextKey && FALLBACK_QUESTIONS && FALLBACK_QUESTIONS[nextKey]) || '¿Me confirmas que autorizas a RED NITROX a registrar los datos de tu taller?';
+    session.history[session.history.length - 1].content = safe;
+    brainResult.reply = safe;
   }
 
   // Normal turn or post-registration follow up
