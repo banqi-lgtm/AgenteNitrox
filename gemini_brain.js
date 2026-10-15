@@ -12,6 +12,10 @@ const {
   buildConversationSummary,
   TOPIC_SEMANTIC_PATTERNS
 } = require('./conversation_memory');
+const {
+  getRegistrationProgress,
+  getConversationalPendingTopics
+} = require('./registration_engine');
 
 const SYSTEM_PROMPT = `Eres MATEO, asesor comercial y técnico de RED NITROX en Colombia.
 Tu misión es conversar con mecánicos y dueños de talleres de motos por WhatsApp como un asesor real: cercano, espontáneo, profesional y atento.
@@ -99,80 +103,11 @@ function cleanResponseText(rawText) {
 }
 
 /**
- * Calcula los temas de vinculación aún pendientes consultando la memoria semántica.
- * Si un dato ya está confirmado o fue rechazado, NUNCA aparece como pendiente.
+ * Calcula los temas de vinculación aún pendientes consultando el motor central de la ficha maestra.
  */
 function getPendingTopics(memory) {
-  const confirmed = memory.confirmedFacts || {};
-  const rejected = memory.rejectedFields || {};
-
-  // Si ya está finalizado oficialmente con carnet y registro completado, cero temas pendientes
-  if (confirmed._finished?.value === true && confirmed.id_unico?.value) {
-    return [];
-  }
-
-  const pending = [];
-
-  if (!confirmed.nombres_apellidos?.value) {
-    pending.push('Nombre del mecánico');
-  }
-
-  if (!confirmed.nombre_taller?.value) {
-    pending.push('Nombre del taller de motos');
-  }
-
-  const hasLocation = Boolean(
-    confirmed.ciudad_taller?.value ||
-    confirmed.barrio_taller?.value ||
-    confirmed.direccion_taller?.value
-  );
-  if (!hasLocation) {
-    pending.push('Ubicación (barrio o municipio)');
-  }
-
-  if (!confirmed.relacion_taller?.value) {
-    pending.push('Rol en el taller (dueño, mecánico o ambos)');
-  }
-
-  if (!confirmed.especialidad?.value || (Array.isArray(confirmed.especialidad.value) && confirmed.especialidad.value.length === 0)) {
-    pending.push('Especialidad técnica del taller');
-  }
-
-  if (!confirmed.motos_por_semana?.value) {
-    pending.push('Flujo o volumen de motos atendidas');
-  }
-
-  if (!confirmed.marcas_motos?.value || (Array.isArray(confirmed.marcas_motos.value) && confirmed.marcas_motos.value.length === 0)) {
-    pending.push('Marcas de motos atendidas');
-  }
-
-  if (!confirmed.repuestos_frecuentes?.value || (Array.isArray(confirmed.repuestos_frecuentes.value) && confirmed.repuestos_frecuentes.value.length === 0)) {
-    pending.push('Repuestos que cambian con mayor frecuencia');
-  }
-
-  if (!confirmed.marcas_repuestos_usadas?.value && !confirmed.criterio_compra?.value) {
-    pending.push('Marcas de repuestos que recomiendan o criterio de compra');
-  }
-
-  if (!confirmed.conoce_nitrox?.value && !confirmed.quiere_muestras?.value) {
-    pending.push('Interés en conocer repuestos NITROX, muestras gratis y catálogo');
-  }
-
-  // Datos de contacto (respetando si fueron rechazados)
-  const contactResolved = Boolean(
-    confirmed.correo?.value ||
-    confirmed.cedula?.value ||
-    (rejected.correo && rejected.cedula)
-  );
-  if (!contactResolved) {
-    pending.push('Datos para envío de catálogo y muestras (correo y cédula o NIT)');
-  }
-
-  if (confirmed.autorizacion_tratamiento_datos?.value === undefined) {
-    pending.push('Autorización explícita de tratamiento de datos (Habeas Data)');
-  }
-
-  return pending;
+  const topics = getConversationalPendingTopics({}, memory);
+  return topics.map(t => `[${t.section}] ${t.label}${t.mandatory ? ' (Obligatorio)' : ''}`);
 }
 
 /**
@@ -198,8 +133,9 @@ async function processGeminiBrainTurn(session, userText) {
     session.data[k] = v.value;
   }
 
+  const progress = getRegistrationProgress(session.data, memory);
   const isAlreadyRegistered = Boolean(session.data._finished === true && session.data.id_unico);
-  const pendingTopics = getPendingTopics(memory);
+  const pendingTopics = getConversationalPendingTopics(session.data, memory);
   const memorySummary = buildConversationSummary(memory);
 
   // Contexto conversacional enriquecido para Gemini
@@ -232,13 +168,18 @@ ${history.slice(-10).map(m => `${m.role === 'user' ? 'Mecánico' : 'Mateo'}: "${
 
 ${memorySummary}
 
+ESTADO DE LA FICHA COMERCIAL (${progress.progressPercentage}% COMPLETADA):
+- Confirmados: ${progress.confirmed.join(', ') || 'Ninguno aún'}
+- Faltan campos obligatorios (${progress.missingMandatory.length}): ${progress.missingMandatory.map(m => m.label).join('; ') || 'Ninguno'}
+- Puede finalizar: ${progress.canFinalize ? 'SÍ, FICHA COMPLETA' : 'NO (FALTAN CAMPOS OBLIGATORIOS)'}
+
 ANÁLISIS LINGÜÍSTICO (NLP):
 - Mensaje normalizado: "${nlpResult.normalizedText}"
 - Expresiones clave detectadas: ${JSON.stringify(nlpResult.multiWords)}
 - Entidades semánticas extraídas en este mensaje: ${JSON.stringify(nlpResult.entities)}
 
-TEMAS AÚN PENDIENTES POR CONOCER (EN ORDEN):
-${pendingTopics.length > 0 ? pendingTopics.map((t, idx) => `${idx + 1}. ${t}`).join('\n') : '(Todos los temas esenciales están resueltos)'}
+PRÓXIMOS TEMAS A INDAGAR EN ORDEN CONVERSACIONAL NATURAL:
+${pendingTopics.length > 0 ? pendingTopics.map((t, idx) => `${idx + 1}. [Sección ${t.section}] ${t.label}${t.mandatory ? ' (Obligatorio)' : ''}`).join('\n') : '(Ficha completa)'}
 
 INSTRUCCIONES CLAVE PARA ESTE TURNO:
 1. SI EL MECÁNICO HIZO UNA PREGUNTA O CONSULTA COMERCIAL (ej. quiénes son, repuestos para NKD, precios):
@@ -250,8 +191,10 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
    - Tranquilízalo con cortesía, dile que no hay lío y continúa sin presionar.
 4. SI EL MECÁNICO EXPRESÓ INTERÉS EN MUESTRAS O CATÁLOGO:
    - Registra su interés comercial ("quiere_muestras": "Sí"), pero RECUERDA: esto NO es autorización de Habeas Data todavía.
-5. NO ES OBLIGATORIO PREGUNTAR EN CADA MENSAJE. Si acabas de responder una duda o comentar, puedes cerrar amablemente sin pregunta si no es necesario.
-6. MÁXIMO 22 PALABRAS (ideal 5 a 18 palabras). Sin hermano ni repetición de nombres.
+5. REGLA ESTRICTA DE FINALIZACIÓN:
+   - SI "Puede finalizar" es NO, QUEDA TERMINANTEMENTE PROHIBIDO poner listo_para_finalizar en true ni despedirte diciendo que ya hace parte de la red. Debes continuar con el siguiente tema pendiente de forma amena.
+6. NO ES OBLIGATORIO PREGUNTAR EN CADA MENSAJE. Si acabas de responder una duda o comentar, puedes cerrar amablemente sin pregunta si no es necesario.
+7. MÁXIMO 22 PALABRAS (ideal 5 a 18 palabras). Sin hermano ni repetición de nombres.
 
 ÚLTIMO MENSAJE DEL MECÁNICO:
 "${userText}"`;
@@ -349,16 +292,9 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     const costUsd = Number(((inTok * 0.000000075) + (outTok * 0.00000030)).toFixed(7));
     const costCop = Number((costUsd * 4000).toFixed(4));
 
-    // Determinar si ya está listo para finalizar (requiere taller, nombre, ubicación, rol y autorización de datos respondida)
-    const hasRequired = Boolean(
-      memory.confirmedFacts['nombres_apellidos']?.value &&
-      memory.confirmedFacts['nombre_taller']?.value &&
-      (memory.confirmedFacts['ciudad_taller']?.value || memory.confirmedFacts['barrio_taller']?.value || memory.confirmedFacts['direccion_taller']?.value) &&
-      memory.confirmedFacts['relacion_taller']?.value &&
-      memory.confirmedFacts['autorizacion_tratamiento_datos']?.value !== undefined &&
-      pendingTopics.length <= 1
-    );
-    const isFinished = Boolean(parsed.listo_para_finalizar && hasRequired);
+    // Determinar si ya está listo para finalizar según el motor central de la ficha maestra
+    const updatedProgress = getRegistrationProgress(session.data, memory);
+    const isFinished = Boolean(parsed.listo_para_finalizar && updatedProgress.canFinalize);
 
     return {
       analysis: parsed.analisis_interno || {},

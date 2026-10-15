@@ -208,9 +208,9 @@ runTest('I. Cero preguntas repetidas sobre datos ya confirmados', () => {
 
   // getPendingTopics no debe incluir ninguno de esos datos
   const pending = getPendingTopics(memory);
-  assert.ok(!pending.includes('Ubicación (barrio o municipio)'), 'Ubicación no debe estar pendiente');
-  assert.ok(!pending.includes('Marcas de motos atendidas'), 'Marcas no debe estar pendiente');
-  assert.ok(!pending.includes('Flujo o volumen de motos atendidas'), 'Volumen no debe estar pendiente');
+  assert.ok(!pending.some(p => p.includes('Ciudad o municipio')), 'Ubicación no debe estar pendiente');
+  assert.ok(!pending.some(p => p.includes('Marcas de motos')), 'Marcas no debe estar pendiente');
+  assert.ok(!pending.some(p => p.includes('Flujo o volumen')), 'Volumen no debe estar pendiente');
 });
 
 // -------------------------------------------------------------
@@ -249,8 +249,8 @@ runTest('L. No finaliza la vinculación si solo se conoce nombre y taller sin ub
   const pending = getPendingTopics(memory);
   // Debe haber temas pendientes de ubicación, rol, etc.
   assert.ok(pending.length >= 4, 'Deben quedar temas pendientes esenciales');
-  assert.ok(pending.includes('Ubicación (barrio o municipio)'), 'Ubicación debe estar pendiente');
-  assert.ok(pending.includes('Rol en el taller (dueño, mecánico o ambos)'), 'Rol debe estar pendiente');
+  assert.ok(pending.some(p => p.includes('Ciudad o municipio') || p.includes('Ubicación')), 'Ubicación debe estar pendiente');
+  assert.ok(pending.some(p => p.includes('Rol en el taller')), 'Rol debe estar pendiente');
 
   // Comprobar que NO está listo para finalizar
   const hasEssentialData = Boolean(

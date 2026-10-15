@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const { normalizeMechanicData, calculateMechanicScore, calculateNitroxLevel } = require('./scoring');
+const { getRegistrationProgress } = require('./registration_engine');
 let _processGeminiBrainTurn = null;
 function getProcessGeminiBrainTurn() {
   if (!_processGeminiBrainTurn) {
@@ -732,16 +733,9 @@ async function generateMateoResponse(fromNumber, userText) {
   });
 
   // 5. Final Delivery Check (QR Credential & Digital Carnet)
-  // La vinculación solo finaliza si Gemini lo determina Y se han conocido TODOS los datos esenciales
-  const hasEssentialData = Boolean(
-    session.data.nombres_apellidos &&
-    session.data.nombre_taller &&
-    (session.data.ciudad_taller || session.data.barrio_taller || session.data.direccion_taller) &&
-    session.data.relacion_taller &&
-    session.data.autorizacion_tratamiento_datos !== undefined &&
-    session.data.autorizacion_tratamiento_datos !== null
-  );
-  const isFinished = Boolean(brainResult.isFinished && hasEssentialData);
+  // La vinculación solo finaliza si Gemini lo determina Y el motor central autoriza canFinalize
+  const progress = getRegistrationProgress(session.data, session.memory);
+  const isFinished = Boolean(brainResult.isFinished && progress.canFinalize);
 
   if (isFinished && !session.data._finished) {
     session.data._finished = true;
