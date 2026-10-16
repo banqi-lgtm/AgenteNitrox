@@ -17,18 +17,23 @@
   .known{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
   .chip{background:#F3F4F6;border-radius:999px;padding:6px 12px;font-size:13px;color:#374151}
   .chip b{color:#111}
+  .req-banner{background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.4;color:#92400E;display:flex;align-items:flex-start;gap:10px}
+  .badge-req{color:#DC2626;font-size:11px;font-weight:700;margin-left:4px;text-transform:uppercase}
   label.f{display:block;font-size:13px;font-weight:600;color:#374151;margin:14px 0 6px}
-  input[type=text],input[type=email],input[type=date],input[type=number],select{width:100%;padding:12px 13px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:15px;background:#fff;color:#111;outline:none;transition:border .15s}
+  input[type=text],input[type=email],input[type=date],input[type=number],select{width:100%;padding:12px 13px;border:1.5px solid #E5E7EB;border-radius:10px;font-size:15px;background:#fff;color:#111;outline:none;transition:all .15s}
   input:focus,select:focus{border-color:#F5B300}
-  .opts{display:grid;gap:8px;margin-top:4px}
-  .opt{display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #E5E7EB;border-radius:10px;cursor:pointer;font-size:14px;user-select:none}
+  .is-invalid{border-color:#DC2626 !important;background-color:#FEF2F2 !important;box-shadow:0 0 0 2px rgba(220,38,38,.2) !important}
+  .field-err{color:#DC2626;font-size:12px;margin-top:4px;font-weight:600;display:none}
+  .opts{display:grid;gap:8px;margin-top:4px;padding:4px;border-radius:10px}
+  .opts.is-invalid{border:1.5px solid #DC2626;background:#FEF2F2}
+  .opt{display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #E5E7EB;border-radius:10px;cursor:pointer;font-size:14px;user-select:none;background:#fff}
   .opt input{width:18px;height:18px;accent-color:#F5B300}
   .opt.on{border-color:#F5B300;background:#FFFBEB}
   .consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#4B5563;margin-top:16px}
   .consent input{margin-top:2px;width:18px;height:18px;accent-color:#F5B300}
-  button{width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+  button{width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s}
   button:disabled{opacity:.5}
-  .err{color:#B91C1C;font-size:13px;margin-top:10px;display:none}
+  .err{color:#991B1B;background:#FEE2E2;border:1.5px solid #F87171;border-radius:10px;padding:12px;font-size:13px;line-height:1.45;font-weight:600;margin-top:14px;display:none}
   .done{text-align:center;padding:30px 20px}
   .done .ok{width:56px;height:56px;border-radius:50%;background:#FEF3C7;color:#B45309;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px}
   .foot{text-align:center;font-size:12px;color:#9CA3AF;margin-top:8px}
@@ -54,14 +59,20 @@
     </div>
 
     <div class="card">
+      <div class="req-banner">
+        <span style="font-size:18px;">⚠️</span>
+        <div><b>Todas las preguntas son obligatorias.</b> Debes responder todos los campos antes de poder enviar el formulario.</div>
+      </div>
+
       <div id="fields"></div>
 
-      <label class="f">¿Qué te interesa recibir?</label>
+      <label class="f">¿Qué te interesa recibir? <span class="badge-req">* Obligatorio</span></label>
       <div class="opts" id="ints"></div>
+      <div class="field-err" id="err_ints">Debes seleccionar al menos una opción de interés</div>
 
-      <label class="consent"><input type="checkbox" id="consent" checked> Acepto recibir información de RED NITROX por WhatsApp y correo.</label>
+      <label class="consent"><input type="checkbox" id="consent" required checked> Acepto recibir información de RED NITROX por WhatsApp y correo. <span class="badge-req">* Obligatorio</span></label>
 
-      <button type="submit" id="btn">Enviar</button>
+      <button type="submit" id="btn">Enviar Formulario</button>
       <div class="err" id="err"></div>
     </div>
   </form>
@@ -78,17 +89,51 @@
 
 <script>
 const token = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
-const sel = (name, opts) => `<select name="${name}"><option value="">Selecciona una opción</option>${opts.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
+let currentPendingFields = [];
+
+const sel = (name, opts) => `
+  <select name="${name}" class="f-input" required>
+    <option value="">-- Selecciona una opción (Obligatorio) --</option>
+    ${opts.map(o => `<option value="${o}">${o}</option>`).join('')}
+  </select>
+  <div class="field-err" id="err_${name}">Esta pregunta es obligatoria</div>
+`;
+
 const FIELD_DEF = {
-  cedula: { label: 'Cédula de ciudadanía', html: '<input type="text" name="cedula" inputmode="numeric" placeholder="Número de cédula (para premios y beneficios)">' },
-  correo: { label: 'Correo electrónico', html: '<input type="email" name="correo" placeholder="ejemplo@correo.com (para catálogos y guías)">' },
-  direccion_taller: { label: 'Dirección exacta del taller', html: '<input type="text" name="direccion_taller" placeholder="Ej: Calle 50 # 40-20 (para visita Ruta NITROX)">' },
-  experiencia_mecanico: { label: '¿Cuántos años llevas en la mecánica de motos?', html: sel('experiencia_mecanico', ['Menos de 2 años', '2 a 5 años', '6 a 10 años', 'Más de 10 años']) },
-  antiguedad_taller: { label: '¿Hace cuánto tiempo funciona el taller?', html: sel('antiguedad_taller', ['Menos de 1 año', '1 a 3 años', '4 a 10 años', 'Más de 10 años']) },
-  personas_taller: { label: '¿Cuántas personas trabajan en el taller?', html: sel('personas_taller', ['1 (solo yo)', '2–3 personas', '4–5 personas', 'Más de 5 personas']) },
-  donde_compra_repuestos: { label: '¿Dónde compras normalmente los repuestos?', html: sel('donde_compra_repuestos', ['Almacén de repuestos del barrio', 'Distribuidor que visita el taller', 'Centro / Almacenes grandes', 'Por WhatsApp o internet']) },
-  quien_decide_repuesto: { label: '¿Quién decide la marca del repuesto a instalar?', html: sel('quien_decide_repuesto', ['Yo como mecánico', 'El dueño del taller', 'El cliente', 'Decisión compartida']) }
+  cedula: { 
+    label: 'Cédula de ciudadanía <span class="badge-req">* Obligatorio</span>', 
+    html: '<input type="text" name="cedula" inputmode="numeric" class="f-input" required placeholder="Número de cédula (mínimo 6 dígitos)"><div class="field-err" id="err_cedula">Por favor ingresa una cédula válida (mínimo 6 dígitos)</div>' 
+  },
+  correo: { 
+    label: 'Correo electrónico <span class="badge-req">* Obligatorio</span>', 
+    html: '<input type="email" name="correo" class="f-input" required placeholder="ejemplo@correo.com (para catálogos y guías)"><div class="field-err" id="err_correo">Por favor ingresa un correo electrónico válido</div>' 
+  },
+  direccion_taller: { 
+    label: 'Dirección exacta del taller <span class="badge-req">* Obligatorio</span>', 
+    html: '<input type="text" name="direccion_taller" class="f-input" required placeholder="Ej: Calle 50 # 40-20 (para visita Ruta NITROX)"><div class="field-err" id="err_direccion_taller">Por favor escribe la dirección exacta del taller</div>' 
+  },
+  experiencia_mecanico: { 
+    label: '¿Cuántos años llevas en la mecánica de motos? <span class="badge-req">* Obligatorio</span>', 
+    html: sel('experiencia_mecanico', ['Menos de 2 años', '2 a 5 años', '6 a 10 años', 'Más de 10 años']) 
+  },
+  antiguedad_taller: { 
+    label: '¿Hace cuánto tiempo funciona el taller? <span class="badge-req">* Obligatorio</span>', 
+    html: sel('antiguedad_taller', ['Menos de 1 año', '1 a 3 años', '4 a 10 años', 'Más de 10 años']) 
+  },
+  personas_taller: { 
+    label: '¿Cuántas personas trabajan en el taller? <span class="badge-req">* Obligatorio</span>', 
+    html: sel('personas_taller', ['1 (solo yo)', '2–3 personas', '4–5 personas', 'Más de 5 personas']) 
+  },
+  donde_compra_repuestos: { 
+    label: '¿Dónde compras normalmente los repuestos? <span class="badge-req">* Obligatorio</span>', 
+    html: sel('donde_compra_repuestos', ['Almacén de repuestos del barrio', 'Distribuidor que visita el taller', 'Centro / Almacenes grandes', 'Por WhatsApp o internet']) 
+  },
+  quien_decide_repuesto: { 
+    label: '¿Quién decide la marca del repuesto a instalar? <span class="badge-req">* Obligatorio</span>', 
+    html: sel('quien_decide_repuesto', ['Yo como mecánico', 'El dueño del taller', 'El cliente', 'Decisión compartida']) 
+  }
 };
+
 const INTERESTS = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
 const $ = id => document.getElementById(id);
 const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -104,6 +149,7 @@ fetch('/api/completar/' + encodeURIComponent(token)).then(r => r.json()).then(d 
   $('hello').textContent = first ? `¡Hola, ${first}!` : '¡Hola!';
   $('known').innerHTML = [d.taller && `<span class="chip">🔧 <b>${esc(d.taller)}</b></span>`, d.ubicacion && `<span class="chip">${esc(d.ubicacion)}</span>`].filter(Boolean).join('');
   const pend = Array.isArray(d.pending) ? d.pending : [];
+  currentPendingFields = pend;
   $('fields').innerHTML = pend.map(k => FIELD_DEF[k] ? `<label class="f">${FIELD_DEF[k].label}</label>${FIELD_DEF[k].html}` : '').join('');
   
   const existingInts = d.intereses || [];
@@ -114,6 +160,10 @@ fetch('/api/completar/' + encodeURIComponent(token)).then(r => r.json()).then(d 
   $('ints').addEventListener('change', e => {
     const opt = e.target.closest('.opt');
     if (opt) opt.classList.toggle('on', e.target.checked);
+    if (document.querySelectorAll('#ints input:checked').length > 0) {
+      $('ints').classList.remove('is-invalid');
+      $('err_ints').style.display = 'none';
+    }
   });
   $('form').classList.remove('hidden');
 }).catch(err => {
@@ -122,26 +172,132 @@ fetch('/api/completar/' + encodeURIComponent(token)).then(r => r.json()).then(d 
   $('invalid').classList.remove('hidden');
 });
 
+// Limpieza en tiempo real de errores al escribir o cambiar valores
+$('form').addEventListener('input', e => {
+  if (e.target && e.target.classList.contains('is-invalid')) {
+    e.target.classList.remove('is-invalid');
+    const errEl = document.getElementById('err_' + e.target.name);
+    if (errEl) errEl.style.display = 'none';
+  }
+});
+$('form').addEventListener('change', e => {
+  if (e.target && e.target.classList.contains('is-invalid')) {
+    e.target.classList.remove('is-invalid');
+    const errEl = document.getElementById('err_' + e.target.name);
+    if (errEl) errEl.style.display = 'none';
+  }
+});
+
 $('form').addEventListener('submit', async e => {
   e.preventDefault();
+  $('err').style.display = 'none';
+  $('err').textContent = '';
+
+  // Limpiar estados de error previos
+  document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  document.querySelectorAll('.field-err').forEach(el => el.style.display = 'none');
+
+  let hasError = false;
+  let firstInvalidEl = null;
+
+  // 1. Validar que cada campo obligatorio pendiente esté respondido
+  for (const k of currentPendingFields) {
+    const el = document.querySelector(`[name="${k}"]`);
+    const errEl = document.getElementById(`err_${k}`);
+    if (!el) continue;
+    const val = (el.value || '').trim();
+
+    if (!val) {
+      el.classList.add('is-invalid');
+      if (errEl) {
+        errEl.textContent = '⚠️ Esta pregunta es obligatoria';
+        errEl.style.display = 'block';
+      }
+      hasError = true;
+      if (!firstInvalidEl) firstInvalidEl = el;
+      continue;
+    }
+
+    if (k === 'correo') {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        el.classList.add('is-invalid');
+        if (errEl) {
+          errEl.textContent = '⚠️ Por favor ingresa un correo electrónico válido (ej: nombre@gmail.com)';
+          errEl.style.display = 'block';
+        }
+        hasError = true;
+        if (!firstInvalidEl) firstInvalidEl = el;
+      }
+    } else if (k === 'cedula') {
+      const digits = val.replace(/\D/g, '');
+      if (digits.length < 6) {
+        el.classList.add('is-invalid');
+        if (errEl) {
+          errEl.textContent = '⚠️ La cédula es obligatoria y debe tener al menos 6 dígitos numéricos';
+          errEl.style.display = 'block';
+        }
+        hasError = true;
+        if (!firstInvalidEl) firstInvalidEl = el;
+      }
+    }
+  }
+
+  // 2. Validar que se haya seleccionado al menos un interés
+  const checkedInts = [...document.querySelectorAll('#ints input:checked')].map(i => i.value);
+  if (checkedInts.length === 0) {
+    const intsBox = $('ints');
+    intsBox.classList.add('is-invalid');
+    $('err_ints').style.display = 'block';
+    hasError = true;
+    if (!firstInvalidEl) firstInvalidEl = intsBox;
+  }
+
+  // 3. Validar consentimiento
+  if (!$('consent').checked) {
+    $('consent').focus();
+    $('err').textContent = '⚠️ Debes aceptar recibir información de RED NITROX para enviar el formulario.';
+    $('err').style.display = 'block';
+    return;
+  }
+
+  // Si hay cualquier pregunta sin responder, detener el envío inmediatamente
+  if (hasError) {
+    $('err').textContent = '⚠️ No se puede enviar: todas las preguntas son obligatorias. Por favor responde los campos señalados en rojo.';
+    $('err').style.display = 'block';
+    if (firstInvalidEl) {
+      firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (typeof firstInvalidEl.focus === 'function') firstInvalidEl.focus();
+    }
+    return;
+  }
+
+  // Todo completo -> enviar
   const fd = new FormData($('form'));
   const body = {};
-  for (const k of Object.keys(FIELD_DEF)) if (fd.get(k)) body[k] = fd.get(k);
-  body.intereses = [...document.querySelectorAll('#ints input:checked')].map(i => i.value);
+  for (const k of currentPendingFields) body[k] = fd.get(k);
+  body.intereses = checkedInts;
   body.acepta_comunicaciones = $('consent').checked;
-  $('btn').disabled = true; $('err').style.display = 'none';
+
+  $('btn').disabled = true;
+  $('btn').textContent = 'Enviando información...';
+
   try {
-    const r = await fetch('/api/completar/' + encodeURIComponent(token), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch('/api/completar/' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
     const d = await r.json();
-    if (!d.success) throw new Error(d.message || 'No se pudo guardar');
+    if (!d.success) throw new Error(d.message || 'No se pudo guardar la información');
     $('profileBtn').href = d.profileUrl || ('/perfil/' + encodeURIComponent(token));
     $('form').classList.add('hidden');
     $('done').classList.remove('hidden');
     window.scrollTo(0, 0);
   } catch (err) {
-    $('err').textContent = err.message;
+    $('err').textContent = '⚠️ ' + err.message;
     $('err').style.display = 'block';
     $('btn').disabled = false;
+    $('btn').textContent = 'Enviar Formulario';
   }
 });
 </script>

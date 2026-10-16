@@ -466,7 +466,11 @@ function extractEntities(text, sessionData) {
       }
     }
   }
-  if (updates.ciudad_taller) updates.ciudad_residencia = updates.ciudad_taller;
+  if (updates.ciudad_taller) {
+    updates.ciudad_residencia = updates.ciudad_taller;
+  } else if (sessionData.ciudad_taller && (!sessionData.ciudad_residencia || sessionData.ciudad_residencia === 'Medellín')) {
+    updates.ciudad_residencia = sessionData.ciudad_taller;
+  }
 
   // 3. Role detection (Relación con el taller)
   const isOwner = /\b(?:propi?e?r?t[a-z]*|duen[a-z]*|dueñ[a-z]*|patr[oó]n|socio|creador|fundador|el taller es m[ií]o|es m[ií]o|yo lo manejo)\b/i.test(lower);
@@ -489,12 +493,13 @@ function extractEntities(text, sessionData) {
   if (addrMatch) {
     updates.direccion_taller = addrMatch[0].trim();
   } else if (sessionData._lastQuestion === 'DIRECCION' && !sessionData.direccion_taller) {
+    const locName = sessionData.barrio_taller || sessionData.ciudad_taller || updates.ciudad_taller || '';
     if (isOwner || isMechanic || isBoth) {
-      updates.direccion_taller = `Sector ${sessionData.barrio_taller || sessionData.ciudad_taller || 'Medellín'}`;
+      updates.direccion_taller = locName ? `Sector ${locName}` : 'Principal';
     } else if (/\d/.test(raw) || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|esquina|con|frente|cerca)\b/i.test(lower)) {
       updates.direccion_taller = raw;
     } else if (isProtest || /no\s*(?:me\s*la\s*s[eé]|s[eé]|me\s*acuerdo|tengo)|por\s+el|cerca|parque/i.test(lower) || raw.trim().length >= 2) {
-      updates.direccion_taller = raw.trim().length >= 2 ? raw.trim() : `Sector ${sessionData.barrio_taller || sessionData.ciudad_taller || 'Medellín'}`;
+      updates.direccion_taller = raw.trim().length >= 2 ? raw.trim() : (locName ? `Sector ${locName}` : 'Principal');
     }
   }
 
@@ -508,7 +513,10 @@ function extractEntities(text, sessionData) {
       updates.barrio_taller = b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
       if (updates.barrio_taller.toLowerCase() === 'dorado') updates.barrio_taller = 'El Dorado';
     } else if (isExplicitBarrioQuestion && !sessionData.barrio_taller && !updates.ciudad_taller) {
-      updates.barrio_taller = raw;
+      const cleanRawBarrio = raw.trim();
+      if (!isCity(cleanRawBarrio) && !cleanCityName(cleanRawBarrio) && !cleanRawBarrio.toLowerCase().includes('taller')) {
+        updates.barrio_taller = cleanRawBarrio;
+      }
     }
   }
 

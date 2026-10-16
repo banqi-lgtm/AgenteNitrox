@@ -352,10 +352,54 @@ app.post('/api/completar/:token', async (req, res) => {
   const body = req.body || {};
   const clean = (v, max = 120) => String(v || '').trim().slice(0, max);
   const pending = getFormPendingFields(m);
+
+  const FIELD_LABELS = {
+    cedula: 'Cédula de ciudadanía',
+    correo: 'Correo electrónico',
+    direccion_taller: 'Dirección exacta del taller',
+    experiencia_mecanico: 'Años de experiencia',
+    antiguedad_taller: 'Antigüedad del taller',
+    personas_taller: 'Personas en el taller',
+    donde_compra_repuestos: 'Dónde compras repuestos',
+    quien_decide_repuesto: 'Quién decide la marca del repuesto'
+  };
+
+  // Validar que NINGÚN campo pendiente quede sin responder (todos son obligatorios)
+  const missing = [];
+  for (const k of pending) {
+    const v = clean(body[k]);
+    if (!v) {
+      missing.push(FIELD_LABELS[k] || k);
+    }
+  }
+  if (missing.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: `Todas las preguntas son obligatorias. Falta responder: ${missing.join(', ')}.`
+    });
+  }
+
+  // Validar al menos un interés seleccionado
+  const allowedInterests = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
+  const ints = Array.isArray(body.intereses) ? body.intereses.filter(i => allowedInterests.includes(i)) : [];
+  if (ints.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Debes seleccionar al menos una opción en "¿Qué te interesa recibir?"'
+    });
+  }
+
+  // Validar consentimiento
+  if (body.acepta_comunicaciones !== true) {
+    return res.status(400).json({
+      success: false,
+      message: 'Debes autorizar el envío de comunicaciones de RED NITROX para continuar.'
+    });
+  }
+
   const updates = {};
   for (const k of pending) {
     const v = clean(body[k]);
-    if (!v) continue;
     updates[k] = COMPLETAR_ARRAY_FIELDS.includes(k)
       ? v.split(/[,;\/]| y /i).map(s => s.trim()).filter(Boolean).slice(0, 8)
       : v;
@@ -365,22 +409,25 @@ app.post('/api/completar/:token', async (req, res) => {
   }
   if (updates.cedula) {
     updates.cedula = updates.cedula.replace(/\D/g, '').slice(0, 12);
-    if (updates.cedula.length < 6) return res.status(400).json({ success: false, message: 'La cédula no parece válida' });
+    if (updates.cedula.length < 6) return res.status(400).json({ success: false, message: 'La cédula no parece válida (mínimo 6 dígitos)' });
   }
-  const allowedInterests = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
-  if (Array.isArray(body.intereses)) {
-    const ints = body.intereses.filter(i => allowedInterests.includes(i));
-    updates.actividades_interes = Array.from(new Set([...(m.actividades_interes || []), ...ints]));
-    if (ints.includes('Capacitaciones técnicas')) {
-      updates.temas_capacitacion = Array.from(new Set([...(m.temas_capacitacion || []), 'Capacitaciones técnicas']));
-    }
+  updates.actividades_interes = Array.from(new Set([...(m.actividades_interes || []), ...ints]));
+  if (ints.includes('Capacitaciones técnicas')) {
+    updates.temas_capacitacion = Array.from(new Set([...(m.temas_capacitacion || []), 'Capacitaciones técnicas']));
   }
-  if (body.acepta_comunicaciones === true) updates.autorizacion_comunicaciones_comerciales = true;
+  updates.autorizacion_comunicaciones_comerciales = true;
   updates.formulario_completado_en = new Date().toISOString();
 
   Object.assign(m, updates);
   try {
     await admin.firestore().collection('mecanicos_red_nitrox').doc(m.id_unico).set(updates, { merge: true });
+    const phone = String(m.wa_user_id || '').trim() || String(m.celular_whatsapp || '').replace(/\D/g, '');
+    if (phone) {
+      await admin.firestore().collection('sesiones_mateo').doc(phone).set({ data: updates }, { merge: true });
+      if (memoryCache[phone]?.data) Object.assign(memoryCache[phone].data, updates);
+    }
+    const idx = (localMecanicosCache || []).findIndex(x => x.id_unico === m.id_unico);
+    if (idx >= 0) Object.assign(localMecanicosCache[idx], updates);
   } catch (e) {
     console.warn('[COMPLETAR SAVE]', e.message);
   }
@@ -694,8 +741,13 @@ app.post('/api/crm/corregir-mecanico/:id', requireAuth, async (req, res) => {
       console.warn('[CORREGIR FIRESTORE ERROR]', fsErr.message);
     }
 
-    const item = localMecanicosStore.find(m => m.id_unico === id || (updates.wa_user_id && m.wa_user_id === updates.wa_user_id));
+    const item = (localMecanicosStore || []).find(m => m.id_unico === id || (updates.wa_user_id && m.wa_user_id === updates.wa_user_id) || (updates.celular_whatsapp && m.celular_whatsapp === updates.celular_whatsapp));
     if (item) Object.assign(item, updates);
+    const cItem = (localMecanicosCache || []).find(m => m.id_unico === id || (updates.wa_user_id && m.wa_user_id === updates.wa_user_id) || (updates.celular_whatsapp && m.celular_whatsapp === updates.celular_whatsapp));
+    if (cItem) Object.assign(cItem, updates);
+    if (phone && memoryCache && memoryCache[phone]?.data) {
+      Object.assign(memoryCache[phone].data, updates);
+    }
 
     return res.json({ success: true, updated: updates });
   } catch (err) {

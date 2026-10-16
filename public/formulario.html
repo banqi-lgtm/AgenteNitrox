@@ -554,7 +554,29 @@
           <div class="form-group">
             <label class="form-label">6. Municipio de residencia <span class="req">*</span></label>
             <select id="ciudad_residencia" class="form-control" required>
+              <option value="">Selecciona tu municipio</option>
+              <option value="Bogotá">Bogotá D.C.</option>
               <option value="Medellín">Medellín</option>
+              <option value="Cali">Cali</option>
+              <option value="Barranquilla">Barranquilla</option>
+              <option value="Bucaramanga">Bucaramanga</option>
+              <option value="Cartagena">Cartagena</option>
+              <option value="Cúcuta">Cúcuta</option>
+              <option value="Pereira">Pereira</option>
+              <option value="Manizales">Manizales</option>
+              <option value="Ibagué">Ibagué</option>
+              <option value="Pasto">Pasto</option>
+              <option value="Santa Marta">Santa Marta</option>
+              <option value="Villavicencio">Villavicencio</option>
+              <option value="Montería">Montería</option>
+              <option value="Valledupar">Valledupar</option>
+              <option value="Armenia">Armenia</option>
+              <option value="Sincelejo">Sincelejo</option>
+              <option value="Popayán">Popayán</option>
+              <option value="Tunja">Tunja</option>
+              <option value="Neiva">Neiva</option>
+              <option value="Fusagasugá">Fusagasugá</option>
+              <option value="Soacha">Soacha</option>
               <option value="Bello">Bello</option>
               <option value="Itagüí">Itagüí</option>
               <option value="Envigado">Envigado</option>
@@ -563,6 +585,7 @@
               <option value="Caldas">Caldas</option>
               <option value="Copacabana">Copacabana</option>
               <option value="Girardota">Girardota</option>
+              <option value="Rionegro">Rionegro</option>
               <option value="Otro">Otro municipio</option>
             </select>
           </div>
@@ -585,7 +608,29 @@
           <div class="form-group">
             <label class="form-label">9. Municipio del taller <span class="req">*</span></label>
             <select id="ciudad_taller" class="form-control" required>
+              <option value="">Selecciona el municipio del taller</option>
+              <option value="Bogotá">Bogotá D.C.</option>
               <option value="Medellín">Medellín</option>
+              <option value="Cali">Cali</option>
+              <option value="Barranquilla">Barranquilla</option>
+              <option value="Bucaramanga">Bucaramanga</option>
+              <option value="Cartagena">Cartagena</option>
+              <option value="Cúcuta">Cúcuta</option>
+              <option value="Pereira">Pereira</option>
+              <option value="Manizales">Manizales</option>
+              <option value="Ibagué">Ibagué</option>
+              <option value="Pasto">Pasto</option>
+              <option value="Santa Marta">Santa Marta</option>
+              <option value="Villavicencio">Villavicencio</option>
+              <option value="Montería">Montería</option>
+              <option value="Valledupar">Valledupar</option>
+              <option value="Armenia">Armenia</option>
+              <option value="Sincelejo">Sincelejo</option>
+              <option value="Popayán">Popayán</option>
+              <option value="Tunja">Tunja</option>
+              <option value="Neiva">Neiva</option>
+              <option value="Fusagasugá">Fusagasugá</option>
+              <option value="Soacha">Soacha</option>
               <option value="Bello">Bello</option>
               <option value="Itagüí">Itagüí</option>
               <option value="Envigado">Envigado</option>
@@ -594,7 +639,8 @@
               <option value="Caldas">Caldas</option>
               <option value="Copacabana">Copacabana</option>
               <option value="Girardota">Girardota</option>
-              <option value="Otro">Otro</option>
+              <option value="Rionegro">Rionegro</option>
+              <option value="Otro">Otro municipio</option>
             </select>
           </div>
 
@@ -1044,23 +1090,15 @@
     }
 
     function nextStep(step) {
-      // Validate step 1 required
-      if (currentStep === 1) {
-        if (!document.getElementById('nombres_apellidos').value.trim()) {
-          alert('Por favor escribe tus nombres y apellidos');
-          return;
-        }
-        if (!document.getElementById('celular_whatsapp').value.trim()) {
-          alert('Por favor escribe tu número de celular / WhatsApp');
-          return;
-        }
-        if (!document.getElementById('nombre_taller').value.trim()) {
-          alert('Por favor escribe el nombre de tu taller');
-          return;
-        }
-        if (!document.getElementById('direccion_taller').value.trim()) {
-          alert('Por favor escribe la dirección del taller');
-          return;
+      const currentCard = document.getElementById(`step${currentStep}`);
+      if (currentCard) {
+        const requiredInputs = currentCard.querySelectorAll('input[required], select[required]');
+        for (const input of requiredInputs) {
+          if (!input.value.trim()) {
+            alert('Por favor completa todos los campos obligatorios de este paso antes de continuar.');
+            input.focus();
+            return;
+          }
         }
       }
       showStep(step);
@@ -1124,6 +1162,20 @@
     // Submit handler
     document.getElementById('nitroxForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      const allRequired = document.querySelectorAll('#nitroxForm input[required], #nitroxForm select[required]');
+      for (const input of allRequired) {
+        if (!input.value.trim()) {
+          alert('Por favor completa todos los campos obligatorios antes de finalizar.');
+          const parentStep = input.closest('[id^="step"]');
+          if (parentStep) {
+            const stepNum = parseInt(parentStep.id.replace('step', ''), 10);
+            if (stepNum) showStep(stepNum);
+          }
+          input.focus();
+          return;
+        }
+      }
 
       const btnSubmit = document.getElementById('btnSubmitForm');
       btnSubmit.disabled = true;

@@ -108,13 +108,18 @@ function normalizeMechanicData(input, origin = 'Web') {
   const score = calculateMechanicScore(input);
   const nivelObj = calculateNitroxLevel(input);
 
+  const detectedCity = input.ciudad_taller || input.ciudad_residencia || '';
+  const defaultCityRoute = detectedCity ? `${detectedCity} y alrededores` : 'Colombia';
+  const detectedBarrio = input.barrio_taller || input.barrio_residencia || '';
+  const defaultZoneRoute = detectedBarrio ? `Sector ${detectedBarrio}` : (detectedCity ? `Zona ${detectedCity}` : 'Zona Metropolitana');
+
   return {
     // 4. Campos internos / automáticos
     id_unico: idUnico,
     fecha_registro: input.fecha_registro || timestamp,
     promotor: input.promotor || (origin === 'WhatsApp' ? 'Agente WhatsApp Mateo' : 'Formulario Virtual RED NITROX'),
-    ciudad_ruta: input.ciudad_ruta || 'Medellín y Valle de Aburrá',
-    zona_ruta: input.zona_ruta || input.barrio_taller || 'Zona Metropolitana',
+    ciudad_ruta: input.ciudad_ruta || defaultCityRoute,
+    zona_ruta: input.zona_ruta || defaultZoneRoute,
     origen_registro: origin,
     estado_mecanico: input.estado_mecanico || 'Activo',
     score_potencial: score,
@@ -128,12 +133,12 @@ function normalizeMechanicData(input, origin = 'Web') {
     telefono_alterno: input.telefono_alterno || '',
     tiene_whatsapp: input.tiene_whatsapp !== undefined ? input.tiene_whatsapp : true,
     correo: input.correo || '',
-    ciudad_residencia: input.ciudad_residencia || 'Medellín',
+    ciudad_residencia: input.ciudad_residencia || detectedCity || '',
     barrio_residencia: input.barrio_residencia || '',
 
     // B. DATOS DEL TALLER
     nombre_taller: input.nombre_taller || input.taller || '',
-    ciudad_taller: input.ciudad_taller || 'Medellín',
+    ciudad_taller: input.ciudad_taller || detectedCity || '',
     barrio_taller: input.barrio_taller || '',
     direccion_taller: input.direccion_taller || input.direccion || '',
     relacion_taller: input.relacion_taller || 'No especificado',
