@@ -172,11 +172,12 @@ function getPendingTopics(memory) {
 // Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
 // ───────────────────────────────────────────────────────────────────────────
 const MODEL_CHAIN = [
-  'googleai/gemini-3.8-flash',        // prioridad: modelo principal
-  'googleai/gemini-flash-lite-latest', // respaldo rápido
-  'googleai/gemini-3.1-flash-lite'     // segundo respaldo (se lanza en paralelo si el anterior tarda)
+  'googleai/gemini-3.5-flash-lite',
+  'googleai/gemini-3.5-flash',
+  'googleai/gemini-flash-lite-latest',
+  'googleai/gemini-3.8-flash'
 ];
-const HEDGE_DELAYS_MS = [0, 3500, 7000];   // cuándo lanzar cada candidato si nadie ha respondido
+const HEDGE_DELAYS_MS = [0, 3000, 6000, 9000];   // cuándo lanzar cada candidato si nadie ha respondido
 const PER_CALL_TIMEOUT_MS = 16000;
 const TOTAL_BUDGET_MS = 20000;
 const modelCooldownUntil = {};
@@ -481,9 +482,15 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
 
   } catch (err) {
     console.error('[GEMINI BRAIN ERROR]:', err.message || err);
-    // Respaldo sin IA: sigue la conversación con la siguiente pregunta pendiente
-    const nextKey = (pendingTopics && pendingTopics[0] && pendingTopics[0].key) || null;
-    const nextQ = (nextKey && FALLBACK_QUESTIONS[nextKey]) || '¿Me cuentas un poco más de tu taller?';
+    // Respaldo sin IA: recalcular pendientes con la información más reciente de session.data
+    // para garantizar que NUNCA se vuelva a preguntar un dato que el usuario ya entregó
+    const latestPending = getConversationalPendingTopics(session.data, memory);
+    const nextKey = (latestPending && latestPending[0] && latestPending[0].key) || null;
+    let nextQ = (nextKey && FALLBACK_QUESTIONS[nextKey]) || '¿Me cuentas un poco más de tu taller?';
+    if (nextKey === 'nombre_taller' && session.data.nombres_apellidos) {
+      const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
+      nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller y en qué ciudad queda?`;
+    }
     const fallbackReply = (isAlreadyRegistered ? '¡Con gusto! Ya estás en la red. ¿En qué más te ayudo?' : nextQ);
     if (!isAlreadyRegistered && nextKey) recordAskedQuestion(memory, nextKey, fallbackReply);
     return {

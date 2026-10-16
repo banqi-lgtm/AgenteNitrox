@@ -183,7 +183,8 @@ function parseNameAndWorkshop(raw) {
   }
 
   const words = clean.split(/\s+/).filter(Boolean);
-  if (commonFirstNames.test(words[0]) && words.length <= 3 && !/(?:dorado|racing|garage|motor|repuestos|leon|león|taller)/i.test(lower)) {
+  // Si son entre 1 y 4 palabras, sin palabras clave de taller, sin números y sin términos de negocio: es el NOMBRE del mecánico
+  if (words.length <= 4 && !workshopKeywords.test(lower) && !/\d/.test(clean) && !/(?:dorado|racing|garage|motor|repuestos|leon|león|taller|motos|moto|centro|servicio|serviteca|repuesto)/i.test(lower)) {
     return { name: cleanPersonName(clean), workshop: '', ambiguous: null };
   }
 
@@ -830,45 +831,46 @@ async function generateMateoResponse(fromNumber, userText) {
     session.history = [];
   }
 
-  // 1. Send turn to Gemini Conversational Brain (Gemini analyzes context, user intent, history & generates the natural reply)
-  const brainResult = await getProcessGeminiBrainTurn()(session, raw);
-
-  // 2. Merge extracted semantic data from Gemini Brain
-  if (brainResult.updates && typeof brainResult.updates === 'object') {
-    for (const [key, val] of Object.entries(brainResult.updates)) {
+    // 1. Extraer entidades determinísticas locales del mensaje ANTES de llamar a Gemini
+    // para que la memoria y sesión estén 100% actualizadas al generar la respuesta
+    const preEntities = extractEntities(raw, session.data);
+    for (const [key, val] of Object.entries(preEntities)) {
       if (val !== null && val !== undefined && val !== '') {
-        if (Array.isArray(val) && val.length === 0) continue;
         session.data[key] = val;
       }
     }
-  }
 
-  // 3. Fallback deterministic regex extraction for high-precision entities (email, cedula/nit, phone)
-  const regexEntities = extractEntities(raw, session.data);
-  for (const [key, val] of Object.entries(regexEntities)) {
-    if (val !== null && val !== undefined && val !== '' && !session.data[key]) {
-      session.data[key] = val;
-    }
-  }
-
-  // Celular colombiano escrito en el chat (3xx xxx xxxx), clave cuando Meta oculta el número del remitente
-  const mobMatches = [...raw.replace(/[\s.\-()]/g, ' ').matchAll(/(?:\+?57\s*)?(3\d{9})(?!\d)/g)];
-  if (mobMatches.length > 0) {
-    if (!session.data.celular_whatsapp || String(session.data.celular_whatsapp).replace(/\D/g, '').length < 10) {
-      session.data.celular_whatsapp = '57' + mobMatches[0][1];
-      if (mobMatches.length > 1 && !session.data.telefono_alterno) {
-        session.data.telefono_alterno = '57' + mobMatches[1][1];
-      }
-    } else {
-      const p1 = String(session.data.celular_whatsapp).replace(/\D/g, '').slice(-10);
-      const m1 = mobMatches[0][1];
-      if (m1 !== p1 && !session.data.telefono_alterno) {
-        session.data.telefono_alterno = '57' + m1;
-      } else if (mobMatches.length > 1 && !session.data.telefono_alterno) {
-        session.data.telefono_alterno = '57' + mobMatches[1][1];
+    // Celular colombiano escrito en el chat (3xx xxx xxxx), clave cuando Meta oculta el número del remitente
+    const mobMatches = [...raw.replace(/[\s.\-()]/g, ' ').matchAll(/(?:\+?57\s*)?(3\d{9})(?!\d)/g)];
+    if (mobMatches.length > 0) {
+      if (!session.data.celular_whatsapp || String(session.data.celular_whatsapp).replace(/\D/g, '').length < 10) {
+        session.data.celular_whatsapp = '57' + mobMatches[0][1];
+        if (mobMatches.length > 1 && !session.data.telefono_alterno) {
+          session.data.telefono_alterno = '57' + mobMatches[1][1];
+        }
+      } else {
+        const p1 = String(session.data.celular_whatsapp).replace(/\D/g, '').slice(-10);
+        const m1 = mobMatches[0][1];
+        if (m1 !== p1 && !session.data.telefono_alterno) {
+          session.data.telefono_alterno = '57' + m1;
+        } else if (mobMatches.length > 1 && !session.data.telefono_alterno) {
+          session.data.telefono_alterno = '57' + mobMatches[1][1];
+        }
       }
     }
-  }
+
+    // 2. Enviar turno al Cerebro de Gemini con los datos del mensaje ya reconocidos
+    const brainResult = await getProcessGeminiBrainTurn()(session, raw);
+
+    // 3. Fusionar datos semánticos adicionales extraídos por Gemini
+    if (brainResult.updates && typeof brainResult.updates === 'object') {
+      for (const [key, val] of Object.entries(brainResult.updates)) {
+        if (val !== null && val !== undefined && val !== '') {
+          if (Array.isArray(val) && val.length === 0) continue;
+          session.data[key] = val;
+        }
+      }
+    }
 
   // Sanitizar si un número de celular de 10 dígitos quedó atrapado accidentalmente en cédula
   if (session.data.cedula && /^3\d{9}$/.test(String(session.data.cedula).trim())) {
