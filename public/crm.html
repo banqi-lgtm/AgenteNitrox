@@ -1569,6 +1569,15 @@
               </a>
             </span>
           </div>
+          ${m.telefono_alterno ? `
+          <div class="detail-item">
+            <span class="detail-label">Teléfono Alterno</span>
+            <span class="detail-value">
+              <a href="https://wa.me/${(m.telefono_alterno||'').replace(/\D/g,'')}" target="_blank" style="color:#0ea5e9; text-decoration:none;">
+                📞 ${m.telefono_alterno}
+              </a>
+            </span>
+          </div>` : ''}
           <div class="detail-item">
             <span class="detail-label">Correo Electrónico</span>
             <span class="detail-value">${m.correo || 'No registrado'}</span>

@@ -62,12 +62,26 @@ REGLAS CONVERSACIONALES SUPREMAS (OBLIGATORIAS):
    - En su lugar pregunta: "¿Tú recomiendas alguna marca de repuestos a tus clientes en el taller?"
    - Si te dice una marca o te dice que no:
      Conecta comercialmente: "¿Y te gustaría recomendar NITROX y ganar muchos premios y beneficios para tu taller?"
+   - REGLAS DE EXTRACCIÓN DE RECOMENDACIÓN:
+     * Si a "¿recomiendas alguna marca?" responde "no", "ninguna", "no recomiendo":
+       Extrae: "frecuencia_recomendacion": "Nunca", "marcas_repuestos_usadas": ["Ninguna"], "quien_decide_repuesto": "Cliente"
+     * Si dice que recomienda una marca (ej. "Casarella", "Yamaha"):
+       Extrae: "frecuencia_recomendacion": "Frecuentemente", "marcas_repuestos_usadas": [la marca mencionada], "quien_decide_repuesto": "Mecánico"
+     * Si dice "la que traiga el cliente" o "ellos compran":
+       Extrae: "frecuencia_recomendacion": "Algunas veces", "marcas_repuestos_usadas": ["La que traiga el cliente"], "quien_decide_repuesto": "Cliente"
+     * Si a "¿te gustaría recomendar NITROX y ganar premios?" responde "sí", "claro", "de una":
+       Extrae: "recomendaria_nitrox": "Definitivamente sí", "quiere_muestras": "Sí"
+     * Si dice "no":
+       Extrae: "recomendaria_nitrox": "No", "quiere_muestras": "No"
 
 7. ENCADENAMIENTO LÓGICO DE DATOS DE CONTACTO Y CIERRE:
    - La conversación debe ser encadenada y tener secuencia lógica.
    - Los datos de correo y cédula se piden ÚNICAMENTE DESPUÉS de que el mecánico confirme que le gustaría recibir muestras y beneficios.
    - Explica el motivo: "Para hacerte llegar tus muestras y beneficios oficiales de RED NITROX, ¿tienes un correo electrónico y tu cédula?"
    - Si no tiene correo o no quiere dar cédula, acéptalo tranquilo sin presionar.
+   - DISTINCIÓN ESTRICTA ENTRE CELULAR Y CÉDULA:
+     * Números móviles colombianos (3xx xxx xxxx): guárdalos en celular_whatsapp (o telefono_alterno si da un segundo número).
+     * NUNCA guardes un número celular de 10 dígitos en "cedula" a menos que el usuario escriba explícitamente "cc" o "cédula".
    - Luego pide la autorización de Habeas Data: "¿Autorizas a RED NITROX a registrar los datos de tu taller para enviarte las muestras y beneficios?"
    - En cuanto autorice, pon listo_para_finalizar en true para entregar de inmediato su credencial oficial y enlace digital con código QR.
 
@@ -102,8 +116,14 @@ REGLAS CONVERSACIONALES SUPREMAS (OBLIGATORIAS):
        "marcas_motos": array de strings o null,
        "repuestos_frecuentes": array de strings o null,
        "marcas_repuestos_usadas": array de strings o null,
+       "frecuencia_recomendacion": "Siempre" | "Frecuentemente" | "Algunas veces" | "Rara vez" | "Nunca" | null,
+       "quien_decide_repuesto": "Mecánico" | "Cliente" | "Ambos" | null,
        "conoce_nitrox": "Sí" | "No" | null,
+       "ha_usado_nitrox": "Sí" | "No" | "No aplica" | null,
+       "recomendaria_nitrox": "Definitivamente sí" | "Probablemente sí" | "Tal vez" | "No" | "No aplica" | null,
        "quiere_muestras": "Sí" | "No" | null,
+       "celular_whatsapp": string o null,
+       "telefono_alterno": string o null,
        "correo": string o null,
        "cedula": string o null,
        "autorizacion_tratamiento_datos": boolean | null
@@ -448,6 +468,7 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       analysis: parsed.analisis_interno || {},
       updates: parsed.datos_extraidos || {},
       reply: reply,
+      tema_preguntado: parsed.tema_preguntado || null,
       isFinished: isFinished,
       tokenUsage: {
         inputTokens: inTok,

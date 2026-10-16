@@ -132,6 +132,15 @@ const TOPIC_SEMANTIC_PATTERNS = {
       /premios\s+y\s+beneficios/i
     ]
   },
+  celular_whatsapp: {
+    topic: 'Número de celular o WhatsApp',
+    patterns: [
+      /n[uú]mero\s+de\s+celular/i,
+      /regalas\s+tu\s+(?:n[uú]mero\s+de\s+)?celular/i,
+      /tu\s+celular/i,
+      /n[uú]mero\s+de\s+contacto/i
+    ]
+  },
   correo_y_cedula: {
     topic: 'Datos para envío de beneficios (correo y cédula)',
     patterns: [
@@ -319,9 +328,16 @@ function integrateFactsIntoMemory(memory, extractedEntities, userText = '') {
     'marcas_motos',
     'repuestos_frecuentes',
     'marcas_repuestos_usadas',
+    'frecuencia_recomendacion',
+    'quien_decide_repuesto',
     'criterio_compra',
+    'canal_compra',
     'conoce_nitrox',
+    'ha_usado_nitrox',
+    'recomendaria_nitrox',
     'quiere_muestras',
+    'celular_whatsapp',
+    'telefono_alterno',
     'correo',
     'cedula'
   ];

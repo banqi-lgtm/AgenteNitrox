@@ -339,6 +339,38 @@ runTest('Q. Respuesta genérica ("todas") activa marcas_genericas y no confirma 
   assert.strictEqual(nlp.entities.marcas_genericas, true, 'marcas_genericas debe ser true');
 });
 
+// -------------------------------------------------------------
+// TEST 18: Respuesta "No" a recomendación de repuestos captura frecuencia Nunca y Sin preferencia
+// -------------------------------------------------------------
+runTest('R. Respuesta "No" a recomendación de marcas se captura con 100% fidelidad', () => {
+  const userText = "No";
+  const nlp = processNlpPipeline(userText, { _askingRecommendBrands: true, _lastQuestion: 'MARCA_RECOMENDADA' });
+  assert.strictEqual(nlp.entities.frecuencia_recomendacion, 'Nunca', 'Debe capturar frecuencia_recomendacion como Nunca');
+  assert.deepStrictEqual(nlp.entities.marcas_repuestos_usadas, ['Ninguna'], 'Debe capturar marcas_repuestos_usadas como Ninguna');
+  assert.strictEqual(nlp.entities.quien_decide_repuesto, 'Cliente', 'Debe asignar quien_decide_repuesto a Cliente');
+});
+
+// -------------------------------------------------------------
+// TEST 19: Respuesta "Sí" a recomendar NITROX y ganar premios captura recomendaria_nitrox y quiere_muestras
+// -------------------------------------------------------------
+runTest('S. Respuesta afirmativa a recomendar NITROX y premios activa recomendaria_nitrox', () => {
+  const userText = "Sí";
+  const nlp = processNlpPipeline(userText, { _askingRecommendNitrox: true, _lastQuestion: 'RECOMENDAR_NITROX' });
+  assert.strictEqual(nlp.entities.recomendaria_nitrox, 'Definitivamente sí', 'Debe capturar recomendaria_nitrox: Definitivamente sí');
+  assert.strictEqual(nlp.entities.quiere_muestras, 'Sí', 'Debe capturar quiere_muestras: Sí');
+});
+
+// -------------------------------------------------------------
+// TEST 20: Celulares de WhatsApp en el chat NO contaminan la cédula y extraen teléfono alterno
+// -------------------------------------------------------------
+runTest('T. Múltiples números de celular en el chat no se asignan a cédula y extraen alterno', () => {
+  const userText = "3177694776\n3110222345";
+  const nlp = processNlpPipeline(userText, { _lastQuestion: 'CELULAR' });
+  assert.strictEqual(nlp.entities.celular_whatsapp, '573177694776', 'Debe capturar el primer número como celular_whatsapp');
+  assert.strictEqual(nlp.entities.telefono_alterno, '573110222345', 'Debe capturar el segundo número como telefono_alterno');
+  assert.strictEqual(nlp.entities.cedula, null, 'Cédula debe ser null, no debe contaminarse con un número celular');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

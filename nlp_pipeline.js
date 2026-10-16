@@ -261,11 +261,16 @@ function extractSemanticEntities(text, sessionContext = {}) {
     canal_compra: null,
 
     // Relación comercial e intereses
+    frecuencia_recomendacion: null,
+    quien_decide_repuesto: null,
+    recomendaria_nitrox: null,
     conoce_nitrox: null,
     quiere_muestras: null,
     interes_comercial_detalles: null,
 
     // Datos de contacto y formalización
+    celular_whatsapp: null,
+    telefono_alterno: null,
     correo: null,
     cedula: null,
 
@@ -510,6 +515,21 @@ function extractSemanticEntities(text, sessionContext = {}) {
   }
   if (detectedRepBrands.length > 0) {
     extracted.marcas_repuestos_usadas = detectedRepBrands;
+    extracted.frecuencia_recomendacion = 'Frecuentemente';
+    if (!extracted.quien_decide_repuesto) extracted.quien_decide_repuesto = 'Mecánico';
+  }
+
+  const isAskingRec = sessionContext._askingRecommendBrands || sessionContext._lastQuestion === 'MARCA_RECOMENDADA' || sessionContext._lastQuestion === 'REPUESTOS_Y_MARCA';
+  if (isAskingRec) {
+    if (/^(?:no|ninguna|para\s+nada|no\s+recomiendo|no\s+manejo)$/i.test(lower) || /\b(?:no\s+recomiendo|ninguna\s+marca|no\s+tengo\s+preferencia)\b/i.test(lower)) {
+      extracted.frecuencia_recomendacion = 'Nunca';
+      extracted.marcas_repuestos_usadas = ['Ninguna'];
+      extracted.quien_decide_repuesto = 'Cliente';
+    } else if (/(?:cliente|ellos\s+traen|los\s+trae\s+el\s+cliente|el\s+due[ñn]o)/i.test(lower)) {
+      extracted.frecuencia_recomendacion = 'Algunas veces';
+      extracted.quien_decide_repuesto = 'Cliente';
+      if (!extracted.marcas_repuestos_usadas) extracted.marcas_repuestos_usadas = ['La que traiga el cliente'];
+    }
   }
 
   // Criterio de compra
@@ -521,35 +541,61 @@ function extractSemanticEntities(text, sessionContext = {}) {
 
   // 14. CONOCIMIENTO DE LA MARCA NITROX (Sí / No)
   if (/(?:no\s+(?:lo\s+|la\s+|los\s+)?conozco|primera\s+vez|no\s+he\s+escuchado|ni\s+idea|^no\b|para\s+nada|nunca\s+los\s+he\s+visto)/i.test(lower)) {
-    if (sessionContext._askingNitrox || /\bnitrox\b/i.test(lower) || lower.split(/\s+/).length <= 4) {
+    if (sessionContext._askingNitrox || sessionContext._lastQuestion === 'NITROX_EXP_INTERES' || /\bnitrox\b/i.test(lower) || lower.split(/\s+/).length <= 4) {
       extracted.conoce_nitrox = 'No';
+      extracted.ha_usado_nitrox = 'No';
     }
-  } else if (/\bnitrox\b/i.test(lower) || ((sessionContext._askingNitrox) && /^(?:s[ií]|claro|de\s+una|obvio)/i.test(lower))) {
+  } else if (/\bnitrox\b/i.test(lower) || ((sessionContext._askingNitrox || sessionContext._lastQuestion === 'NITROX_EXP_INTERES') && /^(?:s[ií]|claro|de\s+una|obvio)/i.test(lower))) {
     extracted.conoce_nitrox = 'Sí';
   }
 
-  // 15. INTERÉS EN BENEFICIOS NITROX (Recomendar, Premios, Muestras, Catálogo)
-  if (/\b(?:muestras|cat[aá]logo|capacitaci[oó]n|capacitaciones|conocer\s+el\s+cat[aá]logo|recibir\s+muestras|premios|beneficios)\b/i.test(lower) ||
+  // 15. INTERÉS EN BENEFICIOS Y RECOMENDAR NITROX (Recomendar, Premios, Muestras, Catálogo)
+  const isAskingRecNitrox = sessionContext._askingRecommendNitrox || sessionContext._lastQuestion === 'RECOMENDAR_NITROX' || sessionContext._lastQuestion === 'OFERTA_MUESTRAS' || sessionContext._lastQuestion === 'NITROX_EXP_INTERES';
+  if (isAskingRecNitrox && /^(?:s[ií]|claro|de\s+una|h[aá]gale|obvio|por\s+supuesto|me\s+gustar[ií]a|s[ií]\s+claro)$/i.test(lower)) {
+    extracted.recomendaria_nitrox = 'Definitivamente sí';
+    extracted.quiere_muestras = 'Sí';
+    extracted.interes_comercial_detalles = 'Interés en recomendar NITROX y recibir muestras/premios';
+  } else if (isAskingRecNitrox && /^(?:no|paso|no\s+gracias|no\s+me\s+interesa)$/i.test(lower)) {
+    extracted.recomendaria_nitrox = 'No';
+    extracted.quiere_muestras = 'No';
+  } else if (/\b(?:muestras|cat[aá]logo|capacitaci[oó]n|capacitaciones|conocer\s+el\s+cat[aá]logo|recibir\s+muestras|premios|beneficios)\b/i.test(lower) ||
       (/\b(?:me\s+interesa|me\s+gustar[ií]a|claro|de\s+una|h[aá]gale|obvio|por\s+supuesto|s[ií])\b/i.test(lower) && (sessionContext._offeringNitrox || sessionContext._askingRecommendNitrox))) {
     extracted.quiere_muestras = 'Sí';
     extracted.interes_comercial_detalles = 'Interés manifestado en muestras de repuestos y catálogo oficial';
   }
 
-  // 15. CONTACTO: CORREO Y CÉDULA / NIT (Extracción de alta precisión)
+  // 16. CONTACTO: TELÉFONOS CELULARES (WhatsApp y alterno)
+  const mobMatches = [...raw.replace(/[\s.\-()]/g, ' ').matchAll(/(?:\+?57\s*)?(3\d{9})(?!\d)/g)];
+  if (mobMatches.length > 0) {
+    extracted.celular_whatsapp = '57' + mobMatches[0][1];
+    if (mobMatches.length > 1) {
+      extracted.telefono_alterno = '57' + mobMatches[1][1];
+    }
+  }
+
+  // 17. CONTACTO: CORREO ELECTRÓNICO
   const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   if (emailMatch) {
     extracted.correo = emailMatch[0].toLowerCase();
   }
 
-  const idMatch = raw.match(/(?:c[eé]dula|cc|nit)?\s*(\b\d{7,10}(?:-\d)?\b)/i);
-  if (idMatch && (!extracted.correo || !idMatch[1].includes('@'))) {
-    extracted.cedula = idMatch[1];
+  // 18. DOCUMENTO DE IDENTIDAD: CÉDULA / NIT (Extracción estricta sin contaminar con celulares)
+  const explicitId = raw.match(/\b(?:c[eé]dula|cc|c\.c\.|nit|documento)\b[:\s#]*(\b\d{7,10}(?:-\d)?\b)/i);
+  if (explicitId) {
+    extracted.cedula = explicitId[1];
+  } else if ((sessionContext._askingCedula || sessionContext._lastQuestion === 'CEDULA') && !extracted.correo) {
+    const candidateMatch = raw.match(/\b\d{7,10}\b/);
+    if (candidateMatch) {
+      const num = candidateMatch[0];
+      // Solo asignar si NO coincide con un celular extraído en este mensaje
+      if (!extracted.celular_whatsapp || !extracted.celular_whatsapp.includes(num)) {
+        extracted.cedula = num;
+      }
+    }
   }
 
-  // 16. HABEAS DATA - AUTORIZACIÓN LEGAL DE TRATAMIENTO DE DATOS
-  // OJO: REGLA EJEMPLO 9: El interés comercial NO es consentimiento de datos.
-  // Solo se aprueba si se le preguntó explícitamente y responde afirmativamente.
-  if (sessionContext._waitingHabeasData) {
+  // 19. HABEAS DATA - AUTORIZACIÓN LEGAL DE TRATAMIENTO DE DATOS
+  if (sessionContext._waitingHabeasData || sessionContext._lastQuestion === 'HABEAS_DATA') {
     if (/(?:no\s*gracias|no\s*acepto|no\s*autorizo|^no\b|para\s*nada|negativo)/i.test(lower)) {
       extracted.autorizacion_habeas_data = false;
     } else if (/(?:s[ií]|acepto|autorizo|claro|de\s+una|h[aá]gale|con\s+gusto|de\s+acuerdo|ok|listo)/i.test(lower)) {

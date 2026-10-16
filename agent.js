@@ -191,6 +191,100 @@ function parseNameAndWorkshop(raw) {
   return { name: '', workshop: '', ambiguous: clean };
 }
 
+function detectAskedQuestion(replyText, temaPreguntado) {
+  if (!replyText) return null;
+  const lower = (replyText || '').toLowerCase();
+
+  // 1. Habeas Data
+  if (/autorizas|tratamiento\s+de\s+datos|habeas\s+data|pol[ií]tica\s+de\s+privacidad|registrar\s+los\s+datos/i.test(lower)) {
+    return 'HABEAS_DATA';
+  }
+  // 2. Cédula
+  if (/c[eé]dula|cc\b|nit\b|documento\s+de\s+identidad/i.test(lower)) {
+    return 'CEDULA';
+  }
+  // 3. Correo
+  if (/correo\s+electr[oó]nico|un\s+correo|tu\s+correo/i.test(lower)) {
+    return 'CORREO';
+  }
+  // 4. Celular
+  if (/n[uú]mero\s+de\s+celular|tu\s+celular|n[uú]mero\s+para\s+tenerte/i.test(lower)) {
+    return 'CELULAR';
+  }
+  // 5. Recomendar NITROX / Premios y Beneficios
+  if (/recomendar\s+nitrox|ganar\s+(?:muchos\s+)?premios|beneficios\s+para\s+tu\s+taller|recibir\s+(?:las\s+)?muestras/i.test(lower)) {
+    return 'RECOMENDAR_NITROX';
+  }
+  // 6. Conoce NITROX
+  if (/conoces\s+(?:la\s+marca\s+)?nitrox|has\s+escuchado\s+(?:hablar\s+)?de\s+nitrox|ya\s+conoc[ií]as\s+nitrox/i.test(lower)) {
+    return 'NITROX_EXP_INTERES';
+  }
+  // 7. Marca recomendada
+  if (/recomiendas\s+alguna\s+marca|qu[eé]\s+marcas?\s+de\s+repuestos|como\s+casarella/i.test(lower)) {
+    return 'MARCA_RECOMENDADA';
+  }
+  // 8. Repuestos frecuentes
+  if (/repuestos\s+(?:cambias|rotas|mueves|te\s+piden)|kits\s+de\s+arrastre|pastillas\s+de\s+freno/i.test(lower)) {
+    return 'REPUESTOS';
+  }
+  // 9. Volumen motos
+  if (/cu[aá]ntas\s+motos|volumen\s+de\s+motos|motos\s+por\s+semana|motos\s+al\s+d[ií]a/i.test(lower)) {
+    return 'VOLUMEN';
+  }
+  // 10. Marcas motos
+  if (/qu[eé]\s+marcas\s+de\s+motos|marcas\s+atiendes|bajaj.*akt/i.test(lower)) {
+    return 'MARCAS_MOTOS';
+  }
+  // 11. Rol / Propietario / Mecánico
+  if (/due[ñn]o\s+o\s+mec[aá]nico|eres\s+el\s+due[ñn]o|eres\s+propietario|tu\s+rol/i.test(lower)) {
+    return 'ROL_Y_ESPECIALIDAD';
+  }
+  // 12. Especialidad
+  if (/especialidad|qu[eé]\s+tipo\s+de\s+trabajo|hacen\s+motor\s+o\s+de\s+todo/i.test(lower)) {
+    return 'ESPECIALIDAD';
+  }
+  // 13. Dirección
+  if (/direcci[oó]n|en\s+qu[eé]\s+calle|por\s+cu[aá]l\s+calle/i.test(lower)) {
+    return 'DIRECCION';
+  }
+  // 14. Barrio
+  if (/en\s+qu[eé]\s+barrio|por\s+qu[eé]\s+sector/i.test(lower)) {
+    return 'BARRIO';
+  }
+  // 15. Ciudad / Ubicación
+  if (/en\s+qu[eé]\s+ciudad|d[oó]nde\s+queda|en\s+qu[eé]\s+municipio/i.test(lower)) {
+    return 'UBICACION';
+  }
+  // 16. Nombre o Taller
+  if (/c[oó]mo\s+se\s+llama\s+el\s+taller|c[oó]mo\s+es\s+tu\s+nombre|c[oó]mo\s+te\s+llamas/i.test(lower)) {
+    return 'NOMBRE_Y_TALLER';
+  }
+
+  if (temaPreguntado) {
+    const map = {
+      nombres_apellidos: 'NOMBRE',
+      nombre_taller: 'TALLER',
+      ciudad_taller: 'UBICACION',
+      barrio_taller: 'BARRIO',
+      direccion_taller: 'DIRECCION',
+      relacion_taller: 'ROL_Y_ESPECIALIDAD',
+      marcas_motos: 'MARCAS_MOTOS',
+      motos_por_semana: 'VOLUMEN',
+      repuestos_frecuentes: 'REPUESTOS',
+      marcas_repuestos_usadas: 'MARCA_RECOMENDADA',
+      conoce_nitrox: 'NITROX_EXP_INTERES',
+      quiere_muestras: 'RECOMENDAR_NITROX',
+      celular_whatsapp: 'CELULAR',
+      correo: 'CORREO',
+      cedula: 'CEDULA',
+      autorizacion_tratamiento_datos: 'HABEAS_DATA'
+    };
+    return map[temaPreguntado] || temaPreguntado;
+  }
+
+  return null;
+}
+
 function extractEntities(text, sessionData) {
   const raw = (text || '').trim();
   const lower = raw.toLowerCase().replace(/[.,!¡?¿]+/g, ' ');
@@ -443,7 +537,11 @@ function extractEntities(text, sessionData) {
   if (isPartBrandQuestion && /todas|de todo|variadas|cualquiera|varias/i.test(lower) && !partBrands.includes('Variadas / De todo')) {
     partBrands.push('Variadas / De todo');
   }
-  if (isPartBrandQuestion && /ninguna|no recomiendo/i.test(lower) && !partBrands.includes('Sin preferencia')) {
+  if (isPartBrandQuestion && (/^(?:no|ninguna|para\s+nada|no\s+recomiendo|no\s+manejo)$/i.test(lower) || /\b(?:no\s+recomiendo|ninguna\s+marca)\b/i.test(lower))) {
+    updates.frecuencia_recomendacion = 'Nunca';
+    updates.marcas_repuestos_usadas = ['Ninguna'];
+    updates.quien_decide_repuesto = 'Cliente';
+  } else if (isPartBrandQuestion && /ninguna|no recomiendo/i.test(lower) && !partBrands.includes('Sin preferencia')) {
     partBrands.push('Sin preferencia');
   }
   if (isPartBrandQuestion && /cliente|ellos traen|el cliente/i.test(lower) && !partBrands.includes('La que traiga el cliente')) {
@@ -452,7 +550,9 @@ function extractEntities(text, sessionData) {
 
   if (partBrands.length > 0) {
     updates.marcas_repuestos_usadas = partBrands;
-  } else if (isPartBrandQuestion && raw.trim().length >= 1) {
+    if (!updates.frecuencia_recomendacion) updates.frecuencia_recomendacion = 'Frecuentemente';
+    if (!updates.quien_decide_repuesto) updates.quien_decide_repuesto = 'Mecánico';
+  } else if (isPartBrandQuestion && raw.trim().length >= 1 && !updates.marcas_repuestos_usadas) {
     if (isProtest) {
       updates.marcas_repuestos_usadas = ['Variadas / Originales'];
     } else {
@@ -499,7 +599,21 @@ function extractEntities(text, sessionData) {
   }
 
   // 11. NITROX Experience & Interest (Strictly real data!)
-  if (sessionData._lastQuestion === 'NITROX_EXP_INTERES' || sessionData._lastQuestion === 'OFERTA_MUESTRAS' || /repuestos nitrox|marca nitrox/i.test(lower)) {
+  if (sessionData._lastQuestion === 'RECOMENDAR_NITROX' || sessionData._lastQuestion === 'OFERTA_MUESTRAS') {
+    if (/^(?:s[ií]|claro|de\s+una|h[aá]gale|obvio|por\s+supuesto|me\s+gustar[ií]a|s[ií]\s+claro)/i.test(lower)) {
+      updates.recomendaria_nitrox = 'Definitivamente sí';
+      updates.quiere_muestras = 'Sí';
+      const acts = sessionData.actividades_interes || [];
+      if (!acts.includes('Muestras de repuestos')) acts.push('Muestras de repuestos');
+      if (!acts.includes('Premios y beneficios')) acts.push('Premios y beneficios');
+      updates.actividades_interes = acts;
+    } else if (/^(?:no|paso|no\s+gracias|no\s+me\s+interesa)/i.test(lower)) {
+      updates.recomendaria_nitrox = 'No';
+      updates.quiere_muestras = 'No';
+    }
+  }
+
+  if (sessionData._lastQuestion === 'NITROX_EXP_INTERES' || /repuestos nitrox|marca nitrox/i.test(lower)) {
     if (/no\b|nunca|todavia no|todavía no|no la conozco|no lo conozco|no los conozco|no he trabajado|no la conoco/i.test(lower)) {
       updates.conoce_nitrox = 'No';
       updates.ha_usado_nitrox = 'No';
@@ -524,15 +638,24 @@ function extractEntities(text, sessionData) {
   }
 
   // 12. Benefits Contact Info (Email, Cedula, NIT)
-  const isBenefitsQuestion = sessionData._lastQuestion === 'BENEFICIOS_DATOS';
+  const isBenefitsQuestion = sessionData._lastQuestion === 'BENEFICIOS_DATOS' || sessionData._lastQuestion === 'CEDULA';
   const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   if (emailMatch) {
     updates.correo = emailMatch[0].toLowerCase();
   }
 
-  const idMatch = raw.match(/(?:nit|cedula|c\.c\.|cc)?\s*(\b\d{7,10}(?:-\d)?\b)/i);
-  if (idMatch && (!updates.correo || !idMatch[1].includes('@'))) {
-    updates.cedula = idMatch[1];
+  const explicitCedulaMatch = raw.match(/\b(?:c[eé]dula|cc|c\.c\.|nit|documento)\b[:\s#]*(\b\d{7,10}(?:-\d)?\b)/i);
+  if (explicitCedulaMatch) {
+    updates.cedula = explicitCedulaMatch[1];
+  } else if ((sessionData._lastQuestion === 'CEDULA' || isBenefitsQuestion) && (!updates.correo || !raw.includes('@'))) {
+    const candidateMatch = raw.match(/\b\d{7,10}\b/);
+    if (candidateMatch) {
+      const num = candidateMatch[0];
+      const isLikelyMobile = /^3\d{9}$/.test(num);
+      if (!isLikelyMobile || sessionData._lastQuestion === 'CEDULA') {
+        updates.cedula = num;
+      }
+    }
   }
 
   if (isBenefitsQuestion) {
@@ -725,9 +848,32 @@ async function generateMateoResponse(fromNumber, userText) {
   }
 
   // Celular colombiano escrito en el chat (3xx xxx xxxx), clave cuando Meta oculta el número del remitente
-  if (!session.data.celular_whatsapp || String(session.data.celular_whatsapp).replace(/\D/g, '').length < 10) {
-    const mob = raw.replace(/[\s.\-()]/g, '').match(/(?:\+?57)?(3\d{9})(?!\d)/);
-    if (mob) session.data.celular_whatsapp = '57' + mob[1];
+  const mobMatches = [...raw.replace(/[\s.\-()]/g, ' ').matchAll(/(?:\+?57\s*)?(3\d{9})(?!\d)/g)];
+  if (mobMatches.length > 0) {
+    if (!session.data.celular_whatsapp || String(session.data.celular_whatsapp).replace(/\D/g, '').length < 10) {
+      session.data.celular_whatsapp = '57' + mobMatches[0][1];
+      if (mobMatches.length > 1 && !session.data.telefono_alterno) {
+        session.data.telefono_alterno = '57' + mobMatches[1][1];
+      }
+    } else {
+      const p1 = String(session.data.celular_whatsapp).replace(/\D/g, '').slice(-10);
+      const m1 = mobMatches[0][1];
+      if (m1 !== p1 && !session.data.telefono_alterno) {
+        session.data.telefono_alterno = '57' + m1;
+      } else if (mobMatches.length > 1 && !session.data.telefono_alterno) {
+        session.data.telefono_alterno = '57' + mobMatches[1][1];
+      }
+    }
+  }
+
+  // Sanitizar si un número de celular de 10 dígitos quedó atrapado accidentalmente en cédula
+  if (session.data.cedula && /^3\d{9}$/.test(String(session.data.cedula).trim())) {
+    const cedNum = String(session.data.cedula).trim();
+    const celNum = String(session.data.celular_whatsapp || '').replace(/\D/g, '').slice(-10);
+    const altNum = String(session.data.telefono_alterno || '').replace(/\D/g, '').slice(-10);
+    if (cedNum === celNum || cedNum === altNum) {
+      delete session.data.cedula;
+    }
   }
 
   // Auto-default especialidad a Mecánica general si ya atiende marcas o cambia repuestos
@@ -827,6 +973,12 @@ async function generateMateoResponse(fromNumber, userText) {
     const safe = (nextKey && FALLBACK_QUESTIONS && FALLBACK_QUESTIONS[nextKey]) || '¿Me confirmas que autorizas a RED NITROX a registrar los datos de tu taller?';
     session.history[session.history.length - 1].content = safe;
     brainResult.reply = safe;
+  }
+
+  // Actualizar _lastQuestion para guiar la extracción del siguiente mensaje
+  const nextAskedQ = detectAskedQuestion(brainResult.reply, brainResult.tema_preguntado);
+  if (nextAskedQ) {
+    session.data._lastQuestion = nextAskedQ;
   }
 
   // Normal turn or post-registration follow up

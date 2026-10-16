@@ -125,6 +125,7 @@ function normalizeMechanicData(input, origin = 'Web') {
     nombres_apellidos: input.nombres_apellidos || input.nombre || '',
     cedula: input.cedula || '',
     celular_whatsapp: input.celular_whatsapp || input.telefono || '',
+    telefono_alterno: input.telefono_alterno || '',
     tiene_whatsapp: input.tiene_whatsapp !== undefined ? input.tiene_whatsapp : true,
     correo: input.correo || '',
     ciudad_residencia: input.ciudad_residencia || 'Medellín',
