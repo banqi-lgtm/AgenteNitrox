@@ -392,6 +392,34 @@ runTest('U. Captura exhaustiva de volumen de motos (aislado, rango, palabras, di
   assert.ok(nlp4.entities.motos_por_semana.includes('al día') || nlp4.entities.motos_por_semana.includes('diarias'), 'Debe capturar tasa diaria');
 });
 
+// -------------------------------------------------------------
+// TEST 22: Saludo cordial inicial obligatorio con presentación de Mateo y Ruta NITROX
+// -------------------------------------------------------------
+runTest('V. Saludo cordial y presentación de Mateo y Ruta NITROX en primer contacto', () => {
+  const { FALLBACK_QUESTIONS } = require('../gemini_brain');
+  const greeting = FALLBACK_QUESTIONS.nombres_apellidos;
+  assert.ok(greeting.toLowerCase().includes('mateo'), 'Debe presentarse como Mateo');
+  assert.ok(greeting.toLowerCase().includes('ruta nitrox'), 'Debe mencionar la Ruta NITROX');
+  assert.ok(greeting.toLowerCase().includes('capacitaciones'), 'Debe mencionar capacitaciones');
+  assert.ok(greeting.toLowerCase().includes('premios'), 'Debe mencionar premios');
+  assert.ok(!greeting.toLowerCase().startsWith('¿cómo te llamas?'), 'No debe ser solo "¿cómo te llamas?" en seco');
+});
+
+// -------------------------------------------------------------
+// TEST 23: Sincronización de ciudad_residencia con ciudad_taller (no forzar Medellín en Fusagasugá)
+// -------------------------------------------------------------
+runTest('W. Sincronización de ciudad de residencia con ciudad del taller (sin forzar Medellín)', () => {
+  const input = {
+    nombre_taller: 'Taller Prueba',
+    ciudad_taller: 'Fusagasugá',
+    ciudad_residencia: 'Medellín' // Residuo histórico
+  };
+  const normalized = normalizeMechanicData(input, 'WhatsApp');
+  assert.strictEqual(normalized.ciudad_taller, 'Fusagasugá', 'ciudad_taller debe ser Fusagasugá');
+  assert.strictEqual(normalized.ciudad_residencia, 'Fusagasugá', 'ciudad_residencia debe heredar Fusagasugá en lugar de Medellín');
+  assert.strictEqual(normalized.ciudad_ruta, 'Fusagasugá y alrededores', 'ciudad_ruta debe basarse en Fusagasugá');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

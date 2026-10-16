@@ -734,12 +734,12 @@ app.post('/api/crm/corregir-mecanico/:id', requireAuth, async (req, res) => {
   try {
     const id = req.params.id;
     const updates = req.body || {};
+    const phone = updates.wa_user_id || updates.celular_whatsapp || '';
 
     try {
       const docRef = admin.firestore().collection('mecanicos_red_nitrox').doc(id);
       await docRef.set(updates, { merge: true });
 
-      const phone = updates.wa_user_id || updates.celular_whatsapp;
       if (phone) {
         const sessRef = admin.firestore().collection('sesiones_mateo').doc(phone);
         const snap = await sessRef.get();

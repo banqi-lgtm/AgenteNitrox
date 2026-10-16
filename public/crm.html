@@ -1499,7 +1499,7 @@
             </td>
             <td>
               <div class="workshop-name">${m.nombre_taller || 'Taller sin nombre'}</div>
-              <div class="workshop-loc">${m.ciudad_taller || 'Medellín'} · ${m.barrio_taller || 'Sin Barrio'}</div>
+              <div class="workshop-loc">${m.ciudad_taller || m.ciudad_residencia || 'Sin ciudad'} · ${m.barrio_taller || 'Sin Barrio'}</div>
             </td>
             <td>
               <span style="font-weight:700;">${m.motos_por_semana || 'No especificado'}</span>
@@ -1601,7 +1601,7 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Residencia</span>
-            <span class="detail-value">${m.ciudad_residencia || 'Medellín'} ${m.barrio_residencia ? '· ' + m.barrio_residencia : ''}</span>
+            <span class="detail-value">${m.ciudad_residencia || m.ciudad_taller || 'No especificada'} ${m.barrio_residencia ? '· ' + m.barrio_residencia : ''}</span>
           </div>
         </div>
 
@@ -1614,7 +1614,7 @@
           </div>
           <div class="detail-item">
             <span class="detail-label">Ubicación Territorial</span>
-            <span class="detail-value">${m.ciudad_taller || 'Medellín'} · Barrio ${m.barrio_taller || 'N/A'}</span>
+            <span class="detail-value">${m.ciudad_taller || m.ciudad_residencia || 'No especificada'} · Barrio ${m.barrio_taller || 'N/A'}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Dirección para Visitas</span>
@@ -2331,7 +2331,7 @@
               </div>
               <div class="wa-item-workshop">
                 <span>🔧 ${escapeHtml(c.nombre_taller || 'Taller')}</span>
-                <span style="color:var(--text-3); font-weight:normal;">· ${escapeHtml(c.barrio_taller || 'Medellín')}</span>
+                <span style="color:var(--text-3); font-weight:normal;">· ${escapeHtml(c.barrio_taller || c.ciudad_taller || 'Colombia')}</span>
               </div>
               <div class="wa-item-lastmsg">${lastMsgTxt}</div>
               <div class="wa-item-pill-row">
@@ -2371,7 +2371,7 @@
         // Header
         const name = d.nombres_apellidos || 'Mecánico WhatsApp';
         const workshop = d.nombre_taller || 'Taller sin registrar';
-        const barrio = d.barrio_taller || d.ciudad_taller || 'Medellín';
+        const barrio = d.barrio_taller || d.ciudad_taller || 'Sin ciudad';
         const initial = name.charAt(0).toUpperCase() || 'M';
 
         document.getElementById('chatAvatar').textContent = initial;
@@ -2546,7 +2546,7 @@
               celular_whatsapp: d.celular_whatsapp || (clean.length >= 10 ? clean : ''),
               telefono_alterno: d.telefono_alterno || '',
               wa_user_id: selectedPhone,
-              ciudad_taller: d.ciudad_taller || 'Medellín',
+              ciudad_taller: d.ciudad_taller || d.ciudad_residencia || '',
               barrio_taller: d.barrio_taller || '',
               direccion_taller: d.direccion_taller || '',
               relacion_taller: d.relacion_taller || 'No especificada',

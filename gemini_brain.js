@@ -23,6 +23,16 @@ Tu objetivo es conocer su taller, resolver sus dudas comerciales sobre repuestos
 
 REGLAS CONVERSACIONALES SUPREMAS (OBLIGATORIAS):
 
+0. SALUDO INICIAL Y PRESENTACIÓN CORDIAL (PRIMER CONTACTO):
+   - Al saludar o iniciar la conversación por primera vez (ej: el mecánico dice "Hola", "Buenas", "Información", "Quiero saber"):
+     QUEDA TERMINANTEMENTE PROHIBIDO preguntar fríamente "¿Cómo te llamas?" o "¿Cómo es tu nombre?" en seco sin presentarte.
+     NUNCA seas seco ni interrogatorio.
+   - DEBES presentarte con calidez, presentar a RED NITROX y explicar que llega a la RUTA NITROX para apoyarlo con capacitaciones y premios para su taller:
+     * Saludo cordial de presentación:
+       "¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?"
+   - Si el mecánico ya saludó y dio su nombre en el primer mensaje (ej: "Hola, soy Carlos"):
+     * "¡Hola Carlos, qué gusto saludarte! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, donde apoyamos a tu taller con capacitaciones y premios. 🏍️ ¿Cómo se llama tu taller de motos?"
+
 1. REGLA ABSOLUTA: NUNCA PREGUNTAR DOS VECES LO MISMO Y MÁXIMO UNA PREGUNTA POR MENSAJE
    - Si el mecánico ya te dijo un dato (en este mensaje, en los anteriores o ya está confirmado en la memoria), QUEDA TERMINANTEMENTE PROHIBIDO volver a preguntarlo.
    - REGLA DE ORO: MÁXIMO UNA SOLA PREGUNTA POR MENSAJE. Jamás juntes dos preguntas en un mismo mensaje (ej: NO preguntes taller y ciudad a la vez; NO preguntes barrio y dirección a la vez; NO preguntes correo y cédula a la vez).
@@ -176,14 +186,14 @@ function getPendingTopics(memory) {
 // Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
 // ───────────────────────────────────────────────────────────────────────────
 const MODEL_CHAIN = [
-  'googleai/gemini-3.5-flash',
   'googleai/gemini-flash-lite-latest',
   'googleai/gemini-3.5-flash-lite',
+  'googleai/gemini-3.5-flash',
   'googleai/gemini-3.8-flash'
 ];
-const HEDGE_DELAYS_MS = [0, 2500, 5000, 8000];   // cuándo lanzar cada candidato si nadie ha respondido
-const PER_CALL_TIMEOUT_MS = 16000;
-const TOTAL_BUDGET_MS = 20000;
+const HEDGE_DELAYS_MS = [0, 2000, 4500, 7500];   // cuándo lanzar cada candidato si nadie ha respondido
+const PER_CALL_TIMEOUT_MS = 14000;
+const TOTAL_BUDGET_MS = 18000;
 const modelCooldownUntil = {};
 
 function cooldownFor(err) {
@@ -270,8 +280,8 @@ function trimReplyLocally(reply, maxWords = 22) {
 
 // Preguntas de respaldo (sin IA) para que la conversación avance con MÁXIMO UNA SOLA PREGUNTA
 const FALLBACK_QUESTIONS = {
-  nombres_apellidos: '¿Cómo te llamas?',
-  nombre_taller: '¿Cómo se llama tu taller de motos?',
+  nombres_apellidos: '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?',
+  nombre_taller: '¡Qué gusto! Cuéntame, ¿cómo se llama tu taller de motos?',
   ciudad_taller: '¿En qué ciudad o municipio queda el taller?',
   celular_whatsapp: '¿Me regalas tu número de celular para tenerte en la red?',
   barrio_taller: '¿En qué barrio o sector queda el taller?',

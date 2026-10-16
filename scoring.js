@@ -108,7 +108,12 @@ function normalizeMechanicData(input, origin = 'Web') {
   const score = calculateMechanicScore(input);
   const nivelObj = calculateNitroxLevel(input);
 
-  const detectedCity = input.ciudad_taller || input.ciudad_residencia || '';
+  const workshopCity = input.ciudad_taller || '';
+  const rawRes = input.ciudad_residencia || '';
+  const resolvedResidence = (rawRes && (rawRes !== 'Medellín' || !workshopCity || workshopCity === 'Medellín'))
+    ? rawRes
+    : (workshopCity || '');
+  const detectedCity = workshopCity || resolvedResidence || '';
   const defaultCityRoute = detectedCity ? `${detectedCity} y alrededores` : 'Colombia';
   const detectedBarrio = input.barrio_taller || input.barrio_residencia || '';
   const defaultZoneRoute = detectedBarrio ? `Sector ${detectedBarrio}` : (detectedCity ? `Zona ${detectedCity}` : 'Zona Metropolitana');
@@ -133,12 +138,12 @@ function normalizeMechanicData(input, origin = 'Web') {
     telefono_alterno: input.telefono_alterno || '',
     tiene_whatsapp: input.tiene_whatsapp !== undefined ? input.tiene_whatsapp : true,
     correo: input.correo || '',
-    ciudad_residencia: input.ciudad_residencia || detectedCity || '',
+    ciudad_residencia: resolvedResidence || detectedCity || '',
     barrio_residencia: input.barrio_residencia || '',
 
     // B. DATOS DEL TALLER
     nombre_taller: input.nombre_taller || input.taller || '',
-    ciudad_taller: input.ciudad_taller || detectedCity || '',
+    ciudad_taller: workshopCity || resolvedResidence || detectedCity || '',
     barrio_taller: input.barrio_taller || '',
     direccion_taller: input.direccion_taller || input.direccion || '',
     relacion_taller: input.relacion_taller || 'No especificado',

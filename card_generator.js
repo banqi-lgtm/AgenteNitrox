@@ -41,7 +41,7 @@ async function generateCardImage(data) {
   const uniqueId = data.id_unico || 'RN-MED-0000';
   const workshop = String(data.nombre_taller || 'Taller Aliado').toUpperCase();
   const mechanic = titleCase(data.nombres_apellidos || '');
-  const city = data.ciudad_taller || 'Medellín';
+  const city = data.ciudad_taller || data.ciudad_residencia || 'Colombia';
   const location = data.barrio_taller ? `${titleCase(data.barrio_taller)} · ${city}` : city;
 
   const targetUrl = `https://webhook-my2e3j2ecq-uc.a.run.app/carnet/${encodeURIComponent(uniqueId)}`;

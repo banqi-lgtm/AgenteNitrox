@@ -431,7 +431,9 @@ function extractSemanticEntities(text, sessionContext = {}) {
     const bRegex = new RegExp(`\\b(?:en\\s+|barrio\\s+)?${b.replace('El ', '')}\\b`, 'i');
     if (bRegex.test(lower)) {
       extracted.barrio_taller = b;
-      if (!extracted.ciudad_taller) extracted.ciudad_taller = 'Medellín';
+      if (!extracted.ciudad_taller && !sessionContext.ciudad_taller) {
+        extracted.ciudad_taller = 'Medellín';
+      }
       break;
     }
   }

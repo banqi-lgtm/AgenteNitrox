@@ -1018,6 +1018,18 @@ async function generateMateoResponse(fromNumber, userText) {
     session.data.nombres_apellidos = cleanPersonName(session.data.nombres_apellidos) || session.data.nombres_apellidos;
   }
 
+  // Sincronizar ciudad de residencia con ciudad del taller (nunca dejar Medellín por defecto si el taller es en otra ciudad)
+  if (session.data.ciudad_taller) {
+    if (!session.data.ciudad_residencia || session.data.ciudad_residencia === 'Medellín' || session.data.ciudad_residencia !== session.data.ciudad_taller) {
+      session.data.ciudad_residencia = session.data.ciudad_taller;
+    }
+  }
+
+  // Saludo cordial y presentación si Mateo aún no se ha presentado
+  if (!session.data.nombres_apellidos && !session.data.nombre_taller && (/^(?:¿?c[oó]mo\s+te\s+llamas\??|¿?cu[aá]l\s+es\s+tu\s+nombre\??|¿?c[oó]mo\s+es\s+tu\s+nombre\??)$/i.test((brainResult.reply || '').trim()))) {
+    brainResult.reply = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
+  }
+
   // Token usage tracking and economics calculation
   session.tokenStats = session.tokenStats || {
     totalInputTokens: 0,
