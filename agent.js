@@ -561,9 +561,14 @@ function extractEntities(text, sessionData) {
   return updates;
 }
 
+// Meta puede ocultar el número (usuarios con nombre de usuario) y enviar un BSUID tipo 'CO.123...'.
+// Solo se usa como celular si es un número real.
+function isBsuidId(id) { return /[A-Za-z]/.test(String(id || '')); }
+function phoneFromId(id) { return isBsuidId(id) ? '' : String(id || '').replace(/\D/g, ''); }
+
 // Persistent session management via Firestore + RAM cache
 async function getSession(phoneNumber) {
-  const cleanPhone = (phoneNumber || '').replace(/\D/g, '');
+  const cleanPhone = phoneFromId(phoneNumber);
   try {
     const doc = await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).get();
     if (doc.exists) {
@@ -619,7 +624,8 @@ async function saveSession(phoneNumber, session) {
 const localMecanicosStore = [];
 
 async function saveMechanicToFirestore(phone, data, isFinal = false) {
-  const cleanPhone = (phone || '').replace(/\D/g, '');
+  const cleanPhone = phoneFromId(phone) || String(data.celular_whatsapp || '').replace(/\D/g, '');
+  if (isBsuidId(phone)) data.wa_user_id = String(phone);
   if (!isFinal && !data._finished) {
     // Durante la conversación activa NO asignar id_unico para no confundir a Gemini con un taller ya registrado
     return data;
@@ -658,7 +664,7 @@ async function saveMechanicToFirestore(phone, data, isFinal = false) {
 const phoneLocks = new Map();
 
 async function runWithPhoneLock(phone, fn) {
-  const cleanPhone = (phone || '').replace(/\D/g, '');
+  const cleanPhone = String(phone || '');
   while (phoneLocks.has(cleanPhone)) {
     try {
       await phoneLocks.get(cleanPhone);
@@ -685,14 +691,15 @@ async function generateMateoResponse(fromNumber, userText) {
     const raw = (userText || '').trim();
     const lower = raw.toLowerCase();
 
-    const cleanPhone = (fromNumber || '').replace(/\D/g, '');
+    const cleanPhone = phoneFromId(fromNumber);
+    if (isBsuidId(fromNumber)) session.data.wa_user_id = String(fromNumber);
     if (cleanPhone && (!session.data.celular_whatsapp || session.data.celular_whatsapp.length < 10)) {
       session.data.celular_whatsapp = cleanPhone;
     }
 
   // Reset session if user explicitly requests to start over
   if (/(?:otro taller|nuevo taller|registrar otro|reiniciar|borrar datos)/i.test(lower)) {
-    session.data = { celular_whatsapp: cleanPhone };
+    session.data = cleanPhone ? { celular_whatsapp: cleanPhone } : { wa_user_id: String(fromNumber) };
     session.history = [];
   }
 
@@ -715,6 +722,12 @@ async function generateMateoResponse(fromNumber, userText) {
     if (val !== null && val !== undefined && val !== '' && !session.data[key]) {
       session.data[key] = val;
     }
+  }
+
+  // Celular colombiano escrito en el chat (3xx xxx xxxx), clave cuando Meta oculta el número del remitente
+  if (!session.data.celular_whatsapp || String(session.data.celular_whatsapp).replace(/\D/g, '').length < 10) {
+    const mob = raw.replace(/[\s.\-()]/g, '').match(/(?:\+?57)?(3\d{9})(?!\d)/);
+    if (mob) session.data.celular_whatsapp = '57' + mob[1];
   }
 
   // Auto-default especialidad a Mecánica general si ya atiende marcas o cambia repuestos

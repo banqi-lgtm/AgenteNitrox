@@ -193,6 +193,7 @@ function normalizeMechanicData(input, origin = 'Web') {
 
     // I. FORMULARIO ÚNICO POST-VINCULACIÓN (/completar/:token)
     form_token: input.form_token || '',
+    wa_user_id: input.wa_user_id || '',
     fecha_nacimiento: input.fecha_nacimiento || '',
     horario_ruta: input.horario_ruta || '',
     formulario_completado_en: input.formulario_completado_en || ''

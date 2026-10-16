@@ -276,7 +276,7 @@ app.post('/api/completar/:token', async (req, res) => {
 
   // Confirmación por WhatsApp con el link único al perfil
   const profileUrl = `${PUBLIC_BASE_URL}/perfil/${encodeURIComponent(req.params.token)}`;
-  const phone = String(m.celular_whatsapp || '').replace(/\D/g, '');
+  const phone = String(m.wa_user_id || '').trim() || String(m.celular_whatsapp || '').replace(/\D/g, '');
   if (phone && firstTime) {
     const msg = `✅ *Recibimos tu información.* ¡Gracias!\n\nAquí puedes ver tu perfil RED NITROX cuando quieras:\n👉 ${profileUrl}`;
     try {
@@ -573,8 +573,23 @@ async function isMessageAlreadyProcessed(messageId) {
   return false;
 }
 
+// Meta: usuarios con "nombre de usuario" de WhatsApp pueden ocultar su número.
+// En ese caso llega un BSUID (ej. "CO.1234567890") y se debe enviar con `recipient` en lugar de `to`.
+function isBsuid(id) {
+  return /[A-Za-z]/.test(String(id || ''));
+}
+function buildRecipient(id) {
+  const raw = String(id || '').trim();
+  if (isBsuid(raw)) return { recipient: raw };
+  return { to: raw.replace(/\D/g, '') };
+}
+
 async function sendWhatsAppMessage(to, text) {
   try {
+    if (!to) {
+      console.error('❌ [ENVIO CANCELADO] destinatario vacío');
+      return null;
+    }
     const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
       headers: {
@@ -583,7 +598,8 @@ async function sendWhatsAppMessage(to, text) {
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: to,
+        recipient_type: 'individual',
+        ...buildRecipient(to),
         type: 'text',
         text: { body: text }
       })
@@ -601,7 +617,7 @@ async function sendWhatsAppMessage(to, text) {
 
 async function sendWhatsAppImage(to, imageUrl, caption) {
   try {
-    const cleanTo = String(to || '').replace(/\D/g, '');
+    const cleanTo = String(to || '');
     const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
       headers: {
@@ -611,7 +627,7 @@ async function sendWhatsAppImage(to, imageUrl, caption) {
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: cleanTo,
+        ...buildRecipient(to),
         type: 'image',
         image: {
           link: imageUrl,
@@ -1255,7 +1271,17 @@ async function handleIncomingMessage(req, res) {
 
   const message = change.messages[0];
   const messageId = message.id;
-  const from = message.from;
+  const contact = (change.contacts && change.contacts[0]) || {};
+  // Número si Meta lo envía; si el usuario usa "nombre de usuario", Meta oculta el número y manda un BSUID
+  const phoneCandidate = [message.from, contact.wa_id].find(v => v && /^\d{8,15}$/.test(String(v)));
+  const from = phoneCandidate || message.from || message.from_user_id || contact.user_id || contact.wa_id;
+  if (!from) {
+    console.error('❌ [REMITENTE DESCONOCIDO] Payload sin from/from_user_id:', JSON.stringify(change).slice(0, 1500));
+    return res.status(200).send('EVENT_RECEIVED');
+  }
+  if (!phoneCandidate) {
+    console.log(`🪪 [USUARIO SIN NÚMERO VISIBLE] BSUID=${from} nombre=${contact.profile?.name || ''}`);
+  }
 
   // Prevent duplicate processing on container cold start or Meta retries
   const alreadyProcessed = await isMessageAlreadyProcessed(messageId);

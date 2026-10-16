@@ -247,6 +247,7 @@ function trimReplyLocally(reply, maxWords = 22) {
 const FALLBACK_QUESTIONS = {
   nombres_apellidos: '¿Cómo te llamas?',
   nombre_taller: '¿Cómo se llama tu taller y en qué ciudad queda?',
+  celular_whatsapp: '¿Me regalas tu número de celular para tenerte en la red?',
   ciudad_taller: '¿En qué ciudad queda tu taller?',
   barrio_taller: '¿En qué barrio queda el taller?',
   direccion_taller: '¿Me regalas la dirección del taller?',
