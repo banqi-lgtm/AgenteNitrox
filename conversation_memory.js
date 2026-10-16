@@ -455,11 +455,27 @@ function buildConversationSummary(memory) {
   return summary;
 }
 
+/**
+ * Elimina o retracta un hecho confirmado de la memoria persistente cuando el usuario
+ * corrige o niega un dato previamente asumido.
+ */
+function retractFactFromMemory(memory, field) {
+  if (!memory || !field) return;
+  delete memory.confirmedFacts[field];
+  if (Array.isArray(memory.topicsCovered)) {
+    memory.topicsCovered = memory.topicsCovered.filter(t => t !== field);
+  }
+  if (memory.contradictoryData) {
+    delete memory.contradictoryData[field];
+  }
+}
+
 module.exports = {
   TOPIC_SEMANTIC_PATTERNS,
   initOrLoadMemory,
   isTopicOrQuestionForbidden,
   integrateFactsIntoMemory,
   recordAskedQuestion,
-  buildConversationSummary
+  buildConversationSummary,
+  retractFactFromMemory
 };

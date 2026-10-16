@@ -24,7 +24,7 @@ const {
 } = require('../conversation_memory');
 const { getPendingTopics, cleanResponseText } = require('../gemini_brain');
 const { normalizeMechanicData } = require('../scoring');
-const { cleanWorkshopName } = require('../agent');
+const { cleanWorkshopName, cleanPersonName, parseNameAndWorkshop, extractEntities, isPureGreeting } = require('../agent');
 const { getRegistrationProgress } = require('../registration_engine');
 
 console.log('🧪 =======================================================');
@@ -420,6 +420,77 @@ runTest('W. Sincronización de ciudad de residencia con ciudad del taller (sin f
   assert.strictEqual(normalized.ciudad_ruta, 'Fusagasugá y alrededores', 'ciudad_ruta debe basarse en Fusagasugá');
 });
 
+// -------------------------------------------------------------
+// TEST 24: "Hola y no saludas?" nunca se extrae como nombre "Y" ni como taller
+// -------------------------------------------------------------
+runTest('X. "Hola y no saludas?" reconocido como saludo y jamás extrae "Y" como nombre', () => {
+  const greetingCheck = isPureGreeting("Hola y no saludas?");
+  assert.strictEqual(greetingCheck, true, '"Hola y no saludas?" debe ser clasificado como saludo puro');
+
+  const pName = cleanPersonName("Hola y no saludas?");
+  assert.strictEqual(pName, '', 'cleanPersonName no debe extraer nombre de "Hola y no saludas?"');
+
+  const singleY = cleanPersonName("Y");
+  assert.strictEqual(singleY, '', 'cleanPersonName jamás debe extraer una sola letra o conjunción "Y"');
+
+  const parsed = parseNameAndWorkshop("Hola y no saludas?");
+  assert.strictEqual(parsed.name, '', 'parseNameAndWorkshop no debe asignar nombre');
+  assert.strictEqual(parsed.workshop, '', 'parseNameAndWorkshop no debe asignar taller');
+
+  const session = { data: {}, history: [] };
+  const entities = extractEntities("Hola y no saludas?", session.data);
+  assert.strictEqual(entities.nombres_apellidos, undefined, 'extractEntities no debe extraer nombres_apellidos');
+  assert.strictEqual(entities.nombre_taller, undefined, 'extractEntities no debe extraer nombre_taller');
+});
+
+// -------------------------------------------------------------
+// TEST 25: Insultos y protestas jamás se asignan como taller ni como nombre
+// -------------------------------------------------------------
+runTest('Y. Insultos y protestas jamás son asignados como nombre de taller', () => {
+  const bad1 = cleanWorkshopName("No sea mierda ese no es mi nombre");
+  assert.strictEqual(bad1, '', 'cleanWorkshopName debe retornar vacío ante insulto/protesta');
+
+  const bad2 = cleanWorkshopName("Entonces?");
+  assert.strictEqual(bad2, '', 'cleanWorkshopName debe retornar vacío ante pregunta "Entonces?"');
+
+  const bad3 = cleanWorkshopName("Taller No Sea Mierda Ese No Es Mi Nombre");
+  assert.strictEqual(bad3, '', 'cleanWorkshopName debe purgar taller con insulto');
+
+  const badName = cleanPersonName("No sea mierda ese no es mi nombre");
+  assert.strictEqual(badName, '', 'cleanPersonName debe retornar vacío ante insulto');
+});
+
+// -------------------------------------------------------------
+// TEST 26: Detección y manejo de rechazo/corrección de nombre
+// -------------------------------------------------------------
+runTest('Z. Rechazo de nombre resetea nombres_apellidos espurio y no contamina nombre_taller', () => {
+  const sessionData = {
+    nombres_apellidos: 'Y',
+    _lastQuestion: 'TALLER'
+  };
+
+  const entities = extractEntities("No sea mierda ese no es mi nombre", sessionData);
+
+  assert.strictEqual(sessionData.nombres_apellidos, undefined, 'Debe borrar el nombre espurio "Y" de sessionData');
+  assert.strictEqual(entities.nombre_taller, undefined, 'No debe asignar la protesta como taller');
+  assert.strictEqual(sessionData._lastQuestion, 'NOMBRE', 'Debe reorientar la conversación a preguntar por el nombre');
+});
+
+// -------------------------------------------------------------
+// TEST 27: Rechazo de nombre con nuevo nombre provisto
+// -------------------------------------------------------------
+runTest('AA. Corrección de nombre con nuevo nombre explícito actualiza nombre y no contamina taller', () => {
+  const sessionData = {
+    nombres_apellidos: 'Equivocado',
+    _lastQuestion: 'TALLER'
+  };
+
+  const entities = extractEntities("Ese no es mi nombre, me llamo Carlos", sessionData);
+
+  assert.strictEqual(entities.nombres_apellidos, 'Carlos', 'Debe capturar "Carlos" como el nombre corregido');
+  assert.strictEqual(entities.nombre_taller, undefined, 'No debe asignar a taller');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {
@@ -429,3 +500,4 @@ if (passedTests === totalTests) {
   process.exit(1);
 }
 console.log('=======================================================\n');
+

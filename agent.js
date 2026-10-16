@@ -35,15 +35,15 @@ if (!admin.apps.length) {
 
 const memoryCache = {};
 
-// Helper to detect generic greetings (e.g. "Hola", "Buenas tardes", "Hola como estas")
+// Helper to detect generic greetings (e.g. "Hola", "Buenas tardes", "Hola como estas", "Hola y no saludas?")
 function isPureGreeting(text) {
   const clean = (text || '').trim().toLowerCase().replace(/[.,!¡?¿]+/g, ' ').trim();
   if (/(?:taller|motos|moto|repuestos|llamo|nombre|soy|medellin|bello|itagui|afiliar|registro|inscribir|info|informacion|información)/i.test(clean)) {
     return false;
   }
   const words = clean.split(/\s+/).filter(Boolean);
-  if (words.length === 0 || words.length > 5) return false;
-  const greetingTokens = /^(?:hola|buenas|buenos|dia|dias|día|días|tarde|tardes|noche|noches|que|qué|mas|más|tal|como|cómo|estas|estás|esta|está|va|todo|bien|amigo|hermano|mateo|sr|señor|senor|nitrox|asesor|saludos|alo|aló|hey)$/i;
+  if (words.length === 0 || words.length > 7) return false;
+  const greetingTokens = /^(?:hola|buenas|buenos|dia|dias|día|días|tarde|tardes|noche|noches|que|qué|mas|más|tal|como|cómo|estas|estás|esta|está|va|todo|bien|amigo|hermano|mateo|sr|señor|senor|nitrox|asesor|saludos|alo|aló|hey|y|no|saludas?|saludan?|saludo|saludar|respondes?|hablas?|por\s*que|por\s*qué)$/i;
   return words.every(w => greetingTokens.test(w));
 }
 
@@ -73,14 +73,33 @@ function countWords(str) {
 function cleanPersonName(str) {
   if (!str) return '';
   let s = str.trim();
-  if (isPureGreeting(s) || isGreetingResponse(s)) return '';
+  if (isPureGreeting(s) || isGreetingResponse(s) || isGreeting(s)) return '';
+  // Si contiene signos de interrogación o exclamación de duda, no es un nombre personal
+  if (/[?¿]/.test(s)) return '';
+  // Si contiene groserías o insultos
+  if (/\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|estupido|idiota|imbecil|puta|perro|pirobo)\b/i.test(s)) return '';
+  // Si contiene negaciones, protestas o quejas
+  if (/\b(?:no\s+es\s+mi\s+nombre|no\s+sea|no\s+me\s+llamo|te\s+equivocaste|mentira|equivocado|no\s+joda|saludas?|respondes?|hablas?)\b/i.test(s)) return '';
+
   s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es|yo soy|yo me llamo)\s+/gi, '');
   s = s.replace(/(?:taller|motos|repuestos).*$/gi, '').trim();
   s = s.replace(/\s+(?:y|de|del)$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
-  if (isPureGreeting(s) || isGreetingResponse(s)) return '';
+
+  if (isPureGreeting(s) || isGreetingResponse(s) || isGreeting(s)) return '';
+  if (/[?¿]/.test(s)) return '';
+
   const words = s.split(/\s+/).filter(Boolean);
-  if (words.length === 0 || (words.length === 1 && /^(hola|buenas|quiero|taller|motos|info)$/i.test(words[0]))) return '';
+  if (words.length === 0) return '';
+  // Descartar palabras que sean de <= 2 caracteres o conjunciones/preposiciones/pronombres
+  if (words.length === 1) {
+    if (words[0].length <= 2) return '';
+    if (/^(?:hola|buenas|quiero|taller|motos|info|entonces|nada|amigo|bien|saludo|saludas|usted|vos|tu|tú|yo)$/i.test(words[0])) return '';
+    if (/^(?:el|la|los|las|un|una|unos|unas|de|del|al|en|por|para|con|sin|que|qué|si|sí|no|ya|se|es|me|te|le|nos|mi|su)$/i.test(words[0])) return '';
+  }
+  // Si la primera palabra es conjunción suelta ("y", "e", "o", "u")
+  if (/^(?:y|e|o|u|de|del)$/i.test(words[0])) return '';
+
   return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
@@ -88,6 +107,16 @@ function cleanPersonName(str) {
 function cleanWorkshopName(str) {
   if (!str) return '';
   let s = str.trim();
+  if (isPureGreeting(s) || isGreetingResponse(s) || isGreeting(s)) return '';
+  // Si contiene signos de interrogación o preguntas/enlaces comunes: "Entonces?", "Y entonces?", "¿Cómo así?"
+  if (/[?¿]/.test(s) || /^(?:entonces\??|y\s+entonces\??|qu[eé]\??|por\s+qu[eé]\??|c[oó]mo\s+as[ií]\??)$/i.test(s)) return '';
+  // Si contiene insultos o groserías
+  if (/\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|estupido|idiota|imbecil|puta|careverga|culiao|perro|pirobo)\b/i.test(s)) return '';
+  // Si contiene frases de negación, queja o corrección de nombre
+  if (/\b(?:no\s+es\s+mi\s+nombre|ese\s+no\s+es|no\s+sea|no\s+me\s+llamo|te\s+equivocaste|mentira|equivocado|no\s+joda|qu[eé]\s+dice)\b/i.test(s)) return '';
+  // Si es solo una palabra conversacional o confirmación
+  if (/^(?:si|sí|no|ok|listo|ya|bien|gracias|nada|espera|dime|decime|hola|buenas|entonces)\b/i.test(s)) return '';
+
   if (/^(?:no tengo taller|a domicilio|independiente|trabajo a domicilio|particular)/i.test(s)) {
     return 'Mecánico Independiente / A domicilio';
   }
@@ -97,6 +126,8 @@ function cleanWorkshopName(str) {
   s = s.replace(/^(?:y\s+)?(?:mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|se\s+llama\s+el\s+taller|se\s+llama|el\s+taller|taller:\s*|es\s+el\s+taller|del\s+taller)\s+/gi, '').trim();
   s = s.replace(/\s+(?:el\s+taller|mi\s+taller)$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
+
+  if (s.length <= 1 || /^(?:y|e|o|u|el|la|los|las|de|del|si|no)$/i.test(s)) return '';
   if (!workshopKeywords.test(s)) {
     s = 'Taller ' + s;
   }
@@ -107,6 +138,10 @@ function cleanWorkshopName(str) {
 function parseNameAndWorkshop(raw) {
   const clean = (raw || '').trim();
   if (!clean || isGreeting(clean)) return { name: '', workshop: '', ambiguous: null };
+  if (/[?¿]/.test(clean)) return { name: '', workshop: '', ambiguous: null };
+  if (/\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es\s+mi\s+nombre|no\s+me\s+llamo|te\s+equivocaste)\b/i.test(clean)) {
+    return { name: '', workshop: '', ambiguous: null };
+  }
 
   // 1. Explicit multi-line input
   const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -185,7 +220,11 @@ function parseNameAndWorkshop(raw) {
   const words = clean.split(/\s+/).filter(Boolean);
   // Si son entre 1 y 4 palabras, sin palabras clave de taller, sin números y sin términos de negocio: es el NOMBRE del mecánico
   if (words.length <= 4 && !workshopKeywords.test(lower) && !/\d/.test(clean) && !/(?:dorado|racing|garage|motor|repuestos|leon|león|taller|motos|moto|centro|servicio|serviteca|repuesto)/i.test(lower)) {
-    return { name: cleanPersonName(clean), workshop: '', ambiguous: null };
+    const pName = cleanPersonName(clean);
+    if (pName) {
+      return { name: pName, workshop: '', ambiguous: null };
+    }
+    return { name: '', workshop: '', ambiguous: null };
   }
 
   // 9. Ambiguous single entity (like "León Del Dorado")
@@ -383,6 +422,31 @@ function extractEntities(text, sessionData) {
     }
   }
 
+  // Detección de rechazo o corrección de nombre personal
+  // Ejemplos: "ese no es mi nombre", "no sea mierda ese no es mi nombre", "no me llamo así", "te equivocaste de nombre"
+  const isNameRejection = /\b(?:no\s+(?:es|era)\s+mi\s+nombre|no\s+me\s+llamo|yo\s+no\s+me\s+llamo|ese\s+no\s+es\s+mi\s+nombre|nombre\s+equivocado|te\s+equivocaste\s+de\s+nombre|no\s+sea\s+mierda)\b/i.test(raw);
+  if (isNameRejection) {
+    delete sessionData.nombres_apellidos;
+    sessionData._lastQuestion = 'NOMBRE';
+    if (sessionData.memory) {
+      try {
+        const { retractFactFromMemory } = require('./conversation_memory');
+        retractFactFromMemory(sessionData.memory, 'nombres_apellidos');
+        retractFactFromMemory(sessionData.memory, 'nombre_taller');
+      } catch (e) {}
+    }
+    // Si en el mismo mensaje suministró su nombre real (ej: "no es mi nombre, me llamo Carlos")
+    const realNameMatch = raw.match(/(?:me\s+llamo|soy|mi\s+nombre\s+es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+)?)/i);
+    if (realNameMatch) {
+      const realName = cleanPersonName(realNameMatch[1]);
+      if (realName) {
+        updates.nombres_apellidos = realName;
+      }
+    }
+    delete updates.nombre_taller;
+    delete sessionData.nombre_taller;
+  }
+
   // Handling clarification of ambiguous name/workshop
   if (sessionData._lastQuestion === 'CLARIFY_NOMBRE_O_TALLER') {
     const amb = sessionData._ambiguousName || '';
@@ -435,21 +499,27 @@ function extractEntities(text, sessionData) {
         if (p) updates.nombres_apellidos = p;
       }
     } else if (sessionData._lastQuestion === 'TALLER' && !sessionData.nombre_taller) {
-      const parsed = parseNameAndWorkshop(raw);
-      if (parsed.workshop) {
-        updates.nombre_taller = parsed.workshop;
-        if (parsed.name && !sessionData.nombres_apellidos) updates.nombres_apellidos = parsed.name;
+      if (isNameRejection || /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|entonces\??)\b/i.test(raw)) {
+        // No asignar insultos ni protestas como nombre de taller
       } else {
-        const w = cleanWorkshopName(raw);
-        if (w) updates.nombre_taller = w;
+        const parsed = parseNameAndWorkshop(raw);
+        if (parsed.workshop) {
+          updates.nombre_taller = parsed.workshop;
+          if (parsed.name && !sessionData.nombres_apellidos) updates.nombres_apellidos = parsed.name;
+        } else {
+          const w = cleanWorkshopName(raw);
+          if (w) updates.nombre_taller = w;
+        }
       }
     } else if (sessionData._lastQuestion === 'NOMBRE_Y_TALLER' || !sessionData._lastQuestion) {
-      const parsed = parseNameAndWorkshop(raw);
-      if (parsed.ambiguous) {
-        updates._ambiguousName = parsed.ambiguous;
-      } else {
-        if (parsed.name && !sessionData.nombres_apellidos) updates.nombres_apellidos = parsed.name;
-        if (parsed.workshop && !sessionData.nombre_taller) updates.nombre_taller = parsed.workshop;
+      if (!isNameRejection && !/\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|entonces\??)\b/i.test(raw)) {
+        const parsed = parseNameAndWorkshop(raw);
+        if (parsed.ambiguous) {
+          updates._ambiguousName = parsed.ambiguous;
+        } else {
+          if (parsed.name && !sessionData.nombres_apellidos) updates.nombres_apellidos = parsed.name;
+          if (parsed.workshop && !sessionData.nombre_taller) updates.nombre_taller = parsed.workshop;
+        }
       }
     }
   }
@@ -1012,10 +1082,32 @@ async function generateMateoResponse(fromNumber, userText) {
 
   // Clean formatting for workshop and personal names
   if (session.data.nombre_taller) {
-    session.data.nombre_taller = cleanWorkshopName(session.data.nombre_taller);
+    const cleanedShop = cleanWorkshopName(session.data.nombre_taller);
+    if (cleanedShop) {
+      session.data.nombre_taller = cleanedShop;
+    } else {
+      delete session.data.nombre_taller;
+      if (session.memory) {
+        try {
+          const { retractFactFromMemory } = require('./conversation_memory');
+          retractFactFromMemory(session.memory, 'nombre_taller');
+        } catch (e) {}
+      }
+    }
   }
   if (session.data.nombres_apellidos) {
-    session.data.nombres_apellidos = cleanPersonName(session.data.nombres_apellidos) || session.data.nombres_apellidos;
+    const cleanedName = cleanPersonName(session.data.nombres_apellidos);
+    if (cleanedName) {
+      session.data.nombres_apellidos = cleanedName;
+    } else {
+      delete session.data.nombres_apellidos;
+      if (session.memory) {
+        try {
+          const { retractFactFromMemory } = require('./conversation_memory');
+          retractFactFromMemory(session.memory, 'nombres_apellidos');
+        } catch (e) {}
+      }
+    }
   }
 
   // Sincronizar ciudad de residencia con ciudad del taller (nunca dejar Medellín por defecto si el taller es en otra ciudad)
@@ -1023,6 +1115,12 @@ async function generateMateoResponse(fromNumber, userText) {
     if (!session.data.ciudad_residencia || session.data.ciudad_residencia === 'Medellín' || session.data.ciudad_residencia !== session.data.ciudad_taller) {
       session.data.ciudad_residencia = session.data.ciudad_taller;
     }
+  }
+
+  // Si el usuario protestó o rechazó un nombre mal asignado, disculpa sincera y pregunta por su nombre real
+  const isNameRejectionTurn = /\b(?:no\s+(?:es|era)\s+mi\s+nombre|no\s+me\s+llamo|yo\s+no\s+me\s+llamo|ese\s+no\s+es\s+mi\s+nombre|nombre\s+equivocado|te\s+equivocaste\s+de\s+nombre|no\s+sea\s+mierda)\b/i.test(raw);
+  if (isNameRejectionTurn && !session.data.nombres_apellidos) {
+    brainResult.reply = '¡Qué pena contigo, mil disculpas por la confusión! 🏍️ ¿Cómo es tu nombre real para tenerte bien registrado?';
   }
 
   // Saludo cordial y presentación si Mateo aún no se ha presentado
@@ -1176,5 +1274,8 @@ module.exports = {
   memoryCache,
   resetMemoryCache,
   cleanWorkshopName,
-  cleanPersonName
+  cleanPersonName,
+  parseNameAndWorkshop,
+  extractEntities,
+  isPureGreeting
 };

@@ -379,7 +379,8 @@ function extractSemanticEntities(text, sessionContext = {}) {
   if (workshopCityMatch) {
     const rawShop = workshopCityMatch[1].trim();
     const rawCity = workshopCityMatch[2].trim();
-    if (rawShop.length >= 1 && !/^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop)) {
+    const isBadShop = /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|mentira)\b/i.test(rawShop) || /^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop);
+    if (rawShop.length >= 1 && !isBadShop) {
       const formattedShop = rawShop.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(rawShop) ? rawShop : `Taller ${rawShop}`;
       extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
       const matchedCity = municipalities.find(m => m.regex.test(rawCity));
@@ -395,9 +396,12 @@ function extractSemanticEntities(text, sessionContext = {}) {
   const explicitShopMatch = raw.match(/^(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|nombre\s+del\s+taller\s+es)\s+([A-Za-z0-9\s#\-\.]{1,35})$/i);
   if (explicitShopMatch && !extracted.nombre_taller) {
     let s = explicitShopMatch[1].trim();
-    s = s.replace(/\s+(?:en|de|ubicado\s+en)\s+.*$/i, '').trim();
-    const formattedShop = s.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(s) ? s : `Taller ${s}`;
-    extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    const isBadShop = /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|mentira)\b/i.test(s) || /^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(s);
+    if (!isBadShop) {
+      s = s.replace(/\s+(?:en|de|ubicado\s+en)\s+.*$/i, '').trim();
+      const formattedShop = s.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(s) ? s : `Taller ${s}`;
+      extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
   }
 
   for (const m of municipalities) {

@@ -41,6 +41,15 @@ REGLAS CONVERSACIONALES SUPREMAS (OBLIGATORIAS):
    - Si el usuario dice "ya te dije", "ya respondí" o protesta: discúlpate con cortesía, toma nota del dato y continúa sin repetir.
    - Si el usuario dice que no tiene correo o prefiere no dar la cédula: respeta su decisión, NO insistas y no vuelvas a pedirlo.
 
+1.1 MANEJO DE CORRECCIÓN DE NOMBRE, QUEJAS E INSULTOS:
+   - Si el mecánico dice "ese no es mi nombre", "no me llamo así", "te equivocaste de nombre", o usa insultos/groserías para quejarse de un nombre mal asignado:
+     * TERMINANTEMENTE PROHIBIDO tomar su queja, insulto o frase como nombre del taller (NUNCA guardes "No sea...", "Ese no es...", groserías, etc. en nombre_taller).
+     * En "datos_extraidos", pon "nombres_apellidos": null (o el nombre real si lo mencionó en ese mensaje) y "nombre_taller": null.
+     * En "respuesta_mateo", discúlpate con total sinceridad y respeto: "¡Qué pena contigo, mil disculpas por la confusión! 🏍️ ¿Cómo es tu nombre real para tenerte bien registrado?"
+   - Si el mecánico escribe un saludo con reclamo (ej: "Hola y no saludas?"):
+     * NUNCA tomes palabras como "Y", "Hola", "No" o "Saludas" como su nombre personal.
+     * Salúdalo con calidez y simpatía: "¡Hola! Qué pena contigo, claro que sí te saludo. Mi nombre es Mateo de RED NITROX... ¿Cómo te llamas?"
+
 2. AFIRMACIÓN INTELIGENTE Y PREGUNTAS DE CONFIRMACIÓN (NUNCA REPETIR LA MISMA):
    - Si no entiendes con certeza lo que dijo el mecánico, o da una respuesta corta o ambigua (ej. "Prueba", "Fusagasugá", "Centro"):
      FORMULA UNA PREGUNTA DE CONFIRMACIÓN DIRECTA Y AMENA en lugar de repetir la pregunta en seco.
@@ -527,12 +536,17 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     }
 
     // Formulaciones naturales de máximo 1 sola pregunta con confirmación breve previa
-    if (chosenKey === 'nombre_taller' && session.data.nombres_apellidos) {
+    const isBadWord = (str) => !str || /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es)\b/i.test(str) || /^(?:y|e|o|u|si|no)$/i.test(String(str).trim());
+    if (chosenKey === 'nombre_taller' && session.data.nombres_apellidos && !isBadWord(session.data.nombres_apellidos)) {
       const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
-      nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller de motos?`;
-    } else if (chosenKey === 'ciudad_taller' && session.data.nombre_taller) {
+      if (firstName.length >= 2 && !isBadWord(firstName)) {
+        nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller de motos?`;
+      } else {
+        nextQ = '¡Qué gusto saludarte! Cuéntame, ¿cómo se llama tu taller de motos?';
+      }
+    } else if (chosenKey === 'ciudad_taller' && session.data.nombre_taller && !isBadWord(session.data.nombre_taller)) {
       nextQ = `¡Excelente! ¿Y en qué ciudad o municipio queda ${session.data.nombre_taller}?`;
-    } else if (chosenKey === 'barrio_taller' && session.data.nombre_taller && session.data.ciudad_taller) {
+    } else if (chosenKey === 'barrio_taller' && session.data.nombre_taller && session.data.ciudad_taller && !isBadWord(session.data.nombre_taller)) {
       nextQ = `¡Entendido! ${session.data.nombre_taller} en ${session.data.ciudad_taller} 🏍️. ¿En qué barrio o sector están?`;
     }
 
