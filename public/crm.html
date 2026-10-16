@@ -1535,8 +1535,25 @@
 
     // Modal Details
     window.openFichaMaestra = function(id) {
-      const m = allMechanics.find(item => item.id_unico === id);
+      let m = allMechanics.find(item => item.id_unico === id);
       if (!m) return;
+
+      // Sincronizar en caliente con datos de la conversación activa si existen
+      if (typeof allLiveConversations !== 'undefined' && Array.isArray(allLiveConversations)) {
+        const live = allLiveConversations.find(c => {
+          const d = c.data || {};
+          return d.id_unico === id || c.phone === m.celular_whatsapp || d.celular_whatsapp === m.celular_whatsapp;
+        });
+        if (live && live.data) {
+          m = { ...m };
+          for (const [k, v] of Object.entries(live.data)) {
+            if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0)) {
+              m[k] = v;
+            }
+          }
+        }
+      }
+
       currentSelectedId = id;
 
       const isWa = (m.origen_registro || '').toLowerCase().includes('whatsapp');

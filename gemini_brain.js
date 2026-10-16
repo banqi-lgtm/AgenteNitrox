@@ -298,9 +298,13 @@ async function processGeminiBrainTurn(session, userText) {
   const history = session.history || [];
 
   // 2. Procesamiento de Lenguaje Natural en Español
+  const lastAssistantMsg = [...history].reverse().find(m => m.role === 'assistant')?.content || '';
   const nlpResult = processNlpPipeline(userText, {
     _waitingHabeasData: Boolean(session._waitingHabeasData),
-    _offeringNitrox: Boolean(session._offeringNitrox)
+    _offeringNitrox: Boolean(session._offeringNitrox),
+    _lastQuestion: session.data?._lastQuestion,
+    lastAssistantMessage: lastAssistantMsg,
+    ...(session.data || {})
   });
 
   // 3. Integración directa de hechos y rechazos de datos en la memoria

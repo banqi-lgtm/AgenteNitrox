@@ -371,6 +371,27 @@ runTest('T. Múltiples números de celular en el chat no se asignan a cédula y 
   assert.strictEqual(nlp.entities.cedula, null, 'Cédula debe ser null, no debe contaminarse con un número celular');
 });
 
+// -------------------------------------------------------------
+// TEST 21: Captura de volumen con números aislados ("20"), rangos ("entre 15 y 20") y palabras ("veinte")
+// -------------------------------------------------------------
+runTest('U. Captura exhaustiva de volumen de motos (aislado, rango, palabras, diario)', () => {
+  // Caso 1: Carlos respondió solo "20" a la pregunta de volumen
+  const nlp1 = processNlpPipeline("20", { _lastQuestion: 'VOLUMEN', lastAssistantMessage: '¿Cuántas motos atienden por semana aproximadamente?' });
+  assert.strictEqual(nlp1.entities.motos_por_semana, '20 motos/semana', 'Debe capturar "20" como 20 motos/semana');
+
+  // Caso 2: Rango "entre 15 y 20"
+  const nlp2 = processNlpPipeline("entre 15 y 20", { _lastQuestion: 'VOLUMEN' });
+  assert.strictEqual(nlp2.entities.motos_por_semana, '15 a 20 motos/semana', 'Debe capturar rango 15 a 20 motos/semana');
+
+  // Caso 3: Palabra en español "veinte"
+  const nlp3 = processNlpPipeline("veinte", { _lastQuestion: 'VOLUMEN' });
+  assert.strictEqual(nlp3.entities.motos_por_semana, '20 motos/semana', 'Debe capturar "veinte" como 20 motos/semana');
+
+  // Caso 4: Volumen diario "4 diarias"
+  const nlp4 = processNlpPipeline("4 diarias", {});
+  assert.ok(nlp4.entities.motos_por_semana.includes('al día') || nlp4.entities.motos_por_semana.includes('diarias'), 'Debe capturar tasa diaria');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

@@ -153,8 +153,16 @@ function normalizeMechanicData(input, origin = 'Web') {
 
     // D. POTENCIAL E INFLUENCIA
     motos_por_semana: input.motos_por_semana || 'No especificado',
-    quien_decide_repuesto: input.quien_decide_repuesto || 'No especificado',
-    frecuencia_recomendacion: input.frecuencia_recomendacion || (input.quien_decide_repuesto === 'Mecánico' ? 'Siempre' : 'No especificada'),
+    quien_decide_repuesto: (input.quien_decide_repuesto && input.quien_decide_repuesto !== 'No especificado')
+      ? input.quien_decide_repuesto
+      : ((input.marcas_repuestos_usadas && input.marcas_repuestos_usadas.length > 0 && !input.marcas_repuestos_usadas.includes('La que traiga el cliente'))
+          ? 'Mecánico'
+          : (input.relacion_taller && /mec[aá]nico|due[ñn]o/i.test(input.relacion_taller) ? 'Mecánico' : 'No especificado')),
+    frecuencia_recomendacion: (input.frecuencia_recomendacion && input.frecuencia_recomendacion !== 'No especificada')
+      ? input.frecuencia_recomendacion
+      : ((input.quien_decide_repuesto === 'Mecánico' || (input.relacion_taller && /mec[aá]nico|due[ñn]o/i.test(input.relacion_taller)))
+          ? 'Frecuentemente'
+          : 'No especificada'),
 
     // E. COMPORTAMIENTO DE COMPRA Y MARCAS (Datos reales del usuario)
     repuestos_frecuentes: Array.isArray(input.repuestos_frecuentes)

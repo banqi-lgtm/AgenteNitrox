@@ -476,16 +476,52 @@ function extractSemanticEntities(text, sessionContext = {}) {
   }
 
   // 8. VOLUMEN DE MOTOS POR SEMANA O DÍA
-  // Detecta patrones como "15 motos por semana", "20 motos", "como 12 motos al día"
-  const volumeMatch = raw.match(/(?:como|unas|unos|alrededor\s+de)?\s*(\d+)\s*(?:motos|veh[ií]culos)?\s*(?:por\s+semana|ala\s+semana|a\s+la\s+semana|semanales|al\s+d[ií]a|diarias)/i)
-    || raw.match(/(?:atiendo|recibo|arreglo|llegan|hago)\s*(?:como|unas|unos)?\s*(\d+)\s*(?:motos)?(?:\s*(?:por|a\s*la)\s*semana|\s*al\s*d[ií]a)?/i);
+  // Detecta números directos ("20"), rangos ("entre 15 y 20", "20 a 30"), palabras numéricas ("veinte"), y cualitativos
+  const spanishWordNumbers = {
+    'un': 1, 'una': 1, 'uno': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+    'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10, 'once': 11,
+    'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15, 'dieciseis': 16,
+    'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19, 'veinte': 20,
+    'veinticinco': 25, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+    'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90, 'cien': 100
+  };
 
-  if (volumeMatch && volumeMatch[1]) {
-    const isDaily = /d[ií]a|diarias/i.test(volumeMatch[0]);
-    const num = volumeMatch[1];
-    extracted.motos_por_semana = isDaily ? `Aproximadamente ${num} motos al día` : `Aproximadamente ${num} motos por semana`;
-  } else if (/bastantes|muchas|harto|full|bastante movimiento/i.test(lower)) {
-    extracted.motos_por_semana = 'Alto volumen (+25 motos por semana)';
+  const isDaily = /\b(?:al\s*d[ií]a|diarias?|por\s*d[ií]a)\b/i.test(raw);
+  const isVolumeContext = sessionContext._lastQuestion === 'VOLUMEN' || 
+                          sessionContext._lastQuestion === 'VOLUMEN_Y_MARCAS' ||
+                          /(?:cu[aá]ntas?|qu[eé]\s+(?:tanto|tantas|cantidad|promedio|flujo|volumen))\s+(?:de\s+)?(?:motos?|m[aá]quinas?)|(?:motos?|m[aá]quinas?)\s+(?:atienden|reciben|llegan|entran)/i.test(sessionContext.lastAssistantMessage || '');
+
+  const rangeMatch = raw.match(/\b(?:entre\s+)?(\d+)\s*(?:a|-|o|y)\s*(\d+)\s*(?:motos?|m[aá]quinas?)?/i);
+  const volumeExplicitMatch = raw.match(/(?:como|unas|unos|alrededor\s+de|por\s+ah[ií])?\s*(\d+)\s*(?:motos?|veh[ií]culos?|m[aá]quinas?)?\s*(?:por\s+semana|ala\s+semana|a\s+la\s+semana|semanales|al\s+d[ií]a|diarias)/i)
+    || raw.match(/(?:atiendo|recibo|arreglo|llegan|hago|veo|entran)\s*(?:como|unas|unos)?\s*(\d+)\s*(?:motos?)?(?:\s*(?:por|a\s*la)\s*semana|\s*al\s*d[ií]a)?/i)
+    || raw.match(/\b(\d+)\s*(?:motos?|m[aá]quinas?)\b/i);
+
+  const standaloneNumMatch = raw.match(/\b(?:unas?|unos?|como|por\s+ah[ií]|alrededor\s+de|m[aá]s\s+o\s+menos)?\s*(\d{1,3})\s*(?:motos?)?\b/i);
+
+  let wordNum = null;
+  for (const [w, n] of Object.entries(spanishWordNumbers)) {
+    if (new RegExp(`\\b${w}\\b`, 'i').test(raw)) {
+      wordNum = n;
+      break;
+    }
+  }
+
+  if (rangeMatch && (isVolumeContext || /\bmotos?\b/i.test(raw) || isDaily || /semana/i.test(raw))) {
+    const min = rangeMatch[1];
+    const max = rangeMatch[2];
+    extracted.motos_por_semana = isDaily ? `${min} a ${max} motos al día` : `${min} a ${max} motos/semana`;
+  } else if (volumeExplicitMatch && volumeExplicitMatch[1]) {
+    const num = volumeExplicitMatch[1];
+    extracted.motos_por_semana = isDaily ? `Aproximadamente ${num} motos al día` : `${num} motos/semana`;
+  } else if (isVolumeContext && standaloneNumMatch && standaloneNumMatch[1]) {
+    const num = standaloneNumMatch[1];
+    extracted.motos_por_semana = isDaily ? `Aproximadamente ${num} motos al día` : `${num} motos/semana`;
+  } else if (isVolumeContext && wordNum) {
+    extracted.motos_por_semana = isDaily ? `Aproximadamente ${wordNum} motos al día` : `${wordNum} motos/semana`;
+  } else if (/bastantes|muchas|harto|full|bastante movimiento|buen flujo/i.test(lower) && (isVolumeContext || /motos?/i.test(lower))) {
+    extracted.motos_por_semana = 'Alta afluencia (+30 motos/semana)';
+  } else if (/pocas|poquitas|bajo|suave|despacio/i.test(lower) && isVolumeContext) {
+    extracted.motos_por_semana = 'Baja afluencia (menos de 10 motos/semana)';
   }
 
   // 9. TIPOS DE REPUESTOS Y REPUESTOS FRECUENTES

@@ -287,19 +287,19 @@ function detectAskedQuestion(replyText, temaPreguntado) {
     return 'NITROX_EXP_INTERES';
   }
   // 7. Marca recomendada
-  if (/recomiendas\s+alguna\s+marca|qu[eé]\s+marcas?\s+de\s+repuestos|como\s+casarella/i.test(lower)) {
+  if (/recomiendas?\s+alguna\s+marca|qu[eé]\s+marcas?\s+de\s+repuestos|como\s+casarella|qui[eé]n\s+decide|qui[eé]n\s+escoge|qui[eé]n\s+elige|t[uú]\s+o\s+el\s+cliente/i.test(lower)) {
     return 'MARCA_RECOMENDADA';
   }
   // 8. Repuestos frecuentes
-  if (/repuestos\s+(?:cambias|rotas|mueves|te\s+piden)|kits\s+de\s+arrastre|pastillas\s+de\s+freno/i.test(lower)) {
+  if (/repuestos\s+(?:cambias|rotas|mueves|te\s+piden|consumes|utilizas)|kits\s+de\s+arrastre|pastillas\s+de\s+freno/i.test(lower)) {
     return 'REPUESTOS';
   }
   // 9. Volumen motos
-  if (/cu[aá]ntas\s+motos|volumen\s+de\s+motos|motos\s+por\s+semana|motos\s+al\s+d[ií]a/i.test(lower)) {
+  if (/(?:cu[aá]ntas?|qu[eé]\s+(?:tanto|tantas|cantidad|promedio|flujo|volumen))\s+(?:de\s+)?(?:motos?|m[aá]quinas?|veh[ií]culos?)|(?:motos?|m[aá]quinas?)\s+(?:atienden|reciben|llegan|hacen|ven|reparan|les\s+entran|entran)|(?:por\s+semana|a\s+la\s+semana|al\s+d[ií]a|diarias|semanales)\s+aproximadamente/i.test(lower)) {
     return 'VOLUMEN';
   }
   // 10. Marcas motos
-  if (/qu[eé]\s+marcas\s+de\s+motos|marcas\s+atiendes|bajaj.*akt/i.test(lower)) {
+  if (/qu[eé]\s+marcas\s+de\s+motos|marcas\s+(?:atiendes|recibes|trabajas|te\s+llegan)|bajaj.*akt/i.test(lower)) {
     return 'MARCAS_MOTOS';
   }
   // 11. Rol / Propietario / Mecánico
@@ -558,14 +558,47 @@ function extractEntities(text, sessionData) {
   }
 
   // 7. Volume (motos_por_semana)
-  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN' || sessionData._lastQuestion === 'VOLUMEN_Y_MARCAS';
-  if ((isVolumeQuestion || /muchas|bastantes|un monton|monton|harto|full|motos por semana|por semana/i.test(lower)) && !sessionData.motos_por_semana) {
+  const isVolumeAssistant = /(?:cu[aá]ntas?|qu[eé]\s+(?:tanto|tantas|cantidad|promedio|flujo|volumen))\s+(?:de\s+)?(?:motos?|m[aá]quinas?|veh[ií]culos?)|(?:motos?|m[aá]quinas?)\s+(?:atienden|reciben|llegan|hacen|ven|reparan|les\s+entran|entran)|(?:por\s+semana|a\s+la\s+semana|al\s+d[ií]a|diarias|semanales)\s+aproximadamente/i.test(sessionData._lastAssistantMessage || '');
+  const isVolumeQuestion = sessionData._lastQuestion === 'VOLUMEN' || sessionData._lastQuestion === 'VOLUMEN_Y_MARCAS' || isVolumeAssistant;
+  const isDailyVolume = /\b(?:al\s*d[ií]a|diarias?|por\s*d[ií]a)\b/i.test(lower);
+
+  if ((isVolumeQuestion || isDailyVolume || /muchas|bastantes|un monton|monton|harto|full|motos por semana|por semana/i.test(lower)) && !sessionData.motos_por_semana) {
     if (/mucha|bastante|harto|montón|monton|full/i.test(lower)) {
       updates.motos_por_semana = 'Alta afluencia (+30 motos/semana)';
     } else {
-      const numMatch = lower.match(/\b\d+\b/);
-      if (numMatch) updates.motos_por_semana = `${numMatch[0]} motos/semana`;
-      else if (isVolumeQuestion) updates.motos_por_semana = raw;
+      const rangeM = lower.match(/\b(?:entre\s+)?(\d+)\s*(?:a|-|o|y)\s*(\d+)\b/);
+      const explicitVolM = lower.match(/(?:como|unas|unos|alrededor\s+de|por\s+ah[ií])?\s*(\d+)\s*(?:motos?|veh[ií]culos?|m[aá]quinas?)?\s*(?:por\s+semana|ala\s+semana|a\s+la\s+semana|semanales|al\s+d[ií]a|diarias)/i)
+        || lower.match(/(?:atiendo|recibo|arreglo|llegan|hago|veo|entran)\s*(?:como|unas|unos)?\s*(\d+)\s*(?:motos?)?(?:\s*(?:por|a\s*la)\s*semana|\s*al\s*d[ií]a)?/i)
+        || lower.match(/\b(\d+)\s*(?:motos?|m[aá]quinas?)\b/i);
+      const standaloneNumM = lower.match(/\b(?:unas?|unos?|como|por\s+ah[ií]|alrededor\s+de|m[aá]s\s+o\s+menos)?\s*(\d{1,3})\s*(?:motos?)?\b/);
+
+      const spanishWordNumbers = {
+        'un': 1, 'una': 1, 'uno': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+        'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10, 'once': 11,
+        'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15, 'dieciseis': 16,
+        'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19, 'veinte': 20,
+        'veinticinco': 25, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+        'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90, 'cien': 100
+      };
+      let wordNum = null;
+      for (const [w, n] of Object.entries(spanishWordNumbers)) {
+        if (new RegExp(`\\b${w}\\b`, 'i').test(lower)) {
+          wordNum = n;
+          break;
+        }
+      }
+
+      if (rangeM) {
+        updates.motos_por_semana = isDailyVolume ? `${rangeM[1]} a ${rangeM[2]} motos al día` : `${rangeM[1]} a ${rangeM[2]} motos/semana`;
+      } else if (explicitVolM && explicitVolM[1]) {
+        updates.motos_por_semana = isDailyVolume ? `Aproximadamente ${explicitVolM[1]} motos al día` : `${explicitVolM[1]} motos/semana`;
+      } else if (isVolumeQuestion && standaloneNumM && standaloneNumM[1]) {
+        updates.motos_por_semana = isDailyVolume ? `Aproximadamente ${standaloneNumM[1]} motos al día` : `${standaloneNumM[1]} motos/semana`;
+      } else if (isVolumeQuestion && wordNum) {
+        updates.motos_por_semana = isDailyVolume ? `Aproximadamente ${wordNum} motos al día` : `${wordNum} motos/semana`;
+      } else if (isVolumeQuestion && raw.trim().length >= 1) {
+        updates.motos_por_semana = raw.trim();
+      }
     }
   }
 
@@ -836,7 +869,7 @@ const localMecanicosStore = [];
 async function saveMechanicToFirestore(phone, data, isFinal = false) {
   const cleanPhone = phoneFromId(phone) || String(data.celular_whatsapp || '').replace(/\D/g, '');
   if (isBsuidId(phone)) data.wa_user_id = String(phone);
-  if (!isFinal && !data._finished) {
+  if (!isFinal && !data._finished && !data.id_unico) {
     // Durante la conversación activa NO asignar id_unico para no confundir a Gemini con un taller ya registrado
     return data;
   }
@@ -919,6 +952,10 @@ async function generateMateoResponse(fromNumber, userText) {
 
     // 1. Extraer entidades determinísticas locales del mensaje ANTES de llamar a Gemini
     // para que la memoria y sesión estén 100% actualizadas al generar la respuesta
+    const lastAsst = [...(session.history || [])].reverse().find(m => m.role === 'assistant');
+    if (lastAsst && lastAsst.content) {
+      session.data._lastAssistantMessage = lastAsst.content;
+    }
     const preEntities = extractEntities(raw, session.data);
     for (const [key, val] of Object.entries(preEntities)) {
       if (val !== null && val !== undefined && val !== '') {
@@ -1071,6 +1108,11 @@ async function generateMateoResponse(fromNumber, userText) {
   const nextAskedQ = detectAskedQuestion(brainResult.reply, brainResult.tema_preguntado);
   if (nextAskedQ) {
     session.data._lastQuestion = nextAskedQ;
+  }
+
+  // Si ya tiene id_unico asignado, sincronizar con mecanicos_red_nitrox en cada turno
+  if (session.data.id_unico) {
+    await saveMechanicToFirestore(fromNumber, session.data, true);
   }
 
   // Normal turn or post-registration follow up

@@ -637,14 +637,26 @@ app.get('/api/crm/mecanicos', requireAuth, async (req, res) => {
         const hasData = Boolean(d.nombres_apellidos || d.nombre_taller || (sess.history && sess.history.length >= 2));
         if (!hasData) continue;
 
-        const isAlreadyInList = list.some(item => {
+        const existingItem = list.find(item => {
           if (d.id_unico && item.id_unico === d.id_unico) return true;
           if (phone && (item.celular_whatsapp === phone || item.wa_user_id === phone)) return true;
           if (d.celular_whatsapp && item.celular_whatsapp === d.celular_whatsapp) return true;
           return false;
         });
 
-        if (!isAlreadyInList) {
+        if (existingItem) {
+          // Si el mecánico ya está en la lista pero la sesión tiene datos más recientes,
+          // fusionar los datos para que motos_por_semana, marcas, repuestos, etc. se muestren en tiempo real
+          const cleanPhone = existingItem.celular_whatsapp || (phone ? phone.replace(/\D/g, '') : '');
+          const merged = normalizeMechanicData({
+            ...existingItem,
+            ...d,
+            id_unico: existingItem.id_unico || d.id_unico,
+            celular_whatsapp: cleanPhone,
+            fecha_registro: existingItem.fecha_registro || d.fecha_registro
+          }, existingItem.origen_registro || 'WhatsApp');
+          Object.assign(existingItem, merged);
+        } else {
           const isBsuid = /[A-Za-z]/.test(phone);
           const cleanPhone = isBsuid ? (d.celular_whatsapp || '') : phone.replace(/\D/g, '');
           const tempId = d.id_unico || `PROSP-${(cleanPhone.slice(-4) || phone.slice(-4) || 'WA')}-${(d.nombre_taller || d.nombres_apellidos || 'PROSPECTO').slice(0, 4).toUpperCase().replace(/\W/g, '')}`;

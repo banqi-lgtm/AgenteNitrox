@@ -191,8 +191,8 @@ const MASTER_FIELDS = {
     key: 'marcas_repuestos_usadas',
     label: 'Marcas de repuestos que utiliza o recomienda',
     section: 'E',
-    mandatory: false,
-    weight: 4,
+    mandatory: true,
+    weight: 5,
     isValid: (val) => Array.isArray(val) ? val.length > 0 : Boolean(val && typeof val === 'string' && !/^(?:no especificado|n\/a)$/i.test(val.trim()))
   },
   factores_eleccion_repuesto: {
