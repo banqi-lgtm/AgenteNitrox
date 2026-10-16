@@ -169,11 +169,11 @@ const PUBLIC_BASE_URL = 'https://webhook-my2e3j2ecq-uc.a.run.app';
 // Campos de la ficha maestra que se pueden completar en el formulario (en orden de prioridad).
 // Solo se muestran los que NO quedaron respondidos en la conversación con Mateo.
 const COMPLETAR_FIELDS = [
-  'correo', 'cedula', 'barrio_taller', 'direccion_taller', 'experiencia_mecanico',
-  'antiguedad_taller', 'personas_taller', 'quien_decide_repuesto', 'donde_compra_repuestos', 'marcas_repuestos_usadas'
+  'cedula', 'correo', 'direccion_taller', 'experiencia_mecanico',
+  'antiguedad_taller', 'personas_taller', 'donde_compra_repuestos', 'quien_decide_repuesto'
 ];
 const COMPLETAR_ARRAY_FIELDS = ['donde_compra_repuestos', 'marcas_repuestos_usadas'];
-const COMPLETAR_MAX = 5;
+const COMPLETAR_MAX = 4;
 
 function getFormPendingFields(m) {
   return COMPLETAR_FIELDS.filter(k => {
@@ -184,15 +184,127 @@ function getFormPendingFields(m) {
 }
 
 async function findMechanicByToken(token) {
-  if (!token || token.length < 8) return null;
-  const local = (localMecanicosCache || []).find(m => m.form_token === token);
-  if (local) return local;
-  try {
-    const snap = await admin.firestore().collection('mecanicos_red_nitrox').where('form_token', '==', token).limit(1).get();
-    if (!snap.empty) return snap.docs[0].data();
-  } catch (e) {
-    console.warn('[COMPLETAR LOOKUP]', e.message);
+  if (!token) return null;
+  const clean = String(token).trim();
+  if (clean.length < 4) return null;
+  const cleanPhone = clean.replace(/\D/g, '');
+
+  // 1. Búsqueda en memoria RAM local (localMecanicosCache / localMecanicosStore)
+  const localList = Array.isArray(localMecanicosCache) ? localMecanicosCache : (localMecanicosStore || []);
+  let found = localList.find(m => m && (
+    m.form_token === clean ||
+    m.id_unico === clean ||
+    m.id === clean ||
+    (cleanPhone && cleanPhone.length >= 7 && String(m.celular_whatsapp || '').includes(cleanPhone)) ||
+    (m.wa_user_id && m.wa_user_id === clean)
+  ));
+  if (found) return found;
+
+  // 2. Búsqueda en memoria de sesiones activas (memoryCache)
+  if (typeof memoryCache === 'object' && memoryCache !== null) {
+    for (const [phone, sess] of Object.entries(memoryCache)) {
+      if (sess && sess.data) {
+        const d = sess.data;
+        if (
+          d.form_token === clean ||
+          d.id_unico === clean ||
+          phone === clean ||
+          (cleanPhone && cleanPhone.length >= 7 && String(d.celular_whatsapp || '').includes(cleanPhone)) ||
+          (d.wa_user_id && d.wa_user_id === clean)
+        ) {
+          const normalized = normalizeMechanicData({ ...d, tiene_whatsapp: true }, 'WhatsApp');
+          if (!normalized.form_token) normalized.form_token = d.form_token || clean;
+          localList.unshift(normalized);
+          return normalized;
+        }
+      }
+    }
   }
+
+  // 3. Si está corriendo en Localhost, consultar la nube en producción para garantizar sincronización 100%
+  if (!isRunningInCloud) {
+    try {
+      const prodBase = 'https://webhook-my2e3j2ecq-uc.a.run.app';
+      const prodRes = await fetch(`${prodBase}/api/completar/${encodeURIComponent(clean)}`);
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        if (prodData && prodData.success) {
+          const mecsRes = await fetch(`${prodBase}/api/crm/mecanicos`, {
+            headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+          });
+          if (mecsRes.ok) {
+            const mecsJson = await mecsRes.json();
+            const pm = (mecsJson.mecanicos || []).find(m =>
+              m && (m.form_token === clean || m.id_unico === clean || m.id_unico === prodData.id_unico)
+            );
+            if (pm) {
+              localList.unshift(pm);
+              return pm;
+            }
+          }
+          return {
+            id_unico: prodData.id_unico,
+            nombres_apellidos: prodData.nombre,
+            nombre_taller: prodData.taller,
+            form_token: clean,
+            ...prodData
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[LOCAL PROD PROXY LOOKUP]', e.message);
+    }
+  }
+
+  // 4. Búsqueda en Firestore (Producción Cloud Run o ambiente autenticado)
+  try {
+    const db = admin.firestore();
+
+    // 4a. Buscar por form_token
+    let snap = await db.collection('mecanicos_red_nitrox').where('form_token', '==', clean).limit(1).get();
+    if (!snap.empty) return snap.docs[0].data();
+
+    // 4b. Buscar directamente por doc ID (ej: 'RN-MED-...')
+    const docSnap = await db.collection('mecanicos_red_nitrox').doc(clean).get();
+    if (docSnap.exists) return docSnap.data();
+
+    // 4c. Buscar por id_unico
+    snap = await db.collection('mecanicos_red_nitrox').where('id_unico', '==', clean).limit(1).get();
+    if (!snap.empty) return snap.docs[0].data();
+
+    // 4d. Buscar por celular
+    if (cleanPhone.length >= 10) {
+      snap = await db.collection('mecanicos_red_nitrox').where('celular_whatsapp', '==', cleanPhone).limit(1).get();
+      if (!snap.empty) return snap.docs[0].data();
+    }
+
+    // 4e. Buscar en sesiones_mateo por data.form_token
+    snap = await db.collection('sesiones_mateo').where('data.form_token', '==', clean).limit(1).get();
+    if (!snap.empty) {
+      const sData = snap.docs[0].data()?.data || {};
+      const normalized = normalizeMechanicData({ ...sData, tiene_whatsapp: true }, 'WhatsApp');
+      normalized.form_token = sData.form_token || clean;
+      if (normalized.id_unico) {
+        await db.collection('mecanicos_red_nitrox').doc(normalized.id_unico).set(normalized, { merge: true });
+      }
+      return normalized;
+    }
+
+    // 4f. Buscar en sesiones_mateo por doc ID (teléfono o BSUID)
+    const sessDoc = await db.collection('sesiones_mateo').doc(clean).get();
+    if (sessDoc.exists) {
+      const sData = sessDoc.data()?.data || {};
+      const normalized = normalizeMechanicData({ ...sData, tiene_whatsapp: true }, 'WhatsApp');
+      if (!normalized.form_token) normalized.form_token = clean;
+      if (normalized.id_unico) {
+        await db.collection('mecanicos_red_nitrox').doc(normalized.id_unico).set(normalized, { merge: true });
+      }
+      return normalized;
+    }
+  } catch (e) {
+    console.warn('[COMPLETAR FIRESTORE LOOKUP]', e.message);
+  }
+
   return null;
 }
 
@@ -264,7 +376,6 @@ app.post('/api/completar/:token', async (req, res) => {
     }
   }
   if (body.acepta_comunicaciones === true) updates.autorizacion_comunicaciones_comerciales = true;
-  const firstTime = !m.formulario_completado_en;
   updates.formulario_completado_en = new Date().toISOString();
 
   Object.assign(m, updates);
@@ -274,14 +385,16 @@ app.post('/api/completar/:token', async (req, res) => {
     console.warn('[COMPLETAR SAVE]', e.message);
   }
 
-  // Confirmación por WhatsApp con el link único al perfil
-  const profileUrl = `${PUBLIC_BASE_URL}/perfil/${encodeURIComponent(req.params.token)}`;
+  // Confirmación inmediata por WhatsApp con el link único al perfil
+  const profileToken = m.form_token || m.id_unico || req.params.token;
+  const profileUrl = `${PUBLIC_BASE_URL}/perfil/${encodeURIComponent(profileToken)}`;
   const phone = String(m.wa_user_id || '').trim() || String(m.celular_whatsapp || '').replace(/\D/g, '');
-  if (phone && firstTime) {
-    const msg = `✅ *Recibimos tu información.* ¡Gracias!\n\nAquí puedes ver tu perfil RED NITROX cuando quieras:\n👉 ${profileUrl}`;
+  if (phone) {
+    const msg = `¡Recibimos tu información! 🏁 Ya quedó completo tu registro en la RED NITROX.\n\nPuedes ver tu perfil y credencial oficial aquí:\n👉 ${profileUrl}`;
     try {
       await sendWhatsAppMessage(phone, msg);
       await appendAssistantMessageToSession(phone, msg);
+      console.log(`✅ [WHATSAPP POST-FORMULARIO ENVIADO A ${phone}]: ${profileUrl}`);
     } catch (e) {
       console.warn('[COMPLETAR WHATSAPP]', e.message);
     }

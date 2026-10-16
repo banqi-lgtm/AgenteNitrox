@@ -78,18 +78,16 @@
 
 <script>
 const token = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
-const sel = (name, opts) => `<select name="${name}"><option value="">Selecciona</option>${opts.map(o => `<option>${o}</option>`).join('')}</select>`;
+const sel = (name, opts) => `<select name="${name}"><option value="">Selecciona una opción</option>${opts.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
 const FIELD_DEF = {
-  correo: { label: 'Correo electrónico', html: '<input type="email" name="correo" placeholder="tucorreo@gmail.com" autocomplete="email">' },
-  cedula: { label: 'Cédula', html: '<input type="text" name="cedula" inputmode="numeric" placeholder="Número de cédula">' },
-  barrio_taller: { label: 'Barrio del taller', html: '<input type="text" name="barrio_taller" placeholder="Ej: Belén, Castilla, Itagüí centro">' },
-  direccion_taller: { label: 'Dirección del taller', html: '<input type="text" name="direccion_taller" placeholder="Ej: Calle 50 # 40-20">' },
-  experiencia_mecanico: { label: '¿Cuántos años llevas como mecánico?', html: sel('experiencia_mecanico', ['Menos de 2 años', '2 a 5 años', '6 a 10 años', 'Más de 10 años']) },
-  antiguedad_taller: { label: '¿Hace cuánto funciona el taller?', html: sel('antiguedad_taller', ['Menos de 1 año', '1 a 3 años', '4 a 10 años', 'Más de 10 años']) },
-  personas_taller: { label: '¿Cuántas personas trabajan en el taller?', html: sel('personas_taller', ['1', '2–3', '4–5', 'Más de 5']) },
-  quien_decide_repuesto: { label: '¿Quién decide la marca del repuesto?', html: sel('quien_decide_repuesto', ['Yo (el mecánico)', 'El dueño del taller', 'El cliente', 'Entre el cliente y yo']) },
-  donde_compra_repuestos: { label: '¿Dónde compras los repuestos?', html: sel('donde_compra_repuestos', ['Almacén de repuestos del barrio', 'Distribuidor que me visita', 'Centro (almacenes grandes)', 'Por WhatsApp / internet']) },
-  marcas_repuestos_usadas: { label: '¿Qué marcas de repuestos usas más?', html: '<input type="text" name="marcas_repuestos_usadas" placeholder="Ej: NITROX, Casarella, originales">' }
+  cedula: { label: 'Cédula de ciudadanía', html: '<input type="text" name="cedula" inputmode="numeric" placeholder="Número de cédula (para premios y beneficios)">' },
+  correo: { label: 'Correo electrónico', html: '<input type="email" name="correo" placeholder="ejemplo@correo.com (para catálogos y guías)">' },
+  direccion_taller: { label: 'Dirección exacta del taller', html: '<input type="text" name="direccion_taller" placeholder="Ej: Calle 50 # 40-20 (para visita Ruta NITROX)">' },
+  experiencia_mecanico: { label: '¿Cuántos años llevas en la mecánica de motos?', html: sel('experiencia_mecanico', ['Menos de 2 años', '2 a 5 años', '6 a 10 años', 'Más de 10 años']) },
+  antiguedad_taller: { label: '¿Hace cuánto tiempo funciona el taller?', html: sel('antiguedad_taller', ['Menos de 1 año', '1 a 3 años', '4 a 10 años', 'Más de 10 años']) },
+  personas_taller: { label: '¿Cuántas personas trabajan en el taller?', html: sel('personas_taller', ['1 (solo yo)', '2–3 personas', '4–5 personas', 'Más de 5 personas']) },
+  donde_compra_repuestos: { label: '¿Dónde compras normalmente los repuestos?', html: sel('donde_compra_repuestos', ['Almacén de repuestos del barrio', 'Distribuidor que visita el taller', 'Centro / Almacenes grandes', 'Por WhatsApp o internet']) },
+  quien_decide_repuesto: { label: '¿Quién decide la marca del repuesto a instalar?', html: sel('quien_decide_repuesto', ['Yo como mecánico', 'El dueño del taller', 'El cliente', 'Decisión compartida']) }
 };
 const INTERESTS = ['Capacitaciones técnicas', 'Premios y concursos', 'Ruta NITROX (visitas)'];
 const $ = id => document.getElementById(id);
@@ -98,18 +96,31 @@ const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 fetch('/api/completar/' + encodeURIComponent(token)).then(r => r.json()).then(d => {
   $('loading').classList.add('hidden');
   if (!d.success) { $('invalid').classList.remove('hidden'); return; }
-  if (d.completado && (!d.pending || d.pending.length === 0)) { location.replace('/perfil/' + encodeURIComponent(token)); return; }
+  if (d.completado && (!d.pending || d.pending.length === 0)) {
+    location.replace('/perfil/' + encodeURIComponent(token));
+    return;
+  }
   const first = ((d.nombre || '').split(' ')[0] || '').replace(/^./, c => c.toUpperCase());
   $('hello').textContent = first ? `¡Hola, ${first}!` : '¡Hola!';
   $('known').innerHTML = [d.taller && `<span class="chip">🔧 <b>${esc(d.taller)}</b></span>`, d.ubicacion && `<span class="chip">${esc(d.ubicacion)}</span>`].filter(Boolean).join('');
-  $('fields').innerHTML = d.pending.map(k => FIELD_DEF[k] ? `<label class="f">${FIELD_DEF[k].label}</label>${FIELD_DEF[k].html}` : '').join('');
+  const pend = Array.isArray(d.pending) ? d.pending : [];
+  $('fields').innerHTML = pend.map(k => FIELD_DEF[k] ? `<label class="f">${FIELD_DEF[k].label}</label>${FIELD_DEF[k].html}` : '').join('');
+  
+  const existingInts = d.intereses || [];
   $('ints').innerHTML = INTERESTS.map(i => {
-    const on = (d.intereses || []).includes(i) || true;
+    const on = existingInts.length ? existingInts.includes(i) : true;
     return `<label class="opt ${on ? 'on' : ''}"><input type="checkbox" value="${esc(i)}" ${on ? 'checked' : ''}> ${esc(i)}</label>`;
   }).join('');
-  $('ints').addEventListener('change', e => e.target.closest('.opt').classList.toggle('on', e.target.checked));
+  $('ints').addEventListener('change', e => {
+    const opt = e.target.closest('.opt');
+    if (opt) opt.classList.toggle('on', e.target.checked);
+  });
   $('form').classList.remove('hidden');
-}).catch(() => { $('loading').classList.add('hidden'); $('invalid').classList.remove('hidden'); });
+}).catch(err => {
+  console.warn('Error cargando formulario:', err);
+  $('loading').classList.add('hidden');
+  $('invalid').classList.remove('hidden');
+});
 
 $('form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -123,11 +134,14 @@ $('form').addEventListener('submit', async e => {
     const r = await fetch('/api/completar/' + encodeURIComponent(token), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const d = await r.json();
     if (!d.success) throw new Error(d.message || 'No se pudo guardar');
-    if (d.profileUrl) { $('profileBtn').href = '/perfil/' + encodeURIComponent(token); }
-    $('form').classList.add('hidden'); $('done').classList.remove('hidden');
+    $('profileBtn').href = d.profileUrl || ('/perfil/' + encodeURIComponent(token));
+    $('form').classList.add('hidden');
+    $('done').classList.remove('hidden');
     window.scrollTo(0, 0);
   } catch (err) {
-    $('err').textContent = err.message; $('err').style.display = 'block'; $('btn').disabled = false;
+    $('err').textContent = err.message;
+    $('err').style.display = 'block';
+    $('btn').disabled = false;
   }
 });
 </script>

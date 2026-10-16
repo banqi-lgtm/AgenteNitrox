@@ -759,6 +759,10 @@ async function saveMechanicToFirestore(phone, data, isFinal = false) {
     data.id_unico = `RN-MED-${rawId}`;
   }
 
+  if (!data.form_token) {
+    data.form_token = crypto.randomBytes(9).toString('base64url');
+  }
+
   const normalized = normalizeMechanicData({
     ...data,
     celular_whatsapp: cleanPhone,
