@@ -427,7 +427,7 @@ app.post('/api/formulario', async (req, res) => {
   }
 });
 
-// CRM Mecánicos List API
+// CRM Mecánicos List API (incluye vinculados oficiales + prospectos con datos en conversación activa)
 app.get('/api/crm/mecanicos', requireAuth, async (req, res) => {
   try {
     let list = [];
@@ -447,6 +447,43 @@ app.get('/api/crm/mecanicos', requireAuth, async (req, res) => {
         list.push(localItem);
       }
     });
+
+    // Incluir sesiones activas para que aparezcan en tiempo real en la base de mecánicos y fichas
+    try {
+      const allSessions = await getAllSessions();
+      const { normalizeMechanicData } = require('./scoring');
+      for (const sess of allSessions) {
+        const phone = sess.phone || (sess.data && sess.data.celular_whatsapp) || '';
+        const d = sess.data || {};
+        const hasData = Boolean(d.nombres_apellidos || d.nombre_taller || (sess.history && sess.history.length >= 2));
+        if (!hasData) continue;
+
+        const isAlreadyInList = list.some(item => {
+          if (d.id_unico && item.id_unico === d.id_unico) return true;
+          if (phone && (item.celular_whatsapp === phone || item.wa_user_id === phone)) return true;
+          if (d.celular_whatsapp && item.celular_whatsapp === d.celular_whatsapp) return true;
+          return false;
+        });
+
+        if (!isAlreadyInList) {
+          const isBsuid = /[A-Za-z]/.test(phone);
+          const cleanPhone = isBsuid ? (d.celular_whatsapp || '') : phone.replace(/\D/g, '');
+          const tempId = d.id_unico || `PROSP-${(cleanPhone.slice(-4) || phone.slice(-4) || 'WA')}-${(d.nombre_taller || d.nombres_apellidos || 'PROSPECTO').slice(0, 4).toUpperCase().replace(/\W/g, '')}`;
+          const normalized = normalizeMechanicData({
+            ...d,
+            id_unico: tempId,
+            celular_whatsapp: cleanPhone,
+            wa_user_id: isBsuid ? phone : (d.wa_user_id || ''),
+            estado_mecanico: d._finished ? 'Activo' : 'En proceso de registro',
+            origen_registro: d._finished ? 'WhatsApp' : 'WhatsApp (En conversación)',
+            fecha_registro: d.fecha_registro || (sess.history && sess.history[0]?.timestamp ? new Date(sess.history[0].timestamp).toISOString() : new Date().toISOString())
+          }, 'WhatsApp');
+          list.push(normalized);
+        }
+      }
+    } catch (sessErr) {
+      console.warn('[CRM MECANICOS SESSIONS MERGE]', sessErr.message);
+    }
 
     list.sort((a, b) => new Date(b.fecha_registro || 0) - new Date(a.fecha_registro || 0));
     return res.json({ success: true, count: list.length, mecanicos: list });
