@@ -2496,7 +2496,7 @@
       window.open(`https://wa.me/${clean}`, '_blank');
     }
 
-    function openSelectedFicha() {
+    async function openSelectedFicha() {
       if (!selectedPhone) {
         alert('Por favor selecciona una conversación de la lista.');
         return;
@@ -2504,46 +2504,78 @@
       const clean = selectedPhone.replace(/\D/g, '');
       let mech = allMechanics.find(item => {
         if (item.id_unico === selectedPhone) return true;
-        if (item.wa_user_id === selectedPhone) return true;
-        if (clean && item.celular_whatsapp === clean) return true;
+        if (item.wa_user_id && item.wa_user_id === selectedPhone) return true;
+        if (clean && clean.length >= 7 && item.celular_whatsapp === clean) return true;
         const mPhone = (item.celular_whatsapp || '').replace(/\D/g, '');
         return clean && clean.length >= 7 && (mPhone.includes(clean) || clean.includes(mPhone));
       });
 
-      if (!mech) {
-        const live = allLiveConversations.find(c => c.phone === selectedPhone);
-        if (live) {
-          const d = live.data || {};
-          const tempId = d.id_unico || `PROSP-${(clean.slice(-4) || selectedPhone.slice(-4) || 'WA')}`;
-          mech = {
-            id_unico: tempId,
-            nombres_apellidos: d.nombres_apellidos || live.nombres_apellidos || 'Mecánico en conversación',
-            nombre_taller: d.nombre_taller || live.nombre_taller || 'Taller sin registrar',
-            celular_whatsapp: d.celular_whatsapp || (clean.length >= 10 ? clean : ''),
-            wa_user_id: selectedPhone,
-            ciudad_taller: d.ciudad_taller || 'Medellín',
-            barrio_taller: d.barrio_taller || '',
-            direccion_taller: d.direccion_taller || '',
-            relacion_taller: d.relacion_taller || 'No especificada',
-            antiguedad_taller: d.antiguedad_taller || 'No especificada',
-            personas_taller: d.personas_taller || 'No especificado',
-            experiencia_mecanico: d.experiencia_mecanico || 'No especificada',
-            especialidad: d.especialidad || ['Mecánica general'],
-            marcas_motos: d.marcas_motos || [],
-            motos_por_semana: d.motos_por_semana || 'No especificado',
-            quien_decide_repuesto: d.quien_decide_repuesto || 'No especificado',
-            repuestos_frecuentes: d.repuestos_frecuentes || [],
-            marcas_repuestos_usadas: d.marcas_repuestos_usadas || [],
-            conoce_nitrox: d.conoce_nitrox || 'No',
-            quiere_muestras: d.quiere_muestras || 'No',
-            autorizacion_tratamiento_datos: d.autorizacion_tratamiento_datos,
-            score_potencial: d.score_potencial || 0,
-            nivel_relacion_numero: d.nivel_relacion_numero || 1,
-            origen_registro: 'WhatsApp (En conversación)',
-            estado_mecanico: 'En proceso de registro',
-            fecha_registro: new Date().toISOString()
-          };
-          allMechanics.push(mech);
+      // Si no está en allMechanics o le faltan campos, consultar detalle en vivo del servidor
+      if (!mech || !mech.nombre_taller || mech.autorizacion_tratamiento_datos === undefined) {
+        try {
+          const res = await fetch(`/api/crm/conversacion-en-vivo/${selectedPhone}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const resData = await res.json();
+            const d = (resData.success && resData.data) ? resData.data : {};
+            const cleanPhone = (d.celular_whatsapp || '').replace(/\D/g, '');
+            const tempId = d.id_unico || `PROSP-${(cleanPhone.slice(-4) || selectedPhone.slice(-4) || 'WA')}`;
+            
+            const liveMech = {
+              id_unico: d.id_unico || tempId,
+              nombres_apellidos: d.nombres_apellidos || 'Mecánico en conversación',
+              nombre_taller: d.nombre_taller || 'Taller sin registrar',
+              celular_whatsapp: d.celular_whatsapp || (clean.length >= 10 ? clean : ''),
+              telefono_alterno: d.telefono_alterno || '',
+              wa_user_id: selectedPhone,
+              ciudad_taller: d.ciudad_taller || 'Medellín',
+              barrio_taller: d.barrio_taller || '',
+              direccion_taller: d.direccion_taller || '',
+              relacion_taller: d.relacion_taller || 'No especificada',
+              antiguedad_taller: d.antiguedad_taller || 'No especificada',
+              personas_taller: d.personas_taller || 'No especificado',
+              experiencia_mecanico: d.experiencia_mecanico || 'No especificada',
+              especialidad: d.especialidad || ['Mecánica general'],
+              marcas_motos: d.marcas_motos || [],
+              motos_por_semana: d.motos_por_semana || 'No especificado',
+              quien_decide_repuesto: d.quien_decide_repuesto || 'No especificado',
+              frecuencia_recomendacion: d.frecuencia_recomendacion || (d.quien_decide_repuesto === 'Mecánico' ? 'Siempre' : 'No especificada'),
+              repuestos_frecuentes: d.repuestos_frecuentes || [],
+              donde_compra_repuestos: d.donde_compra_repuestos || (d.canal_compra ? [d.canal_compra] : []),
+              marcas_repuestos_usadas: d.marcas_repuestos_usadas || [],
+              factores_eleccion_repuesto: d.factores_eleccion_repuesto || [],
+              conoce_nitrox: d.conoce_nitrox || 'No',
+              como_conocio_nitrox: d.como_conocio_nitrox || (d.conoce_nitrox === 'No' ? 'No aplica' : ''),
+              ha_usado_nitrox: d.ha_usado_nitrox || 'No',
+              calificacion_experiencia_nitrox: d.calificacion_experiencia_nitrox || ((d.conoce_nitrox === 'No' || d.ha_usado_nitrox === 'No') ? 'No aplica' : ''),
+              recomendaria_nitrox: d.recomendaria_nitrox || ((d.conoce_nitrox === 'No' || d.ha_usado_nitrox === 'No') ? 'No aplica' : ''),
+              quiere_muestras: d.quiere_muestras || 'No',
+              actividades_interes: d.actividades_interes || (d.quiere_muestras === 'Sí' ? ['Muestras de repuestos', 'Catálogo'] : []),
+              temas_capacitacion: d.temas_capacitacion || [],
+              correo: d.correo || '',
+              cedula: d.cedula || '',
+              autorizacion_tratamiento_datos: d.autorizacion_tratamiento_datos === true,
+              autorizacion_comunicaciones_comerciales: d.autorizacion_comunicaciones_comerciales !== undefined ? d.autorizacion_comunicaciones_comerciales : Boolean(d.autorizacion_tratamiento_datos),
+              score_potencial: d.score_potencial || 65,
+              nivel_relacion_numero: d.nivel_relacion_numero || (d.recomendaria_nitrox && d.recomendaria_nitrox.includes('sí') ? 7 : 1),
+              nivel_relacion_nombre: d.nivel_relacion_nombre || (d.recomendaria_nitrox && d.recomendaria_nitrox.includes('sí') ? 'Recomienda NITROX' : 'Registrado'),
+              origen_registro: d._finished ? 'WhatsApp' : 'WhatsApp (En conversación)',
+              estado_mecanico: d._finished ? 'Activo' : 'En proceso de registro',
+              fecha_registro: d.fecha_registro || new Date().toISOString()
+            };
+
+            const idx = allMechanics.findIndex(m => m.id_unico === liveMech.id_unico || m.wa_user_id === selectedPhone);
+            if (idx >= 0) {
+              allMechanics[idx] = Object.assign(allMechanics[idx], liveMech);
+              mech = allMechanics[idx];
+            } else {
+              allMechanics.push(liveMech);
+              mech = liveMech;
+            }
+          }
+        } catch (e) {
+          console.warn('Error fetching fresh ficha data:', e);
         }
       }
 

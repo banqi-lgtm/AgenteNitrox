@@ -430,6 +430,25 @@ app.post('/api/formulario', async (req, res) => {
 // CRM Mecánicos List API (incluye vinculados oficiales + prospectos con datos en conversación activa)
 app.get('/api/crm/mecanicos', requireAuth, async (req, res) => {
   try {
+    // Si corre en localhost, consultar en vivo a producción para evitar timeouts locales
+    if (!isRunningInCloud) {
+      try {
+        const prodRes = await fetch('https://webhook-my2e3j2ecq-uc.a.run.app/api/crm/mecanicos', {
+          headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+        });
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          if (prodData.success && Array.isArray(prodData.mecanicos)) {
+            localMecanicosStore.length = 0;
+            prodData.mecanicos.forEach(m => localMecanicosStore.push(m));
+            return res.json(prodData);
+          }
+        }
+      } catch (e) {
+        console.warn('[CRM MECANICOS PROD PROXY FALLBACK]', e.message);
+      }
+    }
+
     let list = [];
     try {
       const snapPromise = admin.firestore().collection('mecanicos_red_nitrox').get();
@@ -535,6 +554,39 @@ app.put('/api/crm/mecanicos/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Error actualizando mecánico:', err);
     return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// CRM Mecánicos Corrección / Actualización Completa (Admin)
+app.post('/api/crm/corregir-mecanico/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updates = req.body || {};
+
+    try {
+      const docRef = admin.firestore().collection('mecanicos_red_nitrox').doc(id);
+      await docRef.set(updates, { merge: true });
+
+      const phone = updates.wa_user_id || updates.celular_whatsapp;
+      if (phone) {
+        const sessRef = admin.firestore().collection('sesiones_mateo').doc(phone);
+        const snap = await sessRef.get();
+        if (snap.exists) {
+          const s = snap.data() || {};
+          s.data = Object.assign(s.data || {}, updates);
+          await sessRef.set(s, { merge: true });
+        }
+      }
+    } catch (fsErr) {
+      console.warn('[CORREGIR FIRESTORE ERROR]', fsErr.message);
+    }
+
+    const item = localMecanicosStore.find(m => m.id_unico === id || (updates.wa_user_id && m.wa_user_id === updates.wa_user_id));
+    if (item) Object.assign(item, updates);
+
+    return res.json({ success: true, updated: updates });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -896,7 +948,8 @@ app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
           content: lastMsg.content,
           timestamp: lastMsg.timestamp || Date.now()
         } : null,
-        tokens: stats
+        tokens: stats,
+        data: data
       };
     });
 
