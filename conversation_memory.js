@@ -196,6 +196,21 @@ function initOrLoadMemory(session) {
   for (const [key, val] of Object.entries(currentData)) {
     if (val !== null && val !== undefined && val !== '' && !session.memory.confirmedFacts[key]) {
       if (Array.isArray(val) && val.length === 0) continue;
+      // Validar que no sean nombres o talleres espurios históricos
+      if (key === 'nombres_apellidos') {
+        const { cleanPersonName } = require('./agent');
+        if (!cleanPersonName(val)) {
+          delete currentData.nombres_apellidos;
+          continue;
+        }
+      }
+      if (key === 'nombre_taller') {
+        const { cleanWorkshopName } = require('./agent');
+        if (!cleanWorkshopName(val)) {
+          delete currentData.nombre_taller;
+          continue;
+        }
+      }
       session.memory.confirmedFacts[key] = {
         value: val,
         timestamp: Date.now(),
@@ -205,6 +220,22 @@ function initOrLoadMemory(session) {
       if (!session.memory.topicsCovered.includes(key)) {
         session.memory.topicsCovered.push(key);
       }
+    }
+  }
+
+  // Purgar de session.memory.confirmedFacts si quedó algún residuo sucio
+  if (session.memory.confirmedFacts['nombres_apellidos']) {
+    const { cleanPersonName } = require('./agent');
+    if (!cleanPersonName(session.memory.confirmedFacts['nombres_apellidos'].value)) {
+      delete session.memory.confirmedFacts['nombres_apellidos'];
+      session.memory.topicsCovered = (session.memory.topicsCovered || []).filter(t => t !== 'nombres_apellidos');
+    }
+  }
+  if (session.memory.confirmedFacts['nombre_taller']) {
+    const { cleanWorkshopName } = require('./agent');
+    if (!cleanWorkshopName(session.memory.confirmedFacts['nombre_taller'].value)) {
+      delete session.memory.confirmedFacts['nombre_taller'];
+      session.memory.topicsCovered = (session.memory.topicsCovered || []).filter(t => t !== 'nombre_taller');
     }
   }
 
@@ -223,6 +254,23 @@ function isTopicOrQuestionForbidden(memory, topicKey, proposedQuestionText = '')
     const val = memory.confirmedFacts[topicKey].value;
     if (val !== null && val !== undefined && val !== '') {
       if (!Array.isArray(val) || val.length > 0) {
+        // VALIDACIÓN: Si es nombres_apellidos o nombre_taller, comprobar que sea un valor válido
+        if (topicKey === 'nombres_apellidos') {
+          const { cleanPersonName } = require('./agent');
+          if (!cleanPersonName(val)) {
+            delete memory.confirmedFacts[topicKey];
+            memory.topicsCovered = (memory.topicsCovered || []).filter(t => t !== topicKey);
+            return false;
+          }
+        }
+        if (topicKey === 'nombre_taller') {
+          const { cleanWorkshopName } = require('./agent');
+          if (!cleanWorkshopName(val)) {
+            delete memory.confirmedFacts[topicKey];
+            memory.topicsCovered = (memory.topicsCovered || []).filter(t => t !== topicKey);
+            return false;
+          }
+        }
         return {
           forbidden: true,
           reason: `El dato "${topicKey}" ya está confirmado con el valor: ${JSON.stringify(val)}`
@@ -241,6 +289,14 @@ function isTopicOrQuestionForbidden(memory, topicKey, proposedQuestionText = '')
 
   // 3. ¿El tema ya fue cubierto y cerrado en la conversación?
   if (memory.topicsCovered.includes(topicKey)) {
+    // Si es nombre o taller pero no hay dato confirmado válido, permitir preguntar
+    if (topicKey === 'nombres_apellidos' || topicKey === 'nombre_taller') {
+      const existing = memory.confirmedFacts[topicKey]?.value;
+      if (!existing) {
+        memory.topicsCovered = memory.topicsCovered.filter(t => t !== topicKey);
+        return false;
+      }
+    }
     return {
       forbidden: true,
       reason: `El tema "${topicKey}" ya fue abordado en la conversación.`

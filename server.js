@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { onRequest } = require('firebase-functions/v2/https');
 const path = require('path');
-const { generateMateoResponse, admin, localMecanicosStore, getAllSessions, saveSession, memoryCache, resetMemoryCache } = require('./agent');
+const { generateMateoResponse, admin, localMecanicosStore, getAllSessions, saveSession, memoryCache, resetMemoryCache, cleanPersonName, cleanWorkshopName } = require('./agent');
 const { normalizeMechanicData } = require('./scoring');
 const QRCode = require('qrcode');
 
@@ -1111,10 +1111,15 @@ app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
       const history = sess.history || [];
       const lastMsg = history[history.length - 1] || null;
 
+      const rawName = data.nombres_apellidos;
+      const cleanName = (rawName && cleanPersonName(rawName)) ? cleanPersonName(rawName) : null;
+      const rawShop = data.nombre_taller;
+      const cleanShop = (rawShop && cleanWorkshopName(rawShop)) ? cleanWorkshopName(rawShop) : null;
+
       return {
         phone: sess.phone,
-        nombres_apellidos: data.nombres_apellidos || 'Sin nombre',
-        nombre_taller: data.nombre_taller || 'Sin taller registrado',
+        nombres_apellidos: cleanName || 'Sin nombre',
+        nombre_taller: cleanShop || 'Sin taller registrado',
         barrio_taller: data.barrio_taller || data.ciudad_taller || 'Medellín',
         relacion_taller: data.relacion_taller || 'Mecánico',
         id_unico: data.id_unico || null,
@@ -1126,7 +1131,11 @@ app.get('/api/crm/conversaciones-en-vivo', requireAuth, async (req, res) => {
           timestamp: lastMsg.timestamp || Date.now()
         } : null,
         tokens: stats,
-        data: data
+        data: {
+          ...data,
+          nombres_apellidos: cleanName,
+          nombre_taller: cleanShop
+        }
       };
     });
 
@@ -1209,14 +1218,57 @@ app.get('/api/crm/conversacion-en-vivo/:phone', requireAuth, async (req, res) =>
       progress = null;
     }
 
+    const rawName = sess.data?.nombres_apellidos;
+    const cleanName = (rawName && cleanPersonName(rawName)) ? cleanPersonName(rawName) : null;
+    const rawShop = sess.data?.nombre_taller;
+    const cleanShop = (rawShop && cleanWorkshopName(rawShop)) ? cleanWorkshopName(rawShop) : null;
+
     return res.json({
       success: true,
       phone: cleanPhone,
-      data: sess.data || {},
+      data: {
+        ...(sess.data || {}),
+        nombres_apellidos: cleanName,
+        nombre_taller: cleanShop
+      },
       tokenStats: stats,
       progress,
       history: historyWithTokens
     });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CRM Endpoint para purgar residuos corruptos de una sesión y reorientar a NOMBRE
+app.post('/api/crm/limpiar-sesion/:phone', requireAuth, async (req, res) => {
+  try {
+    const phone = String(req.params.phone || '').replace(/\D/g, '');
+    const sessRef = admin.firestore().collection('sesiones_mateo').doc(phone);
+    const snap = await sessRef.get();
+    if (!snap.exists) {
+      return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
+    }
+    const session = snap.data() || {};
+    if (session.data) {
+      delete session.data.nombres_apellidos;
+      delete session.data.nombre_taller;
+      session.data._lastQuestion = 'NOMBRE';
+    }
+    if (session.memory) {
+      if (session.memory.confirmedFacts) {
+        delete session.memory.confirmedFacts['nombres_apellidos'];
+        delete session.memory.confirmedFacts['nombre_taller'];
+      }
+      if (Array.isArray(session.memory.topicsCovered)) {
+        session.memory.topicsCovered = session.memory.topicsCovered.filter(t => t !== 'nombres_apellidos' && t !== 'nombre_taller');
+      }
+    }
+    await sessRef.set(session);
+    if (memoryCache && memoryCache[phone]) {
+      memoryCache[phone] = session;
+    }
+    return res.json({ success: true, message: `Sesión para +${phone} limpiada exitosamente`, session });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

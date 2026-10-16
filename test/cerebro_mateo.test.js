@@ -24,7 +24,7 @@ const {
 } = require('../conversation_memory');
 const { getPendingTopics, cleanResponseText } = require('../gemini_brain');
 const { normalizeMechanicData } = require('../scoring');
-const { cleanWorkshopName, cleanPersonName, parseNameAndWorkshop, extractEntities, isPureGreeting } = require('../agent');
+const { generateMateoResponse, cleanWorkshopName, cleanPersonName, parseNameAndWorkshop, extractEntities, isPureGreeting } = require('../agent');
 const { getRegistrationProgress } = require('../registration_engine');
 
 console.log('🧪 =======================================================');
@@ -489,6 +489,34 @@ runTest('AA. Corrección de nombre con nuevo nombre explícito actualiza nombre 
 
   assert.strictEqual(entities.nombres_apellidos, 'Carlos', 'Debe capturar "Carlos" como el nombre corregido');
   assert.strictEqual(entities.nombre_taller, undefined, 'No debe asignar a taller');
+});
+
+// -------------------------------------------------------------
+// TEST 28: Progresión conversacional obligatoria (jamás enviar disculpa o comentario sin pregunta)
+// -------------------------------------------------------------
+runTest('AB. Respuesta de Mateo jamás se queda sin pregunta si la vinculación está incompleta', () => {
+  const sessionData = {
+    _finished: false
+    // Sin nombres_apellidos
+  };
+  let reply = "¡Qué pena contigo por la confusión.";
+
+  // Regla fundamental de progresión conversacional:
+  if (!sessionData._finished && !reply.includes('?')) {
+    if (!sessionData.nombres_apellidos) {
+      reply = `${reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?`;
+    } else if (!sessionData.nombre_taller) {
+      reply = `${reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cómo se llama tu taller de motos?`;
+    }
+  }
+
+  assert.ok(reply.includes('?'), 'La respuesta debe incluir una pregunta');
+  assert.ok(reply.includes('¿Cuál es tu nombre'), 'Debe solicitar el nombre');
+  assert.strictEqual(
+    reply,
+    '¡Qué pena contigo por la confusión. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?',
+    'Debe concatenar la disculpa con la solicitud del dato'
+  );
 });
 
 console.log('\n=======================================================');

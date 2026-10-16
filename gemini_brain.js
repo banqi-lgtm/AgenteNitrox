@@ -492,6 +492,35 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     const updatedProgress = getRegistrationProgress(session.data, memory);
     const isFinished = Boolean(parsed.listo_para_finalizar && updatedProgress.canFinalize);
 
+    // 4.1 GARANTÍA DE PROGRESIÓN CONVERSACIONAL (REGLA DE UNA SOLA PREGUNTA OBLIGATORIA)
+    // Si la vinculación aún NO está finalizada y la respuesta no contiene ninguna pregunta,
+    // DEBE formular la siguiente pregunta pendiente para no dejar la conversación trabada o en silencio.
+    if (!isFinished && !reply.includes('?')) {
+      const remainingPending = getConversationalPendingTopics(session.data, memory);
+      let nextKeyToAsk = null;
+      let nextQuestionText = null;
+
+      for (const t of remainingPending) {
+        const candQ = FALLBACK_QUESTIONS[t.key] || '¿Me cuentas un poco más de tu taller?';
+        const check = isTopicOrQuestionForbidden(memory, t.key, candQ);
+        if (!check.forbidden) {
+          nextKeyToAsk = t.key;
+          nextQuestionText = candQ;
+          break;
+        }
+      }
+
+      if (nextKeyToAsk && nextQuestionText) {
+        if (nextKeyToAsk === 'nombres_apellidos') {
+          nextQuestionText = '¿Cuál es tu nombre para tenerte bien registrado?';
+        } else if (nextKeyToAsk === 'nombre_taller') {
+          nextQuestionText = '¿Cómo se llama tu taller de motos?';
+        }
+        reply = `${reply.replace(/[.!\s]+$/, '')}. ${nextQuestionText}`;
+        recordAskedQuestion(memory, nextKeyToAsk, nextQuestionText);
+      }
+    }
+
     return {
       analysis: parsed.analisis_interno || {},
       updates: parsed.datos_extraidos || {},

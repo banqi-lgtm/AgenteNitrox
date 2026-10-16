@@ -927,7 +927,7 @@ async function getSession(phoneNumber) {
 async function saveSession(phoneNumber, session) {
   memoryCache[phoneNumber] = session;
   try {
-    await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).set(session, { merge: true });
+    await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).set(session);
   } catch (e) {
     console.warn('[FIRESTORE SAVE SESSION]', e.message);
   }
@@ -1004,6 +1004,26 @@ async function generateMateoResponse(fromNumber, userText) {
     const session = await getSession(fromNumber);
     session.history = session.history || [];
     session.data = session.data || {};
+
+    // Sanitización preventiva inicial contra residuos corruptos en BD
+    if (session.data.nombres_apellidos && !cleanPersonName(session.data.nombres_apellidos)) {
+      delete session.data.nombres_apellidos;
+      if (session.memory) {
+        try {
+          const { retractFactFromMemory } = require('./conversation_memory');
+          retractFactFromMemory(session.memory, 'nombres_apellidos');
+        } catch (e) {}
+      }
+    }
+    if (session.data.nombre_taller && !cleanWorkshopName(session.data.nombre_taller)) {
+      delete session.data.nombre_taller;
+      if (session.memory) {
+        try {
+          const { retractFactFromMemory } = require('./conversation_memory');
+          retractFactFromMemory(session.memory, 'nombre_taller');
+        } catch (e) {}
+      }
+    }
 
     const raw = (userText || '').trim();
     const lower = raw.toLowerCase();
@@ -1121,6 +1141,19 @@ async function generateMateoResponse(fromNumber, userText) {
   const isNameRejectionTurn = /\b(?:no\s+(?:es|era)\s+mi\s+nombre|no\s+me\s+llamo|yo\s+no\s+me\s+llamo|ese\s+no\s+es\s+mi\s+nombre|nombre\s+equivocado|te\s+equivocaste\s+de\s+nombre|no\s+sea\s+mierda)\b/i.test(raw);
   if (isNameRejectionTurn && !session.data.nombres_apellidos) {
     brainResult.reply = '¡Qué pena contigo, mil disculpas por la confusión! 🏍️ ¿Cómo es tu nombre real para tenerte bien registrado?';
+  }
+
+  // REGLA FUNDAMENTAL DE PROGRESIÓN CONVERSACIONAL:
+  // Si la vinculación no ha finalizado y el mensaje de Mateo no contiene ninguna pregunta (ej: se quedó solo en "¡Qué pena contigo por la confusión."),
+  // es OBLIGATORIO anexar la pregunta que hace avanzar la ficha en ese mismo mensaje.
+  if (!session.data._finished && !brainResult.reply.includes('?')) {
+    if (!session.data.nombres_apellidos) {
+      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?`;
+    } else if (!session.data.nombre_taller) {
+      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cómo se llama tu taller de motos?`;
+    } else if (!session.data.ciudad_taller) {
+      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿En qué ciudad o municipio queda tu taller?`;
+    }
   }
 
   // Saludo cordial y presentación si Mateo aún no se ha presentado
