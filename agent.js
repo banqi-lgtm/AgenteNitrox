@@ -192,6 +192,72 @@ function parseNameAndWorkshop(raw) {
   return { name: '', workshop: '', ambiguous: clean };
 }
 
+const ALL_COLOMBIAN_CITIES = [
+  { name: 'Bogotá', regex: /\b(?:bogot[aá]|dc|bogota\s*dc)\b/i },
+  { name: 'Medellín', regex: /\b(?:medell[ií]n|medallo)\b/i },
+  { name: 'Cali', regex: /\b(?:cali)\b/i },
+  { name: 'Barranquilla', regex: /\b(?:barranquilla|quilla)\b/i },
+  { name: 'Cartagena', regex: /\b(?:cartagena)\b/i },
+  { name: 'Bucaramanga', regex: /\b(?:bucaramanga|bucara)\b/i },
+  { name: 'Pereira', regex: /\b(?:pereira)\b/i },
+  { name: 'Manizales', regex: /\b(?:manizales)\b/i },
+  { name: 'Cúcuta', regex: /\b(?:c[uú]cuta)\b/i },
+  { name: 'Ibagué', regex: /\b(?:ibagu[eé])\b/i },
+  { name: 'Santa Marta', regex: /\b(?:santa\s+marta)\b/i },
+  { name: 'Villavicencio', regex: /\b(?:villavicencio|villavo)\b/i },
+  { name: 'Pasto', regex: /\b(?:pasto)\b/i },
+  { name: 'Montería', regex: /\b(?:monter[ií]a)\b/i },
+  { name: 'Valledupar', regex: /\b(?:valledupar)\b/i },
+  { name: 'Armenia', regex: /\b(?:armenia)\b/i },
+  { name: 'Popayán', regex: /\b(?:popay[aá]n)\b/i },
+  { name: 'Neiva', regex: /\b(?:neiva)\b/i },
+  { name: 'Sincelejo', regex: /\b(?:sincelejo)\b/i },
+  { name: 'Tunja', regex: /\b(?:tunja)\b/i },
+  { name: 'Riohacha', regex: /\b(?:riohacha)\b/i },
+  { name: 'Florencia', regex: /\b(?:florencia)\b/i },
+  { name: 'Yopal', regex: /\b(?:yopal)\b/i },
+  { name: 'Quibdó', regex: /\b(?:quibd[oó])\b/i },
+  { name: 'Soacha', regex: /\b(?:soacha)\b/i },
+  { name: 'Bello', regex: /\b(?:bello)\b/i },
+  { name: 'Itagüí', regex: /\b(?:itag[uü][ií]|itagui)\b/i },
+  { name: 'Envigado', regex: /\b(?:envigado)\b/i },
+  { name: 'Sabaneta', regex: /\b(?:sabaneta)\b/i },
+  { name: 'La Estrella', regex: /\b(?:la\s+estrella|estrella)\b/i },
+  { name: 'Caldas', regex: /\b(?:caldas)\b/i },
+  { name: 'Copacabana', regex: /\b(?:copacabana)\b/i },
+  { name: 'Girardota', regex: /\b(?:girardota)\b/i },
+  { name: 'Barbosa', regex: /\b(?:barbosa)\b/i },
+  { name: 'Rionegro', regex: /\b(?:rionegro)\b/i },
+  { name: 'Palmira', regex: /\b(?:palmira)\b/i },
+  { name: 'Dosquebradas', regex: /\b(?:dosquebradas)\b/i },
+  { name: 'Floridablanca', regex: /\b(?:floridablanca)\b/i },
+  { name: 'Girón', regex: /\b(?:gir[oó]n)\b/i },
+  { name: 'Piedecuesta', regex: /\b(?:piedecuesta)\b/i },
+  { name: 'Barrancabermeja', regex: /\b(?:barrancabermeja)\b/i },
+  { name: 'Tuluá', regex: /\b(?:tulu[aá])\b/i },
+  { name: 'Facatativá', regex: /\b(?:facatativ[aá]|faca)\b/i },
+  { name: 'Fusagasugá', regex: /\b(?:fusagasug[aá]|fusa)\b/i },
+  { name: 'Chía', regex: /\b(?:ch[ií]a)\b/i },
+  { name: 'Zipaquirá', regex: /\b(?:zipaquir[aá]|zipa)\b/i },
+  { name: 'Apartadó', regex: /\b(?:apartad[oó])\b/i },
+  { name: 'Turbo', regex: /\b(?:turbo)\b/i },
+  { name: 'Cartago', regex: /\b(?:cartago)\b/i },
+  { name: 'Pitalito', regex: /\b(?:pitalito)\b/i },
+  { name: 'Ipiales', regex: /\b(?:ipiales)\b/i },
+  { name: 'Sogamoso', regex: /\b(?:sogamoso)\b/i },
+  { name: 'Duitama', regex: /\b(?:duitama)\b/i },
+  { name: 'Girardot', regex: /\b(?:girardot)\b/i }
+];
+
+function cleanCityName(text) {
+  if (!text) return null;
+  const raw = String(text || '').replace(/^(?:en|de|en la ciudad de|ciudad de|ciudad)\s+/i, '').trim();
+  for (const c of ALL_COLOMBIAN_CITIES) {
+    if (c.regex.test(raw)) return c.name;
+  }
+  return null;
+}
+
 function detectAskedQuestion(replyText, temaPreguntado) {
   if (!replyText) return null;
   const lower = (replyText || '').toLowerCase();
@@ -252,11 +318,19 @@ function detectAskedQuestion(replyText, temaPreguntado) {
   if (/en\s+qu[eé]\s+barrio|por\s+qu[eé]\s+sector/i.test(lower)) {
     return 'BARRIO';
   }
-  // 15. Ciudad / Ubicación
-  if (/en\s+qu[eé]\s+ciudad|d[oó]nde\s+queda|en\s+qu[eé]\s+municipio/i.test(lower)) {
+  // 15. Taller individual
+  if (/c[oó]mo\s+se\s+llama\s+(?:tu\s+|el\s+)?taller|nombre\s+de\s+tu\s+taller|nombre\s+del\s+taller/i.test(lower)) {
+    return 'TALLER';
+  }
+  // 16. Ciudad / Ubicación individual
+  if (/en\s+qu[eé]\s+ciudad|en\s+qu[eé]\s+municipio|d[oó]nde\s+queda\s+(?:el|tu)?\s*taller/i.test(lower)) {
     return 'UBICACION';
   }
-  // 16. Nombre o Taller
+  // 17. Nombre de la persona individual
+  if (/c[oó]mo\s+te\s+llamas|cu[aá]l\s+es\s+tu\s+nombre|con\s+qui[eé]n\s+tengo\s+el\s+gusto|c[oó]mo\s+es\s+tu\s+nombre/i.test(lower)) {
+    return 'NOMBRE';
+  }
+  // 18. Doble pregunta histórica nombre o taller
   if (/c[oó]mo\s+se\s+llama\s+el\s+taller|c[oó]mo\s+es\s+tu\s+nombre|c[oó]mo\s+te\s+llamas/i.test(lower)) {
     return 'NOMBRE_Y_TALLER';
   }
@@ -333,6 +407,22 @@ function extractEntities(text, sessionData) {
     }
   }
 
+  // 0. Detección universal de taller y ciudad expresados juntos (ej: "Pj en Bogotá", "La 50 en Medellín", "Taller Central en Cali")
+  const workshopCityMatch = raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{1,35}?)\s+(?:en|de|ubicado\s+en)\s+([A-Za-z0-9\s#\-\.áéíóúÁÉÍÓÚñÑ]{2,30})$/i);
+  if (workshopCityMatch) {
+    const rawShop = workshopCityMatch[1].trim();
+    const rawCity = workshopCityMatch[2].trim();
+    if (rawShop.length >= 1 && !/^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop)) {
+      if (!sessionData.nombre_taller) {
+        updates.nombre_taller = cleanWorkshopName(rawShop);
+      }
+      const c = cleanCityName(rawCity);
+      if (c && !sessionData.ciudad_taller) {
+        updates.ciudad_taller = c;
+      }
+    }
+  }
+
   // 1. Name & Workshop if missing
   if (!sessionData.nombres_apellidos || !sessionData.nombre_taller) {
     if (sessionData._lastQuestion === 'NOMBRE' && !sessionData.nombres_apellidos) {
@@ -365,18 +455,15 @@ function extractEntities(text, sessionData) {
   }
 
   // 2. City / Municipality
-  if (/bello/i.test(lower)) updates.ciudad_taller = 'Bello';
-  else if (/itagui|itaguí/i.test(lower)) updates.ciudad_taller = 'Itagüí';
-  else if (/envigado/i.test(lower)) updates.ciudad_taller = 'Envigado';
-  else if (/sabaneta/i.test(lower)) updates.ciudad_taller = 'Sabaneta';
-  else if (/estrella/i.test(lower)) updates.ciudad_taller = 'La Estrella';
-  else if (/caldas/i.test(lower)) updates.ciudad_taller = 'Caldas';
-  else if (/copacabana/i.test(lower)) updates.ciudad_taller = 'Copacabana';
-  else if (/girardota/i.test(lower)) updates.ciudad_taller = 'Girardota';
-  else if (/medellin|medellín/i.test(lower)) updates.ciudad_taller = 'Medellín';
-  else if (sessionData._lastQuestion === 'UBICACION' || sessionData._lastQuestion === 'BARRIO') {
-    if (!sessionData.ciudad_taller && !updates.ciudad_taller) {
-      updates.ciudad_taller = 'Medellín';
+  if (!updates.ciudad_taller && !sessionData.ciudad_taller) {
+    const cDetected = cleanCityName(lower);
+    if (cDetected) {
+      updates.ciudad_taller = cDetected;
+    } else if (sessionData._lastQuestion === 'UBICACION') {
+      const cFromRaw = cleanCityName(raw);
+      if (cFromRaw) {
+        updates.ciudad_taller = cFromRaw;
+      }
     }
   }
   if (updates.ciudad_taller) updates.ciudad_residencia = updates.ciudad_taller;
@@ -403,34 +490,25 @@ function extractEntities(text, sessionData) {
     updates.direccion_taller = addrMatch[0].trim();
   } else if (sessionData._lastQuestion === 'DIRECCION' && !sessionData.direccion_taller) {
     if (isOwner || isMechanic || isBoth) {
-      updates.direccion_taller = `Sector ${sessionData.barrio_taller || 'Medellín'}`;
+      updates.direccion_taller = `Sector ${sessionData.barrio_taller || sessionData.ciudad_taller || 'Medellín'}`;
     } else if (/\d/.test(raw) || /\b(?:calle|cll|carrera|cra|diagonal|diag|transversal|transv|circular|circ|av|avenida|esquina|con|frente|cerca)\b/i.test(lower)) {
       updates.direccion_taller = raw;
     } else if (isProtest || /no\s*(?:me\s*la\s*s[eé]|s[eé]|me\s*acuerdo|tengo)|por\s+el|cerca|parque/i.test(lower) || raw.trim().length >= 2) {
-      updates.direccion_taller = raw.trim().length >= 2 ? raw.trim() : `Sector ${sessionData.barrio_taller || 'Medellín'}`;
+      updates.direccion_taller = raw.trim().length >= 2 ? raw.trim() : `Sector ${sessionData.barrio_taller || sessionData.ciudad_taller || 'Medellín'}`;
     }
   }
 
-  // 5. Barrio (Only if asked or explicit 'barrio' keyword, NEVER during NOMBRE_Y_TALLER)
-  const isLocationTurn = sessionData._lastQuestion === 'UBICACION' || sessionData._lastQuestion === 'BARRIO';
+  // 5. Barrio (Solo cuando se pregunta por BARRIO o tiene palabra explícita 'barrio', NUNCA cuando es taller/ciudad)
+  const isExplicitBarrioQuestion = sessionData._lastQuestion === 'BARRIO';
   const hasExplicitBarrioWord = /\b(?:barrio|en el barrio)\b/i.test(lower);
-  if (isLocationTurn || hasExplicitBarrioWord) {
+  if (isExplicitBarrioQuestion || hasExplicitBarrioWord) {
     const barrioMatch = raw.match(/(?:en\s+|barrio\s+)?\b(bel[eé]n|laureles|guayabal|robledo|castilla|aranjuez|manrique|prado|san javier|buenos aires|centro|la am[eé]rica|poblado|floresta|estadio|calasanz|santa cruz|popular|villa hermosa|san crist[oó]bal|san antonio de prado|niqu[ií]a|caba[ñn]as|boston|ditaires|santa mar[ií]a|sim[oó]n bol[ií]var|la castellana|el dorado|dorado)\b/i);
     if (barrioMatch) {
       const b = barrioMatch[1];
       updates.barrio_taller = b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
       if (updates.barrio_taller.toLowerCase() === 'dorado') updates.barrio_taller = 'El Dorado';
-    } else if (sessionData._lastQuestion === 'BARRIO' && !sessionData.barrio_taller) {
+    } else if (isExplicitBarrioQuestion && !sessionData.barrio_taller && !updates.ciudad_taller) {
       updates.barrio_taller = raw;
-    } else if (sessionData._lastQuestion === 'UBICACION' && !sessionData.barrio_taller && !updates.barrio_taller) {
-      if (!updates.direccion_taller) {
-        updates.barrio_taller = raw.replace(/^(?:en|el|barrio)\s+/i, '').trim();
-      } else if (addrMatch) {
-        const rem = raw.replace(addrMatch[0], '').replace(/^(?:en|el|barrio|,|\s)+/i, '').replace(/[,.\s]+$/, '').trim();
-        if (rem && rem.length > 2) {
-          updates.barrio_taller = rem;
-        }
-      }
     }
   }
 

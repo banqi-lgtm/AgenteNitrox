@@ -23,19 +23,21 @@ Tu objetivo es conocer su taller, resolver sus dudas comerciales sobre repuestos
 
 REGLAS CONVERSACIONALES SUPREMAS (OBLIGATORIAS):
 
-1. REGLA ABSOLUTA: NUNCA PREGUNTAR DOS VECES LO MISMO
+1. REGLA ABSOLUTA: NUNCA PREGUNTAR DOS VECES LO MISMO Y MÁXIMO UNA PREGUNTA POR MENSAJE
    - Si el mecánico ya te dijo un dato (en este mensaje, en los anteriores o ya está confirmado en la memoria), QUEDA TERMINANTEMENTE PROHIBIDO volver a preguntarlo.
+   - REGLA DE ORO: MÁXIMO UNA SOLA PREGUNTA POR MENSAJE. Jamás juntes dos preguntas en un mismo mensaje (ej: NO preguntes taller y ciudad a la vez; NO preguntes barrio y dirección a la vez; NO preguntes correo y cédula a la vez).
+   - Puedes hacer una breve confirmación de lo que ya sabes antes de hacer tu pregunta (ej: "¡Entendido, Taller Pj en Bogotá! 🏍️ ¿En qué barrio o sector están?").
    - Si un dato se respondió indirectamente (ej. "somos dos mecánicos", "cambio bastantes kits y pastillas", "llegan como 15 motos"), asúmelo y avanza.
    - Si el usuario dice "ya te dije", "ya respondí" o protesta: discúlpate con cortesía, toma nota del dato y continúa sin repetir.
    - Si el usuario dice que no tiene correo o prefiere no dar la cédula: respeta su decisión, NO insistas y no vuelvas a pedirlo.
 
 2. AFIRMACIÓN INTELIGENTE DE TALLER Y CIUDAD:
-   - Si el mecánico dice una frase compuesta como "La 50 en Medellín", "Moto Racing en Bello", "Taller El Paisa en Envigado":
+   - Si el mecánico dice una frase compuesta como "Pj en Bogotá", "La 50 en Medellín", "Moto Racing en Cali":
      1. Extrae de inmediato el nombre del taller y la ciudad.
-     2. AFIRMA Y CONFIRMA DE UNA: "¿La 50 se llama tu taller y está ubicado en Medellín, sí? ¿En qué barrio y dirección están?".
+     2. AFIRMA O CONFIRMA y haz MÁXIMO UNA sola pregunta siguiente: ej. "¡Entendido! Taller Pj en Bogotá 🏍️. ¿En qué barrio o sector están?" o "¿Tu taller se llama Pj y están en Bogotá, verdad?".
      3. QUEDA TERMINANTEMENTE PROHIBIDO volver a preguntar "¿cómo se llama tu taller?".
 
-3. REVISIÓN RIGUROSA DE BARRIO Y DIRECCIÓN:
+3. REVISIÓN RIGUROSA DE BARRIO Y DIRECCIÓN (UNA PREGUNTA A LA VEZ):
    - Revisa cuidadosamente qué información te da el mecánico:
      * Si solo te da barrio (ej. "En Aranjuez"): confirma el barrio y pide la dirección o carrera/calle.
      * Si solo te da dirección (ej. "Calle 50 #40-20"): confirma la dirección y pide el barrio.
@@ -172,12 +174,12 @@ function getPendingTopics(memory) {
 // Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
 // ───────────────────────────────────────────────────────────────────────────
 const MODEL_CHAIN = [
-  'googleai/gemini-3.5-flash-lite',
   'googleai/gemini-3.5-flash',
   'googleai/gemini-flash-lite-latest',
+  'googleai/gemini-3.5-flash-lite',
   'googleai/gemini-3.8-flash'
 ];
-const HEDGE_DELAYS_MS = [0, 3000, 6000, 9000];   // cuándo lanzar cada candidato si nadie ha respondido
+const HEDGE_DELAYS_MS = [0, 2500, 5000, 8000];   // cuándo lanzar cada candidato si nadie ha respondido
 const PER_CALL_TIMEOUT_MS = 16000;
 const TOTAL_BUDGET_MS = 20000;
 const modelCooldownUntil = {};
@@ -264,23 +266,23 @@ function trimReplyLocally(reply, maxWords = 22) {
   return reply.split(/\s+/).slice(0, maxWords).join(' ').replace(/[,;:]$/, '') + '…';
 }
 
-// Preguntas de respaldo (sin IA) para que la conversación avance aunque Gemini no responda
+// Preguntas de respaldo (sin IA) para que la conversación avance con MÁXIMO UNA SOLA PREGUNTA
 const FALLBACK_QUESTIONS = {
   nombres_apellidos: '¿Cómo te llamas?',
-  nombre_taller: '¿Cómo se llama tu taller y en qué ciudad queda?',
+  nombre_taller: '¿Cómo se llama tu taller de motos?',
+  ciudad_taller: '¿En qué ciudad o municipio queda el taller?',
   celular_whatsapp: '¿Me regalas tu número de celular para tenerte en la red?',
-  ciudad_taller: '¿En qué ciudad queda tu taller?',
-  barrio_taller: '¿En qué barrio queda el taller?',
-  direccion_taller: '¿Me regalas la dirección del taller?',
-  relacion_taller: '¿Eres propietario o mecánico del taller?',
+  barrio_taller: '¿En qué barrio o sector queda el taller?',
+  direccion_taller: '¿Cuál es la dirección del taller?',
+  relacion_taller: '¿Eres el dueño del taller o mecánico?',
   marcas_motos: '¿Qué marcas de motos atiendes más, como Bajaj, AKT o Suzuki?',
-  motos_por_semana: '¿Cuántas motos atienden por semana?',
+  motos_por_semana: '¿Cuántas motos atienden por semana aproximadamente?',
   repuestos_frecuentes: '¿Qué repuestos rotas más, kits de arrastre, frenos o motor?',
-  marcas_repuestos_usadas: '¿Manejas marcas como Casarella, NITROX u otras?',
-  conoce_nitrox: '¿Ya conocías NITROX?',
-  quiere_muestras: '¿Te gustaría recibir muestras y beneficios de NITROX?',
+  marcas_repuestos_usadas: '¿Recomiendas alguna marca de repuestos a tus clientes?',
+  conoce_nitrox: '¿Ya conocías la marca NITROX?',
+  quiere_muestras: '¿Te gustaría recibir muestras y beneficios de NITROX para tu taller?',
   correo: '¿Me compartes tu correo electrónico?',
-  cedula: '¿Me regalas tu cédula para los beneficios?',
+  cedula: '¿Me regalas tu número de cédula para vincularte a los beneficios?',
   autorizacion_tratamiento_datos: '¿Autorizas a RED NITROX a registrar los datos de tu taller?'
 };
 
@@ -482,17 +484,46 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
 
   } catch (err) {
     console.error('[GEMINI BRAIN ERROR]:', err.message || err);
-    // Respaldo sin IA: recalcular pendientes con la información más reciente de session.data
-    // para garantizar que NUNCA se vuelva a preguntar un dato que el usuario ya entregó
-    const latestPending = getConversationalPendingTopics(session.data, memory);
-    const nextKey = (latestPending && latestPending[0] && latestPending[0].key) || null;
-    let nextQ = (nextKey && FALLBACK_QUESTIONS[nextKey]) || '¿Me cuentas un poco más de tu taller?';
-    if (nextKey === 'nombre_taller' && session.data.nombres_apellidos) {
-      const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
-      nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller y en qué ciudad queda?`;
+    // Sincronizar hechos confirmados en session.data
+    for (const [k, v] of Object.entries(memory.confirmedFacts)) {
+      session.data[k] = v.value;
     }
+
+    // Respaldo sin IA: recalcular pendientes con la información más reciente de session.data
+    // y filtrar contra preguntas ya formuladas para garantizar CERO repetición
+    const latestPending = getConversationalPendingTopics(session.data, memory);
+    let chosenKey = null;
+    let nextQ = null;
+
+    for (const t of latestPending) {
+      const candQ = FALLBACK_QUESTIONS[t.key] || '¿Me cuentas un poco más de tu taller?';
+      const check = isTopicOrQuestionForbidden(memory, t.key, candQ);
+      if (!check.forbidden) {
+        chosenKey = t.key;
+        nextQ = candQ;
+        break;
+      }
+    }
+
+    if (!chosenKey) {
+      chosenKey = 'barrio_taller';
+      nextQ = '¿En qué barrio o sector se encuentra ubicado tu taller?';
+    }
+
+    // Formulaciones naturales de máximo 1 sola pregunta con confirmación breve previa
+    if (chosenKey === 'nombre_taller' && session.data.nombres_apellidos) {
+      const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
+      nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller de motos?`;
+    } else if (chosenKey === 'ciudad_taller' && session.data.nombre_taller) {
+      nextQ = `¡Excelente! ¿Y en qué ciudad o municipio queda ${session.data.nombre_taller}?`;
+    } else if (chosenKey === 'barrio_taller' && session.data.nombre_taller && session.data.ciudad_taller) {
+      nextQ = `¡Entendido! ${session.data.nombre_taller} en ${session.data.ciudad_taller} 🏍️. ¿En qué barrio o sector están?`;
+    }
+
     const fallbackReply = (isAlreadyRegistered ? '¡Con gusto! Ya estás en la red. ¿En qué más te ayudo?' : nextQ);
-    if (!isAlreadyRegistered && nextKey) recordAskedQuestion(memory, nextKey, fallbackReply);
+    if (!isAlreadyRegistered && chosenKey) {
+      recordAskedQuestion(memory, chosenKey, fallbackReply);
+    }
     return {
       analysis: { error: err.message, fallback: true },
       updates: {},

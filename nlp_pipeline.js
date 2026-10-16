@@ -316,9 +316,33 @@ function extractSemanticEntities(text, sessionContext = {}) {
     extracted.pregunta_comercial_tema = 'precios_catalogo';
   }
 
-  // 4. CIUDADES, MUNICIPIOS Y TALLERES COMPUESTOS ("La 50 en Medellín", "Taller El Paisa en Bello")
+  // 4. CIUDADES, MUNICIPIOS Y TALLERES COMPUESTOS ("Pj en Bogotá", "La 50 en Medellín", "Taller El Paisa en Cali")
   const municipalities = [
+    { name: 'Bogotá', regex: /\b(?:bogot[aá]|dc|bogota\s*dc)\b/i },
     { name: 'Medellín', regex: /\b(?:medell[ií]n|medallo)\b/i },
+    { name: 'Cali', regex: /\b(?:cali)\b/i },
+    { name: 'Barranquilla', regex: /\b(?:barranquilla|quilla)\b/i },
+    { name: 'Cartagena', regex: /\b(?:cartagena)\b/i },
+    { name: 'Bucaramanga', regex: /\b(?:bucaramanga|bucara)\b/i },
+    { name: 'Pereira', regex: /\b(?:pereira)\b/i },
+    { name: 'Manizales', regex: /\b(?:manizales)\b/i },
+    { name: 'Cúcuta', regex: /\b(?:c[uú]cuta)\b/i },
+    { name: 'Ibagué', regex: /\b(?:ibagu[eé])\b/i },
+    { name: 'Santa Marta', regex: /\b(?:santa\s+marta)\b/i },
+    { name: 'Villavicencio', regex: /\b(?:villavicencio|villavo)\b/i },
+    { name: 'Pasto', regex: /\b(?:pasto)\b/i },
+    { name: 'Montería', regex: /\b(?:monter[ií]a)\b/i },
+    { name: 'Valledupar', regex: /\b(?:valledupar)\b/i },
+    { name: 'Armenia', regex: /\b(?:armenia)\b/i },
+    { name: 'Popayán', regex: /\b(?:popay[aá]n)\b/i },
+    { name: 'Neiva', regex: /\b(?:neiva)\b/i },
+    { name: 'Sincelejo', regex: /\b(?:sincelejo)\b/i },
+    { name: 'Tunja', regex: /\b(?:tunja)\b/i },
+    { name: 'Riohacha', regex: /\b(?:riohacha)\b/i },
+    { name: 'Florencia', regex: /\b(?:florencia)\b/i },
+    { name: 'Yopal', regex: /\b(?:yopal)\b/i },
+    { name: 'Quibdó', regex: /\b(?:quibd[oó])\b/i },
+    { name: 'Soacha', regex: /\b(?:soacha)\b/i },
     { name: 'Bello', regex: /\b(?:bello)\b/i },
     { name: 'Itagüí', regex: /\b(?:itag[uü][ií]|itagui)\b/i },
     { name: 'Envigado', regex: /\b(?:envigado)\b/i },
@@ -328,26 +352,50 @@ function extractSemanticEntities(text, sessionContext = {}) {
     { name: 'Copacabana', regex: /\b(?:copacabana)\b/i },
     { name: 'Girardota', regex: /\b(?:girardota)\b/i },
     { name: 'Barbosa', regex: /\b(?:barbosa)\b/i },
-    { name: 'Rionegro', regex: /\b(?:rionegro)\b/i }
+    { name: 'Rionegro', regex: /\b(?:rionegro)\b/i },
+    { name: 'Palmira', regex: /\b(?:palmira)\b/i },
+    { name: 'Dosquebradas', regex: /\b(?:dosquebradas)\b/i },
+    { name: 'Floridablanca', regex: /\b(?:floridablanca)\b/i },
+    { name: 'Girón', regex: /\b(?:gir[oó]n)\b/i },
+    { name: 'Piedecuesta', regex: /\b(?:piedecuesta)\b/i },
+    { name: 'Barrancabermeja', regex: /\b(?:barrancabermeja)\b/i },
+    { name: 'Tuluá', regex: /\b(?:tulu[aá])\b/i },
+    { name: 'Facatativá', regex: /\b(?:facatativ[aá]|faca)\b/i },
+    { name: 'Fusagasugá', regex: /\b(?:fusagasug[aá]|fusa)\b/i },
+    { name: 'Chía', regex: /\b(?:ch[ií]a)\b/i },
+    { name: 'Zipaquirá', regex: /\b(?:zipaquir[aá]|zipa)\b/i },
+    { name: 'Apartadó', regex: /\b(?:apartad[oó])\b/i },
+    { name: 'Turbo', regex: /\b(?:turbo)\b/i },
+    { name: 'Cartago', regex: /\b(?:cartago)\b/i },
+    { name: 'Pitalito', regex: /\b(?:pitalito)\b/i },
+    { name: 'Ipiales', regex: /\b(?:ipiales)\b/i },
+    { name: 'Sogamoso', regex: /\b(?:sogamoso)\b/i },
+    { name: 'Duitama', regex: /\b(?:duitama)\b/i },
+    { name: 'Girardot', regex: /\b(?:girardot)\b/i }
   ];
 
-  // 4a. Detección de taller y ciudad expresados juntos (ej: "La 50 en Medellín", "Taller Central en Envigado")
-  const workshopCityMatch = raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{2,30}?)\s+(?:en|de|ubicado\s+en)\s+(medell[ií]n|bello|itag[uü][ií]|envigado|sabaneta|la\s+estrella|caldas|copacabana|girardota|barbosa|rionegro)\b/i);
+  // 4a. Detección de taller y ciudad expresados juntos (ej: "Pj en Bogotá", "La 50 en Medellín", "Taller Central en Cali")
+  const workshopCityMatch = raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{1,35}?)\s+(?:en|de|ubicado\s+en)\s+([A-Za-z0-9\s#\-\.áéíóúÁÉÍÓÚñÑ]{2,30})$/i);
   if (workshopCityMatch) {
     const rawShop = workshopCityMatch[1].trim();
-    if (rawShop.length >= 2 && !/^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop)) {
+    const rawCity = workshopCityMatch[2].trim();
+    if (rawShop.length >= 1 && !/^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop)) {
       const formattedShop = rawShop.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(rawShop) ? rawShop : `Taller ${rawShop}`;
       extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-      const matchedCity = municipalities.find(m => m.regex.test(workshopCityMatch[2]));
-      if (matchedCity) extracted.ciudad_taller = matchedCity.name;
+      const matchedCity = municipalities.find(m => m.regex.test(rawCity));
+      if (matchedCity) {
+        extracted.ciudad_taller = matchedCity.name;
+      } else if (rawCity.length >= 3 && !/\d/.test(rawCity)) {
+        extracted.ciudad_taller = rawCity.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      }
     }
   }
 
   // 4b. Detección de taller explícito ("se llama La 50", "el taller es Moto Sol")
-  const explicitShopMatch = raw.match(/^(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|nombre\s+del\s+taller\s+es)\s+([A-Za-z0-9\s#\-\.]{2,30})$/i);
+  const explicitShopMatch = raw.match(/^(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|nombre\s+del\s+taller\s+es)\s+([A-Za-z0-9\s#\-\.]{1,35})$/i);
   if (explicitShopMatch && !extracted.nombre_taller) {
     let s = explicitShopMatch[1].trim();
-    s = s.replace(/\s+(?:en|de|ubicado\s+en)\s+(?:medell[ií]n|bello|itag[uü][ií]|envigado|sabaneta|la\s+estrella|caldas|copacabana|girardota|barbosa|rionegro).*$/i, '').trim();
+    s = s.replace(/\s+(?:en|de|ubicado\s+en)\s+.*$/i, '').trim();
     const formattedShop = s.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(s) ? s : `Taller ${s}`;
     extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   }
@@ -359,10 +407,11 @@ function extractSemanticEntities(text, sessionContext = {}) {
     }
   }
 
-  // Si responde con una sola palabra que es ciudad (Ejemplo 2: "Envigado")
-  if (!extracted.ciudad_taller && raw.split(/\s+/).length <= 2) {
+  // Si responde con una sola palabra o frase corta que es ciudad (Ejemplo: "Bogotá", "En Bogotá")
+  if (!extracted.ciudad_taller && raw.split(/\s+/).length <= 3) {
+    const cleanCityCandidate = raw.replace(/^(?:en|de|en la ciudad de|ciudad)\s+/i, '').trim();
     for (const m of municipalities) {
-      if (m.regex.test(raw)) {
+      if (m.regex.test(cleanCityCandidate)) {
         extracted.ciudad_taller = m.name;
         break;
       }
