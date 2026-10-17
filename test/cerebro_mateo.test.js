@@ -22,7 +22,8 @@ const {
   buildConversationSummary,
   TOPIC_SEMANTIC_PATTERNS
 } = require('../conversation_memory');
-const { getPendingTopics, cleanResponseText } = require('../gemini_brain');
+const { getPendingTopics, cleanResponseText, SYSTEM_PROMPT } = require('../gemini_brain');
+const { getMateoSystemPrompt, getSkill } = require('../skill_loader');
 const { normalizeMechanicData } = require('../scoring');
 const { generateMateoResponse, cleanWorkshopName, cleanPersonName, parseNameAndWorkshop, extractEntities, isPureGreeting } = require('../agent');
 const { getRegistrationProgress } = require('../registration_engine');
@@ -517,6 +518,44 @@ runTest('AB. Respuesta de Mateo jamás se queda sin pregunta si la vinculación 
     '¡Qué pena contigo por la confusión. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?',
     'Debe concatenar la disculpa con la solicitud del dato'
   );
+});
+
+// -------------------------------------------------------------
+// TEST 29: Carga modular de skills desde archivos .md en memoria RAM
+// -------------------------------------------------------------
+runTest('AC. Cargador skill_loader indexa todas las skills .md sin errores de I/O', () => {
+  const pnlSkill = getSkill('00_identidad_pnl');
+  const saludoSkill = getSkill('01_saludo_presentacion');
+  const vinculacionSkill = getSkill('02_vinculacion_taller');
+  const friccionSkill = getSkill('03_manejo_friccion');
+  const comercialSkill = getSkill('04_asesoria_comercial_nitrox');
+  const habeasSkill = getSkill('05_cierre_habeas_data');
+  const schemaSkill = getSkill('06_output_schema');
+
+  assert.ok(pnlSkill && pnlSkill.length > 50, 'Debe cargar skill 00_identidad_pnl');
+  assert.ok(saludoSkill && saludoSkill.length > 50, 'Debe cargar skill 01_saludo_presentacion');
+  assert.ok(vinculacionSkill && vinculacionSkill.length > 50, 'Debe cargar skill 02_vinculacion_taller');
+  assert.ok(friccionSkill && friccionSkill.length > 50, 'Debe cargar skill 03_manejo_friccion');
+  assert.ok(comercialSkill && comercialSkill.length > 50, 'Debe cargar skill 04_asesoria_comercial_nitrox');
+  assert.ok(habeasSkill && habeasSkill.length > 50, 'Debe cargar skill 05_cierre_habeas_data');
+  assert.ok(schemaSkill && schemaSkill.length > 50, 'Debe cargar skill 06_output_schema');
+});
+
+// -------------------------------------------------------------
+// TEST 30: Integridad del SYSTEM_PROMPT ensamblado para Gemini
+// -------------------------------------------------------------
+runTest('AD. SYSTEM_PROMPT ensamblado contiene todas las reglas y restricciones críticas', () => {
+  const prompt = getMateoSystemPrompt();
+  assert.strictEqual(prompt, SYSTEM_PROMPT, 'SYSTEM_PROMPT exportado debe coincidir con el cargador');
+
+  // Reglas críticas que deben estar presentes en el prompt ensamblado
+  assert.ok(prompt.includes('MATEO'), 'Debe incluir el nombre Mateo');
+  assert.ok(prompt.includes('Ruta NITROX') || prompt.includes('Ruta NITROX'), 'Debe mencionar la Ruta NITROX');
+  assert.ok(prompt.includes('hermano'), 'Debe incluir la prohibición de hermano');
+  assert.ok(prompt.includes('analisis_interno'), 'Debe incluir el esquema JSON');
+  assert.ok(prompt.includes('datos_extraidos'), 'Debe incluir datos_extraidos');
+  assert.ok(prompt.includes('listo_para_finalizar'), 'Debe incluir listo_para_finalizar');
+  assert.ok(prompt.includes('5 a 18 palabras'), 'Debe especificar el límite de palabras WhatsApp');
 });
 
 console.log('\n=======================================================');
