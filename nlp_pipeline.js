@@ -279,6 +279,9 @@ function extractSemanticEntities(text, sessionContext = {}) {
     pregunta_comercial_tema: null,
     protesta_repeticion: false,
     rechazo_dato: {},
+    situacion_salud_o_personal: false,
+    rechazo_hostil: false,
+    friccion_o_reclamo: false,
     autorizacion_habeas_data: null
   };
 
@@ -294,9 +297,27 @@ function extractSemanticEntities(text, sessionContext = {}) {
     extracted.cedula = 'No proporcionada (rechazada por el usuario)';
   }
 
-  if (/(?:no\s*tengo\s*correo|no\s*uso\s*correo|no\s*manejo\s*correo|sin\s*correo)/i.test(lower)) {
+  const isAskingEmail = sessionContext._lastQuestion === 'CORREO' || /correo/i.test(sessionContext.lastAssistantMessage || '');
+  if (isAskingEmail && /^(?:no\s+tengo|no\s+uso|no\s+manejo|no\b)/i.test(lower)) {
     extracted.rechazo_dato.correo = 'No dispone o no usa correo';
     extracted.correo = 'No disponible / No usa';
+  } else if (/(?:no\s*tengo\s*correo|no\s*uso\s*correo|no\s*manejo\s*correo|sin\s*correo)/i.test(lower)) {
+    extracted.rechazo_dato.correo = 'No dispone o no usa correo';
+    extracted.correo = 'No disponible / No usa';
+  }
+
+  // Detección de situaciones de salud, dolor o malestar físico personal
+  if (/\b(?:duele\s+el\s+est[oó]mago|dolor\s+de\s+cabeza|enferm[oa]|dolor|hospital|m[eé]dico|maluca|maluco|me\s+siento\s+mal)\b/i.test(lower) || /:\(|😢|🤒/.test(raw)) {
+    extracted.situacion_salud_o_personal = true;
+  }
+
+  // Detección de rechazo hostil o insultos en autorización / registro
+  const isHostileHabeas = /\b(?:lo\s+autorizar[aá]\s+tu\s+madre|su\s+madre|tu\s+madre|no\s+autorizo\s+(?:un\s+carajo|nada|ni\s+mierda)|no\s+me\s+jod[a-z]*|v[aá]yase\s+a\s+la\s+mierda|coma\s+mierda)\b/i.test(lower) || /😡|🤬/.test(raw);
+  if (isHostileHabeas) {
+    extracted.autorizacion_tratamiento_datos = false;
+    extracted.rechazo_dato.autorizacion_tratamiento_datos = 'Rechazo hostil';
+    extracted.rechazo_hostil = true;
+    extracted.friccion_o_reclamo = true;
   }
 
   // 3. CONSULTAS COMERCIALES DEL USUARIO (Regla: Responder primero a sus dudas antes de seguir con vinculación)

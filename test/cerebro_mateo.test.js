@@ -622,6 +622,31 @@ runTest('AI. Prohibición estricta de términos robóticos en SYSTEM_PROMPT y cl
   assert.ok(!cleaned.toLowerCase().includes('de ia'), 'cleanResponseText debe erradicar menciones de IA');
 });
 
+// -------------------------------------------------------------
+// TEST 36: Rechazo hostil de autorización ("Lo autorizará tu madre 😡")
+// -------------------------------------------------------------
+runTest('AJ. Rechazo hostil de Habeas Data ("Lo autorizará tu madre") no aprueba datos y erradica risas', () => {
+  const userText = "Lo autorizará tu madre 😡";
+  const nlp = processNlpPipeline(userText, { _lastQuestion: 'HABEAS_DATA' });
+  assert.strictEqual(nlp.entities.autorizacion_tratamiento_datos, false, 'No debe autorizar tratamiento de datos');
+  assert.strictEqual(nlp.entities.rechazo_hostil, true, 'Debe marcarse como rechazo hostil');
+
+  const { cleanResponseText } = require('../gemini_brain');
+  const dirtyLaugh = "¡Jaja, mil disculpas! Tranquila, sin presiones.";
+  const cleaned = cleanResponseText(dirtyLaugh, userText);
+  assert.ok(!cleaned.toLowerCase().includes('jaja'), 'cleanResponseText debe erradicar risas ante insultos');
+});
+
+// -------------------------------------------------------------
+// TEST 37: Salud y dolor físico personal ("duele el estómago")
+// -------------------------------------------------------------
+runTest('AK. Malestar físico ("me duele el estómago") activa situacion_salud_o_personal y captura rechazo de correo', () => {
+  const userText = "No tengo\nPero me puedes dar un consejo es que me duele el estómago :(";
+  const nlp = processNlpPipeline(userText, { _lastQuestion: 'CORREO', lastAssistantMessage: '¿Me compartes tu correo electrónico?' });
+  assert.strictEqual(nlp.entities.situacion_salud_o_personal, true, 'Debe detectar situación de malestar físico o salud');
+  assert.strictEqual(nlp.entities.rechazo_dato?.correo, 'No dispone o no usa correo', 'Debe registrar negativa de correo');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

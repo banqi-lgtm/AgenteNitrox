@@ -865,14 +865,22 @@ function extractEntities(text, sessionData) {
   }
 
   // 13. Habeas Data / Legal Data Treatment Acceptance
-  if (sessionData._lastQuestion === 'HABEAS_DATA') {
+  const wasAskingHabeas = sessionData._lastQuestion === 'HABEAS_DATA' ||
+    /(?:autorizas|tratamiento\s+de\s+datos|registrar\s+los\s+datos)/i.test(sessionData.lastAssistantMessage || '');
+
+  if (wasAskingHabeas) {
     updates._habeasDataRespondido = true;
-    if (/(?:no\s*gracias|no\s*acepto|no\s*autorizo|^no\b|para nada|negativo)/i.test(lower)) {
+    const isNegativeOrHostile = /(?:no\s*gracias|no\s*acepto|no\s*autorizo|^no\b|para nada|negativo|tu\s+madre|su\s+madre|ni\s+loco|ni\s+loca|no\s+me\s+jod|mierda|carajo)/i.test(lower) || /😡|🤬/.test(raw);
+    const isAffirmative = /^(?:s[ií]|claro|acepto|autorizo|de una|dale|ok|listo|por supuesto|obvio|h[aá]gale|bueno|seguro)$/i.test(lower) || /\b(?:s[ií]\s*autorizo|s[ií]\s*acepto|claro\s+que\s+s[ií]|est[aá]\s+bien|de acuerdo)\b/i.test(lower);
+
+    if (isNegativeOrHostile || !isAffirmative) {
       updates.autorizacion_tratamiento_datos = false;
       updates.autorizacion_comunicaciones_comerciales = false;
       updates.acepta_registro = false;
-    } else {
-      // Affirmative: "si", "sí", "acepto", "autorizo", "claro", "de una", "ok", "listo", "dale", etc.
+      if (isNegativeOrHostile) {
+        updates.rechazo_hostil = true;
+      }
+    } else if (isAffirmative) {
       updates.autorizacion_tratamiento_datos = true;
       updates.autorizacion_comunicaciones_comerciales = true;
       updates.acepta_registro = true;

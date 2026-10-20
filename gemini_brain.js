@@ -26,12 +26,19 @@ function countWords(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-function cleanResponseText(rawText) {
+function cleanResponseText(rawText, userText = '') {
   if (!rawText) return '';
   let s = rawText
     .replace(/^["'\s]+|["'\s]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  // Si el usuario expresó molestia, insulto, hostilidad o emojis de rabia, erradicar cualquier risa
+  const isAngryOrHostile = /madre|mierda|hp|hpta|hijueputa|malparid|gonorrea|carechimba|no\s+me\s+jod|😡|🤬/i.test(userText);
+  if (isAngryOrHostile) {
+    s = s.replace(/^[¡!]?\s*(?:jaj+a*|jej+e*|jij+i*)[\s,!.]*/gi, '');
+  }
+
   // Eliminar prefijos mecánicos de chatbot
   s = s.replace(/^(?:perfecto|excelente|anotado|listo)[\s,.:!]+\s*/i, '');
   // Eliminar muletillas repetitivas de apertura como "Contame," o "Y contame,"
@@ -272,10 +279,16 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
    - Pide la autorización de Habeas Data antes de cerrar.
 7. REGLA ESTRICTA DE FINALIZACIÓN:
    - SI "Puede finalizar" es NO, QUEDA TERMINANTEMENTE PROHIBIDO poner listo_para_finalizar en true ni despedirte diciendo que ya hace parte de la red. Debes continuar con el siguiente tema pendiente de forma amena.
-8. MULETILLAS: PROHIBIDO decir "contame" o "y contame" repetitivamente. Máximo 22 palabras (ideal 5 a 18 palabras). Sin hermano ni repetición de nombres.
+8. MULETILLAS: PROHIBIDO decir "contame" o "y contame" repetitivamente. Máximo 22 palabras (ideal 5 a 18 palabras). Sin hermano ni repetición de nombres.`;
 
-ÚLTIMO MENSAJE DEL MECÁNICO:
-"${userText}"`;
+    if (nlpResult.entities.situacion_salud_o_personal) {
+      contextPrompt += `\n\n9. ATENCIÓN PRIORITARIA: El usuario compartió malestar físico o enfermedad (ej. dolor de estómago). TERMINANTEMENTE PROHIBIDO pedir cédula, correo o datos legales en este turno. Dale un consejo humano de alivio (manzanilla, descanso) y deja la conversación tranquila sin presionar por datos de registro.`;
+    }
+    if (nlpResult.entities.rechazo_hostil) {
+      contextPrompt += `\n\n9. ATENCIÓN CRÍTICA: El usuario rechazó con hostilidad o insultó. TERMINANTEMENTE PROHIBIDO reírse ("jaja") y TERMINANTEMENTE PROHIBIDO hacer más preguntas de registro. Pide disculpas con total humildad, respeta su decisión y haz un cierre cortés sin presiones.`;
+    }
+
+    contextPrompt += `\n\nÚLTIMO MENSAJE DEL MECÁNICO:\n"${userText}"`;
   }
 
   try {
@@ -307,7 +320,7 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     let inTok = usage.inputTokens || Math.round((contextPrompt.length + SYSTEM_PROMPT.length) / 4);
     let outTok = usage.outputTokens || Math.round((response.text || '').length / 4);
 
-    let reply = cleanResponseText(parsed.respuesta_mateo || '');
+    let reply = cleanResponseText(parsed.respuesta_mateo || '', userText);
 
     // Longitud WhatsApp: recorte local instantáneo (sin una segunda llamada a la IA)
     reply = trimReplyLocally(reply);
@@ -362,10 +375,26 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     const updatedProgress = getRegistrationProgress(session.data, memory);
     const isFinished = Boolean(parsed.listo_para_finalizar && updatedProgress.canFinalize);
 
+    const isHostileRejection = /madre|mierda|hp|hpta|hijueputa|malparid|gonorrea|carechimba|no\s+me\s+jod|😡|🤬/i.test(userText) || Boolean(nlpResult.entities.rechazo_hostil);
+    const isHealthSituation = Boolean(nlpResult.entities.situacion_salud_o_personal);
+
+    if (isHostileRejection) {
+      // Si el usuario rechazó con insulto u hostilidad, eliminar cualquier pregunta de registro de la respuesta
+      reply = reply.replace(/\¿[^?]+\?/g, '').trim();
+      reply = cleanResponseText(reply, userText);
+      if (!reply.toLowerCase().includes('disculp') && !reply.toLowerCase().includes('pena')) {
+        reply = '¡Qué pena contigo, tienes toda la razón! Mil disculpas si fui muy insistente. Tranquila, no guardamos ningún dato. Que tengas un excelente día.';
+      } else if (!reply.toLowerCase().includes('excelente d[ií]a') && !reply.toLowerCase().includes('tranquil')) {
+        reply = reply.replace(/[.!\s]+$/, '') + '. Tranquila, no guardamos ningún dato. Que tengas un excelente día.';
+      }
+    } else if (isHealthSituation && /c[eé]dula/i.test(reply)) {
+      reply = reply.replace(/\¿(?:me\s+regalas|tienes)\s+(?:tu\s+)?c[eé]dula[^?]*\?/gi, '').trim();
+      reply = reply.replace(/[.!\s]+$/, '') + '. Primero la salud, ¡que te mejores pronto!';
+    }
+
     // 4.1 GARANTÍA DE PROGRESIÓN CONVERSACIONAL (REGLA DE UNA SOLA PREGUNTA OBLIGATORIA)
-    // Si la vinculación aún NO está finalizada y la respuesta no contiene ninguna pregunta,
-    // DEBE formular la siguiente pregunta pendiente para no dejar la conversación trabada o en silencio.
-    if (!isFinished && !reply.includes('?')) {
+    // EXCEPCIONES: NO forzar preguntas si el usuario fue hostil o reportó malestar de salud
+    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation) {
       const remainingPending = getConversationalPendingTopics(session.data, memory);
       let nextKeyToAsk = null;
       let nextQuestionText = null;
