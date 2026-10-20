@@ -48,10 +48,12 @@ const TOPIC_SEMANTIC_PATTERNS = {
     patterns: [
       /el\s+taller\s+es\s+tuyo/i,
       /trabajas\s+con\s+alguien\s+m[aá]s/i,
-      /eres\s+el\s+due[ñn]o/i,
-      /eres\s+propietario/i,
+      /eres\s+(?:el\s+|la\s+)?due[ñn][oa]/i,
+      /eres\s+(?:el\s+|la\s+)?propietari[oa]/i,
       /tu\s+rol\s+en\s+el\s+taller/i,
-      /due[ñn]o\s+o\s+mec[aá]nico/i
+      /due[ñn][oa]\s+o\s+mec[aá]nic[oa]/i,
+      /propietari[oa]\s+o\s+mec[aá]nic[oa]/i,
+      /(?:propietari[oa]|due[ñn][oa])\s+o\s+mec[aá]nic[oa](?:\s+principal)?/i
     ]
   },
   marcas_motos: {

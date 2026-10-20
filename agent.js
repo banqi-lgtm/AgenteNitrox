@@ -116,6 +116,9 @@ function cleanWorkshopName(str) {
   if (/\b(?:no\s+es\s+mi\s+nombre|ese\s+no\s+es|no\s+sea|no\s+me\s+llamo|te\s+equivocaste|mentira|equivocado|no\s+joda|qu[eé]\s+dice)\b/i.test(s)) return '';
   // Si es solo una palabra conversacional o confirmación
   if (/^(?:si|sí|no|ok|listo|ya|bien|gracias|nada|espera|dime|decime|hola|buenas|entonces)\b/i.test(s)) return '';
+  // Si son repuestos o piezas mecánicas solas (evitar convertir "Pastillas", "Pastillas de freno" en "Taller Pastillas")
+  if (/^(?:pastillas?(?:\s+de\s+frenos?)?|frenos?|kit(?:\s+de\s+arrastre)?|bandas?(?:\s+de\s+frenos?)?|aceite|repuestos?|cadena|cadenas|buj[ií]as?|llantas?|disco(?:s)?(?:\s+de\s+frenos?)?)$/i.test(s)) return '';
+  if (/\b(?:pastillas?\s+de\s+frenos?|kit\s+de\s+arrastre|cambio\s+de\s+aceite)\b/i.test(s)) return '';
 
   if (/^(?:no tengo taller|a domicilio|independiente|trabajo a domicilio|particular)/i.test(s)) {
     return 'Mecánico Independiente / A domicilio';
@@ -472,7 +475,8 @@ function extractEntities(text, sessionData) {
   }
 
   // 0. Detección universal de taller y ciudad expresados juntos (ej: "Pj en Bogotá", "La 50 en Medellín", "Taller Central en Cali")
-  const workshopCityMatch = raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{1,35}?)\s+(?:en|de|ubicado\s+en)\s+([A-Za-z0-9\s#\-\.áéíóúÁÉÍÓÚñÑ]{2,30})$/i);
+  const isSparePartPhrase = /\b(?:pastillas?|frenos?|kit|arrastre|bandas?|disco|discos|aceite|buj[ií]as?|bater[ií]as?|repuestos?|filtros?|cadena|cadenas|llantas?|neum[aá]ticos?|guayas?|suspensi[oó]n|amortiguador(?:es)?|rodamientos?|balineras?|pi[ñn][oó]n(?:es)?|corona)\b/i.test(raw);
+  const workshopCityMatch = !isSparePartPhrase && raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{1,35}?)\s+(?:en|de|ubicado\s+en)\s+([A-Za-z0-9\s#\-\.áéíóúÁÉÍÓÚñÑ]{2,30})$/i);
   if (workshopCityMatch) {
     const rawShop = workshopCityMatch[1].trim();
     const rawCity = workshopCityMatch[2].trim();

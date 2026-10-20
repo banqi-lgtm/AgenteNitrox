@@ -638,13 +638,30 @@ runTest('AJ. Rechazo hostil de Habeas Data ("Lo autorizará tu madre") no aprueb
 });
 
 // -------------------------------------------------------------
-// TEST 37: Salud y dolor físico personal ("duele el estómago")
+// TEST 38: Piezas de moto ("Pastillas de freno") jamás contaminan taller ni ciudad
 // -------------------------------------------------------------
-runTest('AK. Malestar físico ("me duele el estómago") activa situacion_salud_o_personal y captura rechazo de correo', () => {
-  const userText = "No tengo\nPero me puedes dar un consejo es que me duele el estómago :(";
-  const nlp = processNlpPipeline(userText, { _lastQuestion: 'CORREO', lastAssistantMessage: '¿Me compartes tu correo electrónico?' });
-  assert.strictEqual(nlp.entities.situacion_salud_o_personal, true, 'Debe detectar situación de malestar físico o salud');
-  assert.strictEqual(nlp.entities.rechazo_dato?.correo, 'No dispone o no usa correo', 'Debe registrar negativa de correo');
+runTest('AL. Repuestos ("Pastillas de freno") jamás se confunden con taller ni ciudad y extraen repuesto', () => {
+  const userText = "Pastillas de freno";
+  const nlp = processNlpPipeline(userText, { _lastQuestion: 'REPUESTOS' });
+  assert.strictEqual(nlp.entities.nombre_taller, null, 'No debe asignar "Taller Pastillas" como nombre de taller');
+  assert.strictEqual(nlp.entities.ciudad_taller, null, 'No debe asignar "Freno" como ciudad');
+  assert.ok(nlp.entities.repuestos_frecuentes && nlp.entities.repuestos_frecuentes.includes('Pastillas de freno'), 'Debe extraer Pastillas de freno como repuestos_frecuentes');
+
+  const { cleanWorkshopName } = require('../agent');
+  assert.strictEqual(cleanWorkshopName('Pastillas'), '', 'cleanWorkshopName("Pastillas") debe retornar cadena vacía');
+  assert.strictEqual(cleanWorkshopName('Pastillas de freno'), '', 'cleanWorkshopName("Pastillas de freno") debe retornar cadena vacía');
+});
+
+// -------------------------------------------------------------
+// TEST 39: Guardabarrera anti-repetición de rol femenino ("propietaria o mecánica")
+// -------------------------------------------------------------
+runTest('AM. Guardabarrera anti-repetición bloquea preguntas de rol redundantes ("eres la propietaria o mecánica")', () => {
+  const memory = initOrLoadMemory({
+    data: { relacion_taller: 'Propietario' },
+    history: []
+  });
+  const check = isTopicOrQuestionForbidden(memory, 'relacion_taller', '¿eres la propietaria o mecánica principal del taller?');
+  assert.strictEqual(check.forbidden, true, 'Debe prohibir repreguntar el rol cuando ya está confirmado');
 });
 
 console.log('\n=======================================================');

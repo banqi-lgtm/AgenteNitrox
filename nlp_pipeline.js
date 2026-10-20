@@ -396,19 +396,20 @@ function extractSemanticEntities(text, sessionContext = {}) {
   ];
 
   // 4a. Detección de taller y ciudad expresados juntos (ej: "Pj en Bogotá", "La 50 en Medellín", "Taller Central en Cali")
-  const workshopCityMatch = raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{1,35}?)\s+(?:en|de|ubicado\s+en)\s+([A-Za-z0-9\s#\-\.áéíóúÁÉÍÓÚñÑ]{2,30})$/i);
+  const isSparePartPhrase = /\b(?:pastillas?|frenos?|kit|arrastre|bandas?|disco|discos|aceite|buj[ií]as?|bater[ií]as?|repuestos?|filtros?|cadena|cadenas|llantas?|neum[aá]ticos?|guayas?|suspensi[oó]n|amortiguador(?:es)?|rodamientos?|balineras?|pi[ñn][oó]n(?:es)?|corona)\b/i.test(raw);
+  const workshopCityMatch = !isSparePartPhrase && raw.match(/^(?:(?:el\s+taller\s+es|se\s+llama|mi\s+taller\s+es|taller)\s+)?([A-Za-z0-9\s#\-\.]{1,35}?)\s+(?:en|de|ubicado\s+en)\s+([A-Za-z0-9\s#\-\.áéíóúÁÉÍÓÚñÑ]{2,30})$/i);
   if (workshopCityMatch) {
     const rawShop = workshopCityMatch[1].trim();
     const rawCity = workshopCityMatch[2].trim();
     const isBadShop = /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|mentira)\b/i.test(rawShop) || /^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop);
     if (rawShop.length >= 1 && !isBadShop) {
-      const formattedShop = rawShop.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(rawShop) ? rawShop : `Taller ${rawShop}`;
-      extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      if (!sessionContext.nombre_taller) {
+        const formattedShop = rawShop.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(rawShop) ? rawShop : `Taller ${rawShop}`;
+        extracted.nombre_taller = formattedShop.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      }
       const matchedCity = municipalities.find(m => m.regex.test(rawCity));
-      if (matchedCity) {
+      if (matchedCity && !sessionContext.ciudad_taller) {
         extracted.ciudad_taller = matchedCity.name;
-      } else if (rawCity.length >= 3 && !/\d/.test(rawCity)) {
-        extracted.ciudad_taller = rawCity.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
       }
     }
   }
