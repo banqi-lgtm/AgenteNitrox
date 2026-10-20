@@ -28,7 +28,7 @@ const API_KEY = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
 
 const ai = genkit({
   plugins: [googleAI({ apiKey: API_KEY })],
-  model: 'googleai/gemini-flash-lite-latest',
+  model: 'googleai/gemini-3-flash-preview',
 });
 
 // Flow example

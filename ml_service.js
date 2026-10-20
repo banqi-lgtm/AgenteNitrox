@@ -114,7 +114,15 @@ Responde ÚNICAMENTE con un JSON válido (sin formato markdown ni texto adiciona
 `;
 
   try {
-    const res = await ai.generate(prompt);
+    const res = await ai.generate({
+      model: 'googleai/gemini-3-flash-preview',
+      prompt: prompt,
+      config: {
+        temperature: 0.2,
+        maxOutputTokens: 1000,
+        responseMimeType: 'application/json'
+      }
+    });
     let cleanJson = (res.text || '').trim();
     if (cleanJson.startsWith('```json')) {
       cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/```$/, '').trim();

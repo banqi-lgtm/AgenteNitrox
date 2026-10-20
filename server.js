@@ -1289,6 +1289,51 @@ app.post('/api/admin/send-whatsapp', requireAuth, async (req, res) => {
   }
 });
 
+// Admin Retomar Conversación Pausada Endpoint
+app.post('/api/admin/retomar-conversacion/:phone', requireAuth, async (req, res) => {
+  try {
+    const cleanPhone = String(req.params.phone || '').replace(/\D/g, '');
+    const docRef = admin.firestore().collection('sesiones_mateo').doc(cleanPhone);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, message: `No existe sesión para +${cleanPhone}` });
+    }
+    const session = doc.data() || {};
+    const d = session.data || {};
+    const name = (d.nombres_apellidos || '').trim().split(/\s+/)[0] || '';
+    const taller = (d.nombre_taller || '').trim();
+    const ciudad = (d.ciudad_taller || '').trim();
+
+    let resumeText = req.body?.customMessage;
+    if (!resumeText) {
+      if (!d.nombres_apellidos) {
+        resumeText = '¡Hola! Qué pena la demora, se nos pausó la conexión por un momento. ¿Me recuerdas tu nombre para tenerte presente? 🏍️';
+      } else if (!d.nombre_taller) {
+        resumeText = `¡Hola${name ? ' ' + name : ''}! Qué pena la espera, retomemos la conversación. ¿Cómo se llama tu taller de motos? 🏍️`;
+      } else if (!d.barrio_taller && !d.direccion_taller) {
+        resumeText = `¡Hola${name ? ' ' + name : ''}! Qué pena la demora anterior 🏍️. Cuéntame, ¿en qué barrio o sector${ciudad ? ' de ' + ciudad : ''} queda ${taller || 'tu taller'}?`;
+      } else if (!d.marcas_motos) {
+        resumeText = `¡Hola${name ? ' ' + name : ''}! Qué pena la pausa. Cuéntame, ¿qué marcas de motos atienden más en ${taller || 'tu taller'}? 🔧`;
+      } else {
+        resumeText = `¡Hola${name ? ' ' + name : ''}! Qué gusto saludarte de nuevo. Sigamos completando tu registro en la RED NITROX para tus premios y muestras 🏍️`;
+      }
+    }
+
+    const metaRes = await sendWhatsAppMessage(cleanPhone, resumeText);
+    await appendAssistantMessageToSession(cleanPhone, resumeText);
+
+    return res.json({
+      success: true,
+      phone: cleanPhone,
+      messageSent: resumeText,
+      metaResponse: metaRes
+    });
+  } catch (err) {
+    console.error('[RETOMAR CONVERSACION ERROR]:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Admin Update Session Endpoint
 app.post('/api/admin/actualizar-sesion/:phone', requireAuth, async (req, res) => {
   try {
@@ -1647,7 +1692,15 @@ async function handleIncomingMessage(req, res) {
     }
     console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
   } catch (err) {
-    console.error('Error procesando mensaje:', err);
+    console.error('❌ [ERROR PROCESANDO MENSAJE]:', err);
+    try {
+      const rescueMsg = '¡Hola! Qué pena contigo, tuve una pequeña intermitencia de conexión por un segundo 🏍️. Cuéntame, ¿en qué íbamos?';
+      await sendWhatsAppMessage(from, rescueMsg);
+      await appendAssistantMessageToSession(from, rescueMsg);
+      console.log(`🛡️ [RESCATE ENVIADO a +${from}]`);
+    } catch (rescueErr) {
+      console.error('Error enviando mensaje de rescate:', rescueErr);
+    }
   }
 
   return res.status(200).send('EVENT_RECEIVED');

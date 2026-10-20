@@ -60,14 +60,13 @@ function getPendingTopics(memory) {
 // Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
 // ───────────────────────────────────────────────────────────────────────────
 const MODEL_CHAIN = [
-  'googleai/gemini-flash-lite-latest',
-  'googleai/gemini-3.5-flash-lite',
-  'googleai/gemini-3.5-flash',
-  'googleai/gemini-3.8-flash'
+  'googleai/gemini-3-flash-preview',
+  'googleai/gemini-3.6-flash',
+  'googleai/gemini-3.5-flash'
 ];
-const HEDGE_DELAYS_MS = [0, 2000, 4500, 7500];   // cuándo lanzar cada candidato si nadie ha respondido
-const PER_CALL_TIMEOUT_MS = 14000;
-const TOTAL_BUDGET_MS = 18000;
+const HEDGE_DELAYS_MS = [0, 1800, 3800];   // cuándo lanzar cada candidato si nadie ha respondido
+const PER_CALL_TIMEOUT_MS = 5500;
+const TOTAL_BUDGET_MS = 8500;
 const modelCooldownUntil = {};
 
 function cooldownFor(err) {
@@ -280,7 +279,7 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       prompt: contextPrompt,
       config: {
         temperature: 0.35,
-        maxOutputTokens: 700,
+        maxOutputTokens: 1500,
         responseMimeType: 'application/json'
       }
     });
