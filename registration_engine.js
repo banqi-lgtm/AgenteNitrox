@@ -99,7 +99,7 @@ const MASTER_FIELDS = {
     section: 'B',
     mandatory: true,
     weight: 8,
-    isValid: (val) => Boolean(val && typeof val === 'string' && /^(?:propietario|mec[aá]nico|propietario y mec[aá]nico|due[ñn]o y mec[aá]nico|due[ñn]o|socio|administrador)$/i.test(val.trim()))
+    isValid: (val) => Boolean(val && typeof val === 'string' && /^(?:propietari[oa]|mec[aá]nic[oa]|propietari[oa]\s+y\s+mec[aá]nic[oa]|due[ñn][oa]|due[ñn][oa]\s+y\s+mec[aá]nic[oa]|socio|socia|administrador|administradora)$/i.test(val.trim()))
   },
   antiguedad_taller: {
     key: 'antiguedad_taller',
