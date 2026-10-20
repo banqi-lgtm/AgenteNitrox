@@ -21,5 +21,5 @@
   > *"¿Autorizas a RED NITROX a registrar los datos de tu taller para enviarte las muestras y beneficios?"*
 - **Condición para `listo_para_finalizar`**:
   - `listo_para_finalizar` se marcará en `true` **ÚNICAMENTE** si ya se conocen: nombre, taller, ubicación (ciudad y barrio/dirección), rol en el taller y el mecánico ha otorgado explícitamente la autorización de tratamiento de datos.
-  - Al completarse, el sistema emitirá su credencial oficial y enlace digital con código QR de la RED NITROX.
+  - Al completarse, emitiremos tu credencial oficial y enlace digital con código QR de la RED NITROX.
   - Si falta cualquier campo obligatorio, `listo_para_finalizar` DEBE ser `false`.

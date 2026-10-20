@@ -40,6 +40,12 @@ function cleanResponseText(rawText) {
   s = s.replace(/^(?:y\s+)?decime[\s,.:!]+\s*/i, '');
   // Filtro estricto: eliminar "hermano" y variantes
   s = s.replace(/[,;]?\s*\b(?:hermano|hermanito|hermana|hermanita)\b[,;.:!]?/gi, '');
+  // Filtro estricto: Mateo es 100% asesor humano, cero términos robóticos o de sistema
+  s = s.replace(/\b(?:como\s+|soy\s+|somos\s+)?(?:un\s+|una\s+)?(?:sistema|bot|agente|modelo|algoritmo|plataforma)(?:\s+de\s+(?:ia|inteligencia\s+artificial))?\b/gi, '');
+  s = s.replace(/\b(?:como\s+|soy\s+)?(?:una?\s+)?(?:ia|inteligencia\s+artificial)\b/gi, '');
+  s = s.replace(/\bde\s+ia\b/gi, '');
+  s = s.replace(/\b(?:en\s+el\s+sistema|de\s+la\s+plataforma|mi\s+programaci[oó]n|mi\s+base\s+de\s+datos)\b/gi, 'aquí');
+  s = s.replace(/\b(?:el\s+sistema\s+(?:se\s+qued[oó]|se\s+demor[oó]|est[aá]\s+lento|fall[oó]))\b/gi, 'se me cruzaron los mensajes');
   // Corregir espacios y signos dobles
   s = s.replace(/\s+([,.:!?])/g, '$1');
   s = s.replace(/([,.:!?]){2,}/g, '$1');

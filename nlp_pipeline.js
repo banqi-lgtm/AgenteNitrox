@@ -472,7 +472,13 @@ function extractSemanticEntities(text, sessionContext = {}) {
   const isGenericBrandsOnly = /^(?:de\s+)?todas$|^(?:de\s+)?todo(?:\s+tipo)?$|^variadas?$|^muchas$/i.test(lower) ||
     (/(?:todas|de todas|variadas|de todo tipo|muchas)/i.test(lower) && detectedBrands.length === 0);
 
-  if (isGenericBrandsOnly) {
+  const isTransitEvading = /\b(?:sitp|transmilenio|metro|buses?|alimentador|pagando\s+pasaje|chiva)\b/i.test(lower);
+
+  if (isTransitEvading) {
+    extracted.marcas_motos = null;
+    extracted.marcas_genericas = false;
+    extracted.es_respuesta_evasiva = true;
+  } else if (isGenericBrandsOnly) {
     extracted.marcas_genericas = true;
     if (extracted.protesta_repeticion) {
       extracted.marcas_motos = ['Variadas / Todas'];
@@ -512,7 +518,10 @@ function extractSemanticEntities(text, sessionContext = {}) {
     }
   }
 
-  if (rangeMatch && (isVolumeContext || /\bmotos?\b/i.test(raw) || isDaily || /semana/i.test(raw))) {
+  if (isTransitEvading) {
+    // Si menciona transporte público o evasivas, no asignar volumen espurio
+    extracted.motos_por_semana = null;
+  } else if (rangeMatch && (isVolumeContext || /\bmotos?\b/i.test(raw) || isDaily || /semana/i.test(raw))) {
     const min = rangeMatch[1];
     const max = rangeMatch[2];
     extracted.motos_por_semana = isDaily ? `${min} a ${max} motos al día` : `${min} a ${max} motos/semana`;
@@ -552,7 +561,13 @@ function extractSemanticEntities(text, sessionContext = {}) {
   const isGenericPartsOnly = /^(?:de\s+)?todo$|^variados?$|^lo que llegue$/i.test(lower) ||
     (/(?:de todo|variados|lo que llegue)/i.test(lower) && detectedParts.length === 0);
 
-  if (isGenericPartsOnly) {
+  // Distinción semántica de polisemia de "rotar": "roto por las estaciones" = desplazamiento, NO repuestos
+  const isLocationRotation = /\broto\s+(?:por|en|entre|turnos?)\b/i.test(lower) && !/\b(?:repuestos?|piezas?|frenos?|arrastre|aceite|bater[ií]a)\b/i.test(lower);
+
+  if (isLocationRotation || isTransitEvading) {
+    extracted.repuestos_frecuentes = null;
+    extracted.repuestos_genericos = false;
+  } else if (isGenericPartsOnly) {
     extracted.repuestos_genericos = true;
     if (extracted.protesta_repeticion) {
       extracted.repuestos_frecuentes = ['Variados / De todo'];
@@ -562,8 +577,8 @@ function extractSemanticEntities(text, sessionContext = {}) {
   }
 
   // 10. ROLES EN EL TALLER
-  // Detecta dueño, mecánico, o rol dual ("yo soy el dueño pero también arreglo")
-  const isOwner = /\b(?:due[ñn]o|propietario|patr[oó]n|el\s+taller\s+es\s+m[ií]o|socio|creador)\b/i.test(lower);
+  // Detecta dueño, mecánico, o rol dual con soporte para jerga colombiana ("la que lo comanda", "el patrón", etc.)
+  const isOwner = /\b(?:due[ñn]o|due[ñn]a|propietari[oa]|patr[oó]n|patrona|jefe|jefa|socio|socia|creador|fundador|el\s+taller\s+es\s+m[ií]o|es\s+m[ií]o|la\s+que\s+(?:lo\s+)?comanda|el\s+que\s+(?:lo\s+)?comanda|yo\s+(?:lo\s+)?comando|yo\s+mando|la\s+que\s+manda|el\s+que\s+manda|el\s+mero\s+mero|la\s+mera\s+mera|el\s+duro|la\s+dura)\b/i.test(lower);
   const isMechanic = /\b(?:mec[aá]nico|empleado|trabajador|t[eé]cnico|yo\s+arreglo|arreglo\s+las\s+motos|las\s+arreglo\s+yo)\b/i.test(lower);
   const isBoth = /\b(?:ambas|las\s+dos|ambos|ambas\s+cosas|due[ñn]o\s+y\s+mec[aá]nico|propietario\s+y\s+mec[aá]nico)\b/i.test(lower) ||
                  (isOwner && isMechanic);

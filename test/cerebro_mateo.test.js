@@ -558,6 +558,70 @@ runTest('AD. SYSTEM_PROMPT ensamblado contiene todas las reglas y restricciones 
   assert.ok(prompt.includes('5 a 18 palabras'), 'Debe especificar el límite de palabras WhatsApp');
 });
 
+// -------------------------------------------------------------
+// TEST 31: Jerga colombiana de roles ("Yo soy la que lo comanda" -> Propietario)
+// -------------------------------------------------------------
+runTest('AE. Jerga colombiana de roles ("la que lo comanda", "el patrón") normalizada a Propietario', () => {
+  const nlp1 = processNlpPipeline("Yo soy la que lo comanda", { _lastQuestion: 'ROL' });
+  assert.strictEqual(nlp1.entities.relacion_taller, 'Propietario', 'Debe normalizar "la que lo comanda" a Propietario');
+
+  const nlp2 = processNlpPipeline("Yo comando el taller y arreglo las motos", {});
+  assert.strictEqual(nlp2.entities.relacion_taller, 'Propietario y Mecánico', 'Debe reconocer rol dual de comandar y arreglar');
+
+  const nlp3 = processNlpPipeline("Yo soy la jefa", {});
+  assert.strictEqual(nlp3.entities.relacion_taller, 'Propietario', 'Debe normalizar "la jefa" a Propietario');
+});
+
+// -------------------------------------------------------------
+// TEST 32: Evasivas y bromas de transporte público ("Atiendo motos del sitp")
+// -------------------------------------------------------------
+runTest('AF. Respuestas evasivas o de transporte público ("motos del sitp") no se asignan a marcas ni volumen', () => {
+  const nlp = processNlpPipeline("Atiendo motos del sitp", { _lastQuestion: 'MARCAS_MOTOS' });
+  assert.strictEqual(nlp.entities.marcas_motos, null, 'SITP no debe ser tomado como marca de moto');
+  assert.strictEqual(nlp.entities.motos_por_semana, null, 'SITP no debe ser tomado como volumen de motos');
+  assert.strictEqual(nlp.entities.es_respuesta_evasiva, true, 'Debe marcarse como respuesta evasiva');
+});
+
+// -------------------------------------------------------------
+// TEST 33: Polisemia de "rotar" ("Roto por las estaciones del sitp")
+// -------------------------------------------------------------
+runTest('AG. Polisemia colombiana de "rotar" (desplazamiento) no se confunde con repuestos frecuentes', () => {
+  const nlp = processNlpPipeline("Roto por las estaciones del sitp", { _lastQuestion: 'REPUESTOS' });
+  assert.strictEqual(nlp.entities.repuestos_frecuentes, null, 'Desplazamiento por estaciones no debe ser repuestos_frecuentes');
+});
+
+// -------------------------------------------------------------
+// TEST 34: Normalización y saneamiento en integrateFactsIntoMemory
+// -------------------------------------------------------------
+runTest('AH. integrateFactsIntoMemory normaliza rol jergal y sanitiza marcas/repuestos espurios', () => {
+  const memory = initOrLoadMemory({});
+  integrateFactsIntoMemory(memory, {
+    relacion_taller: 'el que comanda',
+    marcas_motos: ['sitp', 'Yamaha'],
+    repuestos_frecuentes: ['Roto por las estaciones del sitp'],
+    motos_por_semana: 'motos del sitp'
+  }, 'Yo soy el que comanda y atiendo motos del sitp');
+
+  assert.strictEqual(memory.confirmedFacts['relacion_taller']?.value, 'Propietario', 'Debe normalizar "el que comanda" a Propietario');
+  assert.deepStrictEqual(memory.confirmedFacts['marcas_motos']?.value, ['Yamaha'], 'Debe filtrar sitp y conservar únicamente marcas reales');
+  assert.strictEqual(memory.confirmedFacts['repuestos_frecuentes'], undefined, 'No debe registrar repuestos espurios de estaciones');
+  assert.strictEqual(memory.confirmedFacts['motos_por_semana'], undefined, 'No debe registrar volumen espurio de sitp');
+});
+
+// -------------------------------------------------------------
+// TEST 35: Prohibición total anti-robot y saneamiento de lenguaje en cleanResponseText
+// -------------------------------------------------------------
+runTest('AI. Prohibición estricta de términos robóticos en SYSTEM_PROMPT y cleanResponseText', () => {
+  const prompt = getMateoSystemPrompt();
+  assert.ok(prompt.includes('TERMINANTEMENTE PROHIBIDO DECIR QUE ERES UN SISTEMA, BOT, AGENTE, IA'), 'El prompt debe tener la prohibición anti-robot explícita');
+
+  const { cleanResponseText } = require('../gemini_brain');
+  const dirtyReply = "Como sistema de IA, te informo que el sistema se quedó pensando.";
+  const cleaned = cleanResponseText(dirtyReply);
+  assert.ok(!cleaned.toLowerCase().includes('como sistema'), 'cleanResponseText debe erradicar "como sistema"');
+  assert.ok(!cleaned.toLowerCase().includes('de ia'), 'cleanResponseText debe erradicar menciones de IA');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

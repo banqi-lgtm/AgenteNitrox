@@ -542,8 +542,8 @@ function extractEntities(text, sessionData) {
     updates.ciudad_residencia = sessionData.ciudad_taller;
   }
 
-  // 3. Role detection (Relación con el taller)
-  const isOwner = /\b(?:propi?e?r?t[a-z]*|duen[a-z]*|dueñ[a-z]*|patr[oó]n|socio|creador|fundador|el taller es m[ií]o|es m[ií]o|yo lo manejo)\b/i.test(lower);
+  // 3. Role detection (Relación con el taller con soporte de jerga colombiana)
+  const isOwner = /\b(?:propi?e?r?t[a-z]*|duen[a-z]*|dueñ[a-z]*|patr[oó]n|patrona|jefe|jefa|socio|socia|creador|fundador|el\s+taller\s+es\s+m[ií]o|es\s+m[ií]o|yo\s+lo\s+manejo|la\s+que\s+(?:lo\s+)?comanda|el\s+que\s+(?:lo\s+)?comanda|yo\s+(?:lo\s+)?comando|yo\s+mando|la\s+que\s+manda|el\s+que\s+manda|el\s+mero\s+mero|la\s+mera\s+mera|el\s+duro|la\s+dura)\b/i.test(lower);
   const isMechanic = /\b(?:mec[aá]nic[a-z]*|mecanic[a-z]*|emplead[a-z]*|trabajad[a-z]*|t[eé]cnic[a-z]*|las arreglo yo|yo arreglo)\b/i.test(lower);
   const isBoth = /\b(?:ambas|las dos|ambos|ambas cosas|las 2)\b/i.test(lower) || (isOwner && isMechanic);
 
@@ -555,6 +555,14 @@ function extractEntities(text, sessionData) {
     updates.relacion_taller = 'Mecánico';
   } else if (/socio|copropietario/i.test(lower)) {
     updates.relacion_taller = 'Socio';
+  }
+
+  // Normalizar cualquier string previo si venía crudo
+  if (updates.relacion_taller) {
+    const rLower = String(updates.relacion_taller).toLowerCase();
+    if (/comanda|mando|jefe|jefa|patr[oó]n|patrona|mero\s+mero|mera\s+mera|duro|dura|propietari|due[ñn]/i.test(rLower)) {
+      updates.relacion_taller = /mec[aá]nic/i.test(rLower) ? 'Propietario y Mecánico' : 'Propietario';
+    }
   }
 
   // 4. Dirección (Address)

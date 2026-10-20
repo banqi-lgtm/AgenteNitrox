@@ -399,9 +399,48 @@ function integrateFactsIntoMemory(memory, extractedEntities, userText = '') {
   ];
 
   for (const field of fieldMapping) {
-    const newVal = extractedEntities[field];
+    let newVal = extractedEntities[field];
     if (newVal !== null && newVal !== undefined && newVal !== '') {
       if (Array.isArray(newVal) && newVal.length === 0) continue;
+
+      // Normalización estricta de rol (evitar guardar frases crudas como "el que comanda")
+      if (field === 'relacion_taller' && typeof newVal === 'string') {
+        const rLower = newVal.toLowerCase().trim();
+        if (/comanda|mando|jefe|jefa|patr[oó]n|patrona|mero\s+mero|mera\s+mera|duro|dura|propietari|due[ñn]|el\s+taller\s+es\s+m[ií]o|fundador/i.test(rLower)) {
+          newVal = /mec[aá]nic/i.test(rLower) ? 'Propietario y Mecánico' : 'Propietario';
+        } else if (/mec[aá]nic[oa]|emplead[oa]|t[eé]cnic[oa]|ayudante/i.test(rLower)) {
+          newVal = 'Mecánico';
+        } else if (/socio|socia|copropietari[oa]/i.test(rLower)) {
+          newVal = 'Socio';
+        }
+      }
+
+      // Filtro estricto para marcas de motos (nunca aceptar transporte público ni bromas)
+      if (field === 'marcas_motos') {
+        if (Array.isArray(newVal)) {
+          newVal = newVal.filter(m => !/\b(?:sitp|transmilenio|metro|bus|buses|alimentador|bicicleta)\b/i.test(String(m)));
+          if (newVal.length === 0) continue;
+        } else if (typeof newVal === 'string' && /\b(?:sitp|transmilenio|metro|bus|buses|alimentador)\b/i.test(newVal)) {
+          continue;
+        }
+      }
+
+      // Filtro estricto para volumen de motos
+      if (field === 'motos_por_semana') {
+        if (typeof newVal === 'string' && /\b(?:sitp|transmilenio|metro|bus|buses)\b/i.test(newVal)) {
+          continue;
+        }
+      }
+
+      // Filtro estricto para repuestos frecuentes (no confundir 'roto por las estaciones' con repuestos)
+      if (field === 'repuestos_frecuentes') {
+        if (Array.isArray(newVal)) {
+          newVal = newVal.filter(p => !/\b(?:sitp|transmilenio|estaci[oó]n|estaciones|roto\s+por)\b/i.test(String(p)));
+          if (newVal.length === 0) continue;
+        } else if (typeof newVal === 'string' && /\b(?:sitp|transmilenio|estaci[oó]n|estaciones|roto\s+por)\b/i.test(newVal)) {
+          continue;
+        }
+      }
 
       // Comprobar si ya existía un valor confirmado
       const existing = memory.confirmedFacts[field];

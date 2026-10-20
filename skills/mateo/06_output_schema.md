@@ -46,7 +46,10 @@ Debes responder **ÚNICAMENTE** con un JSON válido y parseable, sin bloques mar
 ### Especificaciones de Campos:
 - **`analisis_interno`**: Valores breves (máximo 6 palabras cada uno). `friccion_o_reclamo` en true si el usuario se quejó o insultó.
 - **`datos_extraidos`**:
-  - `relacion_taller`: `"Propietario"` | `"Mecánico"` | `"Propietario y Mecánico"` | `"Socio"` | `null`
+  - `relacion_taller`: `"Propietario"` | `"Mecánico"` | `"Propietario y Mecánico"` | `"Socio"` | `null`. (IMPORTANTE: jerga como "el que comanda", "la que lo comanda", "yo mando", "la jefa", "el patrón", "el mero mero" DEBE normalizarse a `"Propietario"`. NUNCA emitir "el que comanda" como string).
+  - `marcas_motos`: Array de marcas de motos o `null`. NUNCA guardes medios de transporte como "sitp", "transmilenio", "buses" o chistes aquí; debe ser `null`.
+  - `repuestos_frecuentes`: Array de repuestos o `null`. Si el mecánico dice "roto por las estaciones", es desplazamiento físico, NO repuestos; debe ser `null`.
+  - `motos_por_semana`: String con volumen o `null`. NUNCA guardes "motos del sitp" aquí.
   - `frecuencia_recomendacion`: `"Siempre"` | `"Frecuentemente"` | `"Algunas veces"` | `"Rara vez"` | `"Nunca"` | `null`
   - `quien_decide_repuesto`: `"Mecánico"` | `"Cliente"` | `"Ambos"` | `null`
   - `conoce_nitrox`: `"Sí"` | `"No"` | `null`
