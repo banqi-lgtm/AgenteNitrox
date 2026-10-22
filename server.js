@@ -1656,6 +1656,11 @@ async function handleIncomingMessage(req, res) {
       if (change.statuses && change.statuses.length > 0) {
         for (const st of change.statuses) {
           console.log(`📊 [META STATUS]: +${st.recipient_id} -> ${st.status} (id: ${st.id})${st.errors ? ' ❌ ERROR: ' + JSON.stringify(st.errors) : ''}`);
+          if (st.errors && st.errors.length > 0 && st.recipient_id) {
+            const errCode = st.errors[0]?.code;
+            const errDesc = st.errors[0]?.message || st.errors[0]?.title || '';
+            console.warn(`⚠️ [META DELIVERY ISSUE +${st.recipient_id}]: Código ${errCode} - ${errDesc}`);
+          }
         }
       }
 
@@ -1684,13 +1689,35 @@ async function handleIncomingMessage(req, res) {
           continue;
         }
 
-        if (message.type !== 'text') {
-          console.log(`📩 [MENSAJE NO TEXTO (${message.type}) de +${from}]`);
-          await sendWhatsAppMessage(from, 'hola! por ahora solo puedo leer mensajes de texto. cuentame que estas buscando en la plataforma hoy');
+        // Soporte robusto y cobertura de TODOS los tipos de mensajes de WhatsApp
+        let incomingText = '';
+        if (message.type === 'text') {
+          incomingText = message.text?.body || '';
+        } else if (message.type === 'interactive') {
+          incomingText = message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.interactive?.button_reply?.id || '';
+        } else if (message.type === 'button') {
+          incomingText = message.button?.text || message.button?.payload || '';
+        } else if (message.type === 'location') {
+          const loc = message.location || {};
+          incomingText = loc.address || loc.name || `Ubicación GPS: ${loc.latitude}, ${loc.longitude}`;
+          console.log(`📍 [UBICACION RECIBIDA de +${from}]: "${incomingText}"`);
+        } else if (message.type === 'audio' || message.type === 'voice') {
+          console.log(`🎙️ [AUDIO RECIBIDO de +${from}]`);
+          await markMessageAsReadAndTyping(messageId);
+          await sendWhatsAppMessage(from, '¡Hola! En este momento no alcanzo a escuchar notas de voz en el sistema 🏍️. Por favor escríbemelo en un mensajito de texto para poder atenderte de inmediato.');
+          continue;
+        } else if (message.type === 'image') {
+          console.log(`📸 [IMAGEN RECIBIDA de +${from}]`);
+          await markMessageAsReadAndTyping(messageId);
+          await sendWhatsAppMessage(from, '¡Qué buena foto! 🏍️ En este momento solo puedo leer mensajes de texto. Cuéntame porfa cómo se llama tu taller o qué repuesto necesitas.');
+          continue;
+        } else {
+          console.log(`📩 [MENSAJE OTRO TIPO (${message.type}) de +${from}]`);
+          await markMessageAsReadAndTyping(messageId);
+          await sendWhatsAppMessage(from, '¡Hola! Por ahora solo puedo procesar mensajes de texto. Cuéntame cómo se llama tu taller o en qué te colaboro hoy 🏍️');
           continue;
         }
 
-        const incomingText = message.text?.body || '';
         console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
 
         try {
@@ -1705,19 +1732,24 @@ async function handleIncomingMessage(req, res) {
           // 3. Generate response bubbles
           const bubbles = await generateMateoResponse(from, incomingText);
 
-          // 4. Send bubbles with snappy interval (150ms)
+          // 4. Send bubbles with stable, paced interval (350ms)
           for (let i = 0; i < bubbles.length; i++) {
             const bubble = bubbles[i];
             if (bubble && typeof bubble === 'object' && bubble.type === 'image') {
               console.log(`📤 [MATEO ENVIA IMAGEN QR a +${from}]: "${bubble.url}"`);
-              await sendWhatsAppImage(from, bubble.url, bubble.caption);
+              const imgRes = await sendWhatsAppImage(from, bubble.url, bubble.caption);
+              // Fallback garantizado: Si Meta falla al despachar la imagen, enviar el enlace directo de inmediato
+              if (!imgRes || imgRes.error) {
+                console.warn(`⚠️ [FALLBACK QR LINK]: Envío de imagen QR falló a +${from}, enviando link de respaldo...`);
+                await sendWhatsAppMessage(from, `Aquí puedes ver y descargar tu credencial oficial:\n👉 ${bubble.url}`);
+              }
             } else if (typeof bubble === 'string' && bubble.trim()) {
               console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
               await sendWhatsAppMessage(from, bubble);
             }
 
             if (i < bubbles.length - 1) {
-              await sleep(150);
+              await sleep(350);
             }
           }
           console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
@@ -1822,6 +1854,32 @@ app.post('/api/crm/sync-production', requireAuth, async (req, res) => {
   }
 });
 
+// Auto Self-Healing para verificar registro de línea en WhatsApp Cloud API
+async function checkAndSelfHealPhoneRegistration() {
+  if (!ACCESS_TOKEN || !PHONE_NUMBER_ID) return;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}?fields=status,code_verification_status`, {
+      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }
+    });
+    const d = await res.json();
+    if (d && (d.code_verification_status === 'EXPIRED' || d.status !== 'CONNECTED')) {
+      console.log(`🛡️ [SELF-HEALING] Número en estado ${d.code_verification_status}/${d.status}. Re-registrando automáticamente...`);
+      const regRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/register`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messaging_product: 'whatsapp', pin: '123456' })
+      });
+      const regData = await regRes.json();
+      console.log(`🛡️ [SELF-HEALING RESULTADO]:`, JSON.stringify(regData));
+    }
+  } catch (err) {
+    console.warn('[SELF-HEALING CHECK CATCH]:', err.message);
+  }
+}
+
 // Standalone server entrypoint (Google Cloud Run container or Localhost)
 if (require.main === module && !process.env.FUNCTION_TARGET) {
   const HOST = '0.0.0.0';
@@ -1830,5 +1888,9 @@ if (require.main === module && !process.env.FUNCTION_TARGET) {
     if (!isRunningInCloud) {
       await syncFromProductionIfLocal();
     }
+    // Ejecutar verificación y autorreparación inmediata de la línea en Meta
+    checkAndSelfHealPhoneRegistration();
+    // Programar chequeo preventivo cada 30 minutos
+    setInterval(checkAndSelfHealPhoneRegistration, 30 * 60 * 1000);
   });
 }
