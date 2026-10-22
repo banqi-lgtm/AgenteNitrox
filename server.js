@@ -1283,6 +1283,7 @@ app.post('/api/admin/send-whatsapp', requireAuth, async (req, res) => {
     }
     const cleanTo = String(to).replace(/\D/g, '');
     const metaRes = await sendWhatsAppMessage(cleanTo, text);
+    await appendAssistantMessageToSession(cleanTo, text);
     return res.json({ success: true, to: cleanTo, metaResponse: metaRes });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
