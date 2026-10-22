@@ -1615,95 +1615,104 @@ app.get('/', (req, res) => {
 // 2. Incoming Messages Webhook (POST)
 async function handleIncomingMessage(req, res) {
   const body = req.body;
-  if (!body.entry || !body.entry[0].changes) {
+  if (!body || !Array.isArray(body.entry)) {
     return res.status(200).send('EVENT_RECEIVED');
   }
 
-  const change = body.entry[0].changes[0].value;
+  // Responder 200 inmediatamente a Meta para confirmar recepción y evitar reintentos duplicados
+  res.status(200).send('EVENT_RECEIVED');
 
-  // Handle message status updates (sent, delivered, read, failed)
-  if (change.statuses && change.statuses.length > 0) {
-    for (const st of change.statuses) {
-      console.log(`📊 [META STATUS]: +${st.recipient_id} -> ${st.status} (id: ${st.id})${st.errors ? ' ❌ ERROR: ' + JSON.stringify(st.errors) : ''}`);
-    }
-    return res.status(200).send('EVENT_RECEIVED');
-  }
+  for (const entry of body.entry) {
+    if (!entry.changes || !Array.isArray(entry.changes)) continue;
 
-  if (!change.messages || change.messages.length === 0) {
-    return res.status(200).send('EVENT_RECEIVED');
-  }
+    for (const ch of entry.changes) {
+      const change = ch.value;
+      if (!change) continue;
 
-  const message = change.messages[0];
-  const messageId = message.id;
-  const contact = (change.contacts && change.contacts[0]) || {};
-  // Número si Meta lo envía; si el usuario usa "nombre de usuario", Meta oculta el número y manda un BSUID
-  const phoneCandidate = [message.from, contact.wa_id].find(v => v && /^\d{8,15}$/.test(String(v)));
-  const from = phoneCandidate || message.from || message.from_user_id || contact.user_id || contact.wa_id;
-  if (!from) {
-    console.error('❌ [REMITENTE DESCONOCIDO] Payload sin from/from_user_id:', JSON.stringify(change).slice(0, 1500));
-    return res.status(200).send('EVENT_RECEIVED');
-  }
-  if (!phoneCandidate) {
-    console.log(`🪪 [USUARIO SIN NÚMERO VISIBLE] BSUID=${from} nombre=${contact.profile?.name || ''}`);
-  }
-
-  // Prevent duplicate processing on container cold start or Meta retries
-  const alreadyProcessed = await isMessageAlreadyProcessed(messageId);
-  if (alreadyProcessed) {
-    console.log(`⚠️ [DUPLICADO IGNORADO] Mensaje ${messageId} ya fue procesado`);
-    return res.status(200).send('EVENT_RECEIVED');
-  }
-
-  if (message.type !== 'text') {
-    console.log(`📩 [MENSAJE NO TEXTO (${message.type}) de +${from}]`);
-    await sendWhatsAppMessage(from, 'hola! por ahora solo puedo leer mensajes de texto. cuentame que estas buscando en la plataforma hoy');
-    return res.status(200).send('EVENT_RECEIVED');
-  }
-
-  const incomingText = message.text.body;
-  console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
-
-  try {
-    // 1. Mark message as read and show 3 dots typing indicator in WhatsApp
-    await markMessageAsReadAndTyping(messageId);
-
-    // 2. Pausa natural ágil de escritura en WhatsApp (200ms - 350ms)
-    const initialDelay = Math.floor(Math.random() * 150) + 200;
-    console.log(`⏳ [ESCRIBIENDO...] Mostrando indicador de escritura por ${(initialDelay / 1000).toFixed(2)}s...`);
-    await sleep(initialDelay);
-
-    // 3. Generate response bubbles
-    const bubbles = await generateMateoResponse(from, incomingText);
-
-    // 4. Send bubbles with snappy interval (150ms)
-    for (let i = 0; i < bubbles.length; i++) {
-      const bubble = bubbles[i];
-      if (bubble && typeof bubble === 'object' && bubble.type === 'image') {
-        console.log(`📤 [MATEO ENVIA IMAGEN QR a +${from}]: "${bubble.url}"`);
-        await sendWhatsAppImage(from, bubble.url, bubble.caption);
-      } else if (typeof bubble === 'string' && bubble.trim()) {
-        console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
-        await sendWhatsAppMessage(from, bubble);
+      // Handle message status updates (sent, delivered, read, failed)
+      if (change.statuses && change.statuses.length > 0) {
+        for (const st of change.statuses) {
+          console.log(`📊 [META STATUS]: +${st.recipient_id} -> ${st.status} (id: ${st.id})${st.errors ? ' ❌ ERROR: ' + JSON.stringify(st.errors) : ''}`);
+        }
+        continue;
       }
 
-      if (i < bubbles.length - 1) {
-        await sleep(150);
+      if (!change.messages || change.messages.length === 0) {
+        continue;
+      }
+
+      for (const message of change.messages) {
+        const messageId = message.id;
+        const contact = (change.contacts && change.contacts[0]) || {};
+        // Número si Meta lo envía; si el usuario usa "nombre de usuario", Meta oculta el número y manda un BSUID
+        const phoneCandidate = [message.from, contact.wa_id].find(v => v && /^\d{8,15}$/.test(String(v)));
+        const from = phoneCandidate || message.from || message.from_user_id || contact.user_id || contact.wa_id;
+        if (!from) {
+          console.error('❌ [REMITENTE DESCONOCIDO] Payload sin from/from_user_id:', JSON.stringify(change).slice(0, 1500));
+          continue;
+        }
+        if (!phoneCandidate) {
+          console.log(`🪪 [USUARIO SIN NÚMERO VISIBLE] BSUID=${from} nombre=${contact.profile?.name || ''}`);
+        }
+
+        // Prevent duplicate processing on container cold start or Meta retries
+        const alreadyProcessed = await isMessageAlreadyProcessed(messageId);
+        if (alreadyProcessed) {
+          console.log(`⚠️ [DUPLICADO IGNORADO] Mensaje ${messageId} ya fue procesado`);
+          continue;
+        }
+
+        if (message.type !== 'text') {
+          console.log(`📩 [MENSAJE NO TEXTO (${message.type}) de +${from}]`);
+          await sendWhatsAppMessage(from, 'hola! por ahora solo puedo leer mensajes de texto. cuentame que estas buscando en la plataforma hoy');
+          continue;
+        }
+
+        const incomingText = message.text?.body || '';
+        console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
+
+        try {
+          // 1. Mark message as read and show 3 dots typing indicator in WhatsApp
+          await markMessageAsReadAndTyping(messageId);
+
+          // 2. Pausa natural ágil de escritura en WhatsApp (200ms - 350ms)
+          const initialDelay = Math.floor(Math.random() * 150) + 200;
+          console.log(`⏳ [ESCRIBIENDO...] Mostrando indicador de escritura por ${(initialDelay / 1000).toFixed(2)}s...`);
+          await sleep(initialDelay);
+
+          // 3. Generate response bubbles
+          const bubbles = await generateMateoResponse(from, incomingText);
+
+          // 4. Send bubbles with snappy interval (150ms)
+          for (let i = 0; i < bubbles.length; i++) {
+            const bubble = bubbles[i];
+            if (bubble && typeof bubble === 'object' && bubble.type === 'image') {
+              console.log(`📤 [MATEO ENVIA IMAGEN QR a +${from}]: "${bubble.url}"`);
+              await sendWhatsAppImage(from, bubble.url, bubble.caption);
+            } else if (typeof bubble === 'string' && bubble.trim()) {
+              console.log(`📤 [MATEO RESPONDE (${i + 1}/${bubbles.length}) a +${from}]: "${bubble}"`);
+              await sendWhatsAppMessage(from, bubble);
+            }
+
+            if (i < bubbles.length - 1) {
+              await sleep(150);
+            }
+          }
+          console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
+        } catch (err) {
+          console.error('❌ [ERROR PROCESANDO MENSAJE]:', err);
+          try {
+            const rescueMsg = '¡Hola! Qué pena contigo, tuve una pequeña intermitencia de conexión por un segundo 🏍️. Cuéntame, ¿en qué íbamos?';
+            await sendWhatsAppMessage(from, rescueMsg);
+            await appendAssistantMessageToSession(from, rescueMsg);
+            console.log(`🛡️ [RESCATE ENVIADO a +${from}]`);
+          } catch (rescueErr) {
+            console.error('Error enviando mensaje de rescate:', rescueErr);
+          }
+        }
       }
     }
-    console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
-  } catch (err) {
-    console.error('❌ [ERROR PROCESANDO MENSAJE]:', err);
-    try {
-      const rescueMsg = '¡Hola! Qué pena contigo, tuve una pequeña intermitencia de conexión por un segundo 🏍️. Cuéntame, ¿en qué íbamos?';
-      await sendWhatsAppMessage(from, rescueMsg);
-      await appendAssistantMessageToSession(from, rescueMsg);
-      console.log(`🛡️ [RESCATE ENVIADO a +${from}]`);
-    } catch (rescueErr) {
-      console.error('Error enviando mensaje de rescate:', rescueErr);
-    }
   }
-
-  return res.status(200).send('EVENT_RECEIVED');
 }
 
 app.post('/webhook', handleIncomingMessage);

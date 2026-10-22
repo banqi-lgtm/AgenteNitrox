@@ -1105,11 +1105,18 @@ async function generateMateoResponse(fromNumber, userText) {
       // Caso C: Retoma de conversación en curso (incompleta)
       const { FALLBACK_QUESTIONS } = require('./gemini_brain');
       const progress = getRegistrationProgress(session.data, session.memory);
-      const nextKey = progress.missingMandatory[0]?.key || 'nombre_taller';
-      const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Cómo se llama tu taller de motos?';
-      const resumeReply = session.data.nombre_taller
-        ? `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. Estábamos hablando de tu taller${shopName}. ${pendingQ}`
-        : `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. ${pendingQ}`;
+      const nextKey = progress.missingMandatory[0]?.key || (session.data.nombres_apellidos ? 'nombre_taller' : 'nombres_apellidos');
+      
+      let resumeReply;
+      if (!session.data.nombres_apellidos) {
+        resumeReply = '¡Hola! Qué alegría tenerte de nuevo por aquí 🏍️. Para comenzar a conversar, ¿cuál es tu nombre?';
+      } else if (session.data.nombre_taller) {
+        const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Cómo se llama tu taller de motos?';
+        resumeReply = `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. Estábamos hablando de tu taller${shopName}. ${pendingQ}`;
+      } else {
+        const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Cómo se llama tu taller de motos?';
+        resumeReply = `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. ${pendingQ}`;
+      }
 
       session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
       session.history.push({ role: 'assistant', content: resumeReply, timestamp: Date.now() });
