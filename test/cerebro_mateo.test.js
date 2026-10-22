@@ -664,6 +664,63 @@ runTest('AM. Guardabarrera anti-repetición bloquea preguntas de rol redundantes
   assert.strictEqual(check.forbidden, true, 'Debe prohibir repreguntar el rol cuando ya está confirmado');
 });
 
+// -------------------------------------------------------------
+// TEST 40: Detección de intención de compra en NLP ("Hola Quiero comprar")
+// -------------------------------------------------------------
+runTest('AN. Detección de intencion_compra en frases de compra ("Hola Quiero comprar")', () => {
+  const nlp1 = processNlpPipeline("Hola Quiero comprar");
+  assert.strictEqual(nlp1.entities.intencion_compra, true, 'Debe detectar intencion_compra en "Hola Quiero comprar"');
+  assert.strictEqual(nlp1.entities.es_pregunta_comercial, true, 'Debe marcar es_pregunta_comercial');
+
+  const nlp2 = processNlpPipeline("Dónde puedo comprar repuestos nitrox?");
+  assert.strictEqual(nlp2.entities.intencion_compra, true, 'Debe detectar intencion_compra en "Dónde puedo comprar repuestos"');
+
+  const nlp3 = processNlpPipeline("necesito comprar un kit de arrastre");
+  assert.strictEqual(nlp3.entities.intencion_compra, true, 'Debe detectar intencion_compra en "necesito comprar un kit de arrastre"');
+});
+
+// -------------------------------------------------------------
+// TEST 41: Detección de elección del flujo ("solo comprar" vs "seguir formulario")
+// -------------------------------------------------------------
+runTest('AO. Detección de elección entre solo comprar y formulario', () => {
+  const context = {
+    _modo_compra: 'preguntando_opcion',
+    lastAssistantMessage: '¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?'
+  };
+
+  const nlpBuy = processNlpPipeline("solo comprar", context);
+  assert.strictEqual(nlpBuy.entities.eleccion_flujo_compra, 'solo_comprar', 'Debe reconocer elección "solo_comprar"');
+
+  const nlpForm = processNlpPipeline("sigamos con el formulario", context);
+  assert.strictEqual(nlpForm.entities.eleccion_flujo_compra, 'seguir_formulario', 'Debe reconocer elección "seguir_formulario"');
+});
+
+// -------------------------------------------------------------
+// TEST 42: Manejo de modo compra y fallback sin IA de bifurcación
+// -------------------------------------------------------------
+runTest('AP. Fallback formula bifurcación de compra y jamás fuerza preguntas de rol', () => {
+  const session = {
+    data: {
+      nombres_apellidos: 'Carlos',
+      nombre_taller: 'Taller El Paisa',
+      ciudad_taller: 'Medellín',
+      barrio_taller: 'Aranjuez',
+      direccion_taller: 'Calle 92 # 48-12',
+      _lastQuestion: 'ROL_TALLER'
+    },
+    history: []
+  };
+
+  const nlp = processNlpPipeline("Hola Quiero comprar", session.data);
+  assert.strictEqual(nlp.entities.intencion_compra, true);
+
+  // Simular inicio de bifurcación
+  session.data._modo_compra = 'preguntando_opcion';
+  const expectedFork = '¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?';
+  assert.ok(expectedFork.includes('solo comprar'), 'Debe ofrecer la opción de solo comprar');
+  assert.ok(expectedFork.includes('formulario'), 'Debe ofrecer la opción de seguir con el formulario');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

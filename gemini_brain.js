@@ -217,6 +217,21 @@ async function processGeminiBrainTurn(session, userText) {
   const pendingTopics = getConversationalPendingTopics(session.data, memory);
   const memorySummary = buildConversationSummary(memory);
 
+  // Sincronizar estado de bifurcación de compra vs. formulario
+  if (session.data._modo_compra === 'preguntando_opcion') {
+    if (nlpResult.entities.eleccion_flujo_compra === 'solo_comprar') {
+      session.data._modo_compra = 'asesoria_compra';
+    } else if (nlpResult.entities.eleccion_flujo_compra === 'seguir_formulario') {
+      delete session.data._modo_compra;
+    }
+  } else if (session.data._modo_compra === 'compra_resuelta') {
+    if (/^(?:s[ií]|claro|de\s+una|h[aá]gale|obvio|dale|por\s+supuesto|sigamos|el\s+formulario)\b/i.test(nlpResult.normalizedText)) {
+      delete session.data._modo_compra;
+    }
+  } else if (nlpResult.entities.intencion_compra && !isAlreadyRegistered && session.data._modo_compra !== 'asesoria_compra') {
+    session.data._modo_compra = 'preguntando_opcion';
+  }
+
   // Contexto conversacional enriquecido para Gemini
   let contextPrompt;
 
@@ -282,6 +297,24 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
    - SI "Puede finalizar" es NO, QUEDA TERMINANTEMENTE PROHIBIDO poner listo_para_finalizar en true ni despedirte diciendo que ya hace parte de la red. Debes continuar con el siguiente tema pendiente de forma amena.
 8. MULETILLAS: PROHIBIDO decir "contame" o "y contame" repetitivamente. Máximo 22 palabras (ideal 5 a 18 palabras). Sin hermano ni repetición de nombres.`;
 
+    if (session.data._modo_compra === 'preguntando_opcion') {
+      contextPrompt += `\n\n🚨 ATENCIÓN PRIORIDAD COMERCIAL / BIFURCACIÓN DE COMPRA:
+El usuario manifestó intención de comprar repuestos ("${userText}").
+TERMINANTEMENTE PROHIBIDO continuar ciegamente con la siguiente pregunta del formulario de registro (como si es dueño o mecánico, cuántas motos atiende, cédula o correo).
+DEBES FORMULAR LA PREGUNTA DE BIFURCACIÓN EXACTA:
+"¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?"`;
+    } else if (session.data._modo_compra === 'asesoria_compra') {
+      contextPrompt += `\n\n🚨 MODO ASESORÍA DE COMPRA NITROX ACTIVO:
+El usuario eligió atender su compra de repuestos.
+TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, especialidad, motos por semana, cédula, correo) hasta completar la asesoría de compra.
+1. Asesora 100% con la línea oficial NITROX (kits de arrastre reforzados, cadenas Gold/O-Ring, pastillas/bandas, clutch). Cero marcas de la competencia.
+2. Si aún no sabes qué repuesto o para qué moto busca, pregúntale: "¿Qué repuesto NITROX buscas y para qué moto?".
+3. Si ya sabes qué repuesto y para qué moto, pero no sabes la ubicación, pídele su barrio y ciudad o ubicación por WhatsApp para darle la sede Mundimotos más cercana.
+4. Si ya le indicaste la sede Mundimotos (o despacho por mundimotos.com / WhatsApp pedidos +57 302 427 6647):
+   CIERRA LA ASESORÍA DE COMPRA Y PREGUNTA SI RETOMAN EL FORMULARIO:
+   "¡Listo! Ya tienes toda la información de tu compra. ¿Ahora sí seguimos con el formulario de tu taller para dejarte activo en la Red NITROX con todos tus premios y beneficios?"`;
+    }
+
     if (nlpResult.entities.situacion_salud_o_personal) {
       contextPrompt += `\n\n9. ATENCIÓN PRIORITARIA: El usuario compartió malestar físico o enfermedad (ej. dolor de estómago). TERMINANTEMENTE PROHIBIDO pedir cédula, correo o datos legales en este turno. Dale un consejo humano de alivio (manzanilla, descanso) y deja la conversación tranquila sin presionar por datos de registro.`;
     }
@@ -325,6 +358,13 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
 
     // Longitud WhatsApp: recorte local instantáneo (sin una segunda llamada a la IA)
     reply = trimReplyLocally(reply);
+
+    // Detección de bifurcación o retoma comercial en la respuesta
+    if (/formulario.*solo\s+comprar|solo\s+comprar.*formulario/i.test(reply)) {
+      session.data._modo_compra = 'preguntando_opcion';
+    } else if (/ahora\s+s[ií]\s+seguimos\s+con\s+el\s+formulario/i.test(reply)) {
+      session.data._modo_compra = 'compra_resuelta';
+    }
 
     // 4. GUARDABARRERAS SEMÁNTICO Y ANTI-REPETICIÓN
     // Inspecciona si la respuesta generada intenta formular una pregunta sobre un dato que ya se conoce.
@@ -394,8 +434,8 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     }
 
     // 4.1 GARANTÍA DE PROGRESIÓN CONVERSACIONAL (REGLA DE UNA SOLA PREGUNTA OBLIGATORIA)
-    // EXCEPCIONES: NO forzar preguntas si el usuario fue hostil o reportó malestar de salud
-    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation) {
+    // EXCEPCIONES: NO forzar preguntas si el usuario fue hostil, reportó malestar de salud o está en modo compra
+    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation && session.data._modo_compra !== 'asesoria_compra') {
       const remainingPending = getConversationalPendingTopics(session.data, memory);
       let nextKeyToAsk = null;
       let nextQuestionText = null;
@@ -443,45 +483,52 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       session.data[k] = v.value;
     }
 
-    // Respaldo sin IA: recalcular pendientes con la información más reciente de session.data
-    // y filtrar contra preguntas ya formuladas para garantizar CERO repetición
-    const latestPending = getConversationalPendingTopics(session.data, memory);
-    let chosenKey = null;
-    let nextQ = null;
+    // Respaldo sin IA según estado comercial o registro pendiente
+    let fallbackReply;
+    if (session.data._modo_compra === 'preguntando_opcion' || nlpResult.entities.intencion_compra) {
+      fallbackReply = '¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?';
+      session.data._modo_compra = 'preguntando_opcion';
+    } else if (session.data._modo_compra === 'asesoria_compra') {
+      fallbackReply = '¡De una! ¿Qué repuesto NITROX estás buscando y para qué moto?';
+    } else {
+      const latestPending = getConversationalPendingTopics(session.data, memory);
+      let chosenKey = null;
+      let nextQ = null;
 
-    for (const t of latestPending) {
-      const candQ = FALLBACK_QUESTIONS[t.key] || '¿Me cuentas un poco más de tu taller?';
-      const check = isTopicOrQuestionForbidden(memory, t.key, candQ);
-      if (!check.forbidden) {
-        chosenKey = t.key;
-        nextQ = candQ;
-        break;
+      for (const t of latestPending) {
+        const candQ = FALLBACK_QUESTIONS[t.key] || '¿Me cuentas un poco más de tu taller?';
+        const check = isTopicOrQuestionForbidden(memory, t.key, candQ);
+        if (!check.forbidden) {
+          chosenKey = t.key;
+          nextQ = candQ;
+          break;
+        }
       }
-    }
 
-    if (!chosenKey) {
-      chosenKey = 'barrio_taller';
-      nextQ = '¿En qué barrio o sector se encuentra ubicado tu taller?';
-    }
-
-    // Formulaciones naturales de máximo 1 sola pregunta con confirmación breve previa
-    const isBadWord = (str) => !str || /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es)\b/i.test(str) || /^(?:y|e|o|u|si|no)$/i.test(String(str).trim());
-    if (chosenKey === 'nombre_taller' && session.data.nombres_apellidos && !isBadWord(session.data.nombres_apellidos)) {
-      const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
-      if (firstName.length >= 2 && !isBadWord(firstName)) {
-        nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller de motos?`;
-      } else {
-        nextQ = '¡Qué gusto saludarte! Cuéntame, ¿cómo se llama tu taller de motos?';
+      if (!chosenKey) {
+        chosenKey = 'barrio_taller';
+        nextQ = '¿En qué barrio o sector se encuentra ubicado tu taller?';
       }
-    } else if (chosenKey === 'ciudad_taller' && session.data.nombre_taller && !isBadWord(session.data.nombre_taller)) {
-      nextQ = `¡Excelente! ¿Y en qué ciudad o municipio queda ${session.data.nombre_taller}?`;
-    } else if (chosenKey === 'barrio_taller' && session.data.nombre_taller && session.data.ciudad_taller && !isBadWord(session.data.nombre_taller)) {
-      nextQ = `¡Entendido! ${session.data.nombre_taller} en ${session.data.ciudad_taller} 🏍️. ¿En qué barrio o sector están?`;
-    }
 
-    const fallbackReply = (isAlreadyRegistered ? '¡Con gusto! Ya estás en la red. ¿En qué más te ayudo?' : nextQ);
-    if (!isAlreadyRegistered && chosenKey) {
-      recordAskedQuestion(memory, chosenKey, fallbackReply);
+      // Formulaciones naturales de máximo 1 sola pregunta con confirmación breve previa
+      const isBadWord = (str) => !str || /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es)\b/i.test(str) || /^(?:y|e|o|u|si|no)$/i.test(String(str).trim());
+      if (chosenKey === 'nombre_taller' && session.data.nombres_apellidos && !isBadWord(session.data.nombres_apellidos)) {
+        const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
+        if (firstName.length >= 2 && !isBadWord(firstName)) {
+          nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller de motos?`;
+        } else {
+          nextQ = '¡Qué gusto saludarte! Cuéntame, ¿cómo se llama tu taller de motos?';
+        }
+      } else if (chosenKey === 'ciudad_taller' && session.data.nombre_taller && !isBadWord(session.data.nombre_taller)) {
+        nextQ = `¡Excelente! ¿Y en qué ciudad o municipio queda ${session.data.nombre_taller}?`;
+      } else if (chosenKey === 'barrio_taller' && session.data.nombre_taller && session.data.ciudad_taller && !isBadWord(session.data.nombre_taller)) {
+        nextQ = `¡Entendido! ${session.data.nombre_taller} en ${session.data.ciudad_taller} 🏍️. ¿En qué barrio o sector están?`;
+      }
+
+      fallbackReply = (isAlreadyRegistered ? '¡Con gusto! Ya estás en la red. ¿En qué más te ayudo?' : nextQ);
+      if (!isAlreadyRegistered && chosenKey) {
+        recordAskedQuestion(memory, chosenKey, fallbackReply);
+      }
     }
     return {
       analysis: { error: err.message, fallback: true },

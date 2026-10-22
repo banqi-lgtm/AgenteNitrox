@@ -304,6 +304,17 @@ function detectAskedQuestion(replyText, temaPreguntado) {
   if (!replyText) return null;
   const lower = (replyText || '').toLowerCase();
 
+  // 0. Bifurcación comercial: formulario vs compra de repuestos
+  if (/formulario.*solo\s+comprar|solo\s+comprar.*formulario/i.test(lower)) {
+    return 'OPCION_COMPRA_O_FORMULARIO';
+  }
+  if (/ahora\s+s[ií]\s+seguimos\s+con\s+el\s+formulario/i.test(lower)) {
+    return 'RETOMAR_FORMULARIO_POST_COMPRA';
+  }
+  if (/repuesto\s+nitrox.*moto|qu[eé]\s+repuesto.*(?:buscas|necesitas)/i.test(lower)) {
+    return 'ASESORIA_COMPRA_NITROX';
+  }
+
   // 1. Habeas Data
   if (/autorizas|tratamiento\s+de\s+datos|habeas\s+data|pol[ií]tica\s+de\s+privacidad|registrar\s+los\s+datos/i.test(lower)) {
     return 'HABEAS_DATA';
@@ -1080,7 +1091,9 @@ async function generateMateoResponse(fromNumber, userText) {
   }
 
     // 0. Saludos y Retoma Instantánea de Conversaciones (cero latencia, recuperación garantizada)
-    if (isPureGreeting(raw) || isGreeting(raw)) {
+    // EXCEPCIÓN: Si el mensaje contiene intención de compra o repuestos, enviar a NLP y Gemini para la bifurcación
+    const hasPurchaseKeywords = /\b(?:comprar|compra|cotizar|repuestos?|precios?|cu[aá]nto\s+vale)\b/i.test(raw);
+    if ((isPureGreeting(raw) || isGreeting(raw)) && !hasPurchaseKeywords) {
       const isFirstContact = (!session.data.nombres_apellidos && !session.data.nombre_taller && (!session.history || session.history.length === 0));
       if (isFirstContact) {
         const welcome = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
@@ -1231,7 +1244,8 @@ async function generateMateoResponse(fromNumber, userText) {
   // REGLA FUNDAMENTAL DE PROGRESIÓN CONVERSACIONAL:
   // Si la vinculación no ha finalizado y el mensaje de Mateo no contiene ninguna pregunta (ej: se quedó solo en "¡Qué pena contigo por la confusión."),
   // es OBLIGATORIO anexar la pregunta que hace avanzar la ficha en ese mismo mensaje.
-  if (!session.data._finished && !brainResult.reply.includes('?')) {
+  // EXCEPCIÓN: Si estamos en modo de asesoría de compra de repuestos, no forzar preguntas de registro.
+  if (!session.data._finished && !brainResult.reply.includes('?') && session.data._modo_compra !== 'asesoria_compra') {
     if (!session.data.nombres_apellidos) {
       brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?`;
     } else if (!session.data.nombre_taller) {

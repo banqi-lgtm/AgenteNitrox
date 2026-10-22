@@ -277,6 +277,8 @@ function extractSemanticEntities(text, sessionContext = {}) {
     // Señales conversacionales y de control
     es_pregunta_comercial: false,
     pregunta_comercial_tema: null,
+    intencion_compra: false,
+    eleccion_flujo_compra: null, // 'solo_comprar' | 'seguir_formulario'
     protesta_repeticion: false,
     rechazo_dato: {},
     situacion_salud_o_personal: false,
@@ -320,9 +322,30 @@ function extractSemanticEntities(text, sessionContext = {}) {
     extracted.friccion_o_reclamo = true;
   }
 
-  // 3. CONSULTAS COMERCIALES DEL USUARIO (Regla: Responder primero a sus dudas antes de seguir con vinculación)
-  // Ejemplos: "¿Ustedes quiénes son o qué hacen?", "¿Tienen pastillas para una NKD?", "¿Dónde quedan?"
-  if (/\b(?:qui[eé]nes\s+son|qu[eé]\s+hacen|de\s+qu[eé]\s+es\s+nitrox|qu[eé]\s+es\s+red\s+nitrox)\b/i.test(lower)) {
+  // 3. CONSULTAS COMERCIALES Y/O INTENCIÓN DE COMPRA DEL USUARIO
+  // Detección de respuesta a la bifurcación: ¿Seguimos con el formulario o quieres solo comprar?
+  const wasForkAsked = sessionContext._modo_compra === 'preguntando_opcion' ||
+                       sessionContext._lastQuestion === 'OPCION_COMPRA_O_FORMULARIO' ||
+                       /\b(?:formulario\s+o\s+quieres\s+solo\s+comprar|seguimos\s+con\s+el\s+formulario|o\s+solo\s+comprar)\b/i.test(sessionContext.lastAssistantMessage || '');
+
+  if (wasForkAsked) {
+    if (/\b(?:solo\s+comprar|comprar|repuestos?|primero\s+comprar|la\s+compra|compro|quiero\s+comprar|cotizar|necesito\s+repuestos?|solo\s+los\s+repuestos)\b/i.test(lower)) {
+      extracted.eleccion_flujo_compra = 'solo_comprar';
+    } else if (/\b(?:formulario|registro|vincular|sigamos|seguir|continuar|afiliar|ambos|las\s+dos|inscribir|terminar)\b/i.test(lower)) {
+      extracted.eleccion_flujo_compra = 'seguir_formulario';
+    }
+  }
+
+  // Detección de Intención de Compra explícita
+  const isPurchaseIntent = /\b(?:quiero\s+comprar|comprar\s+repuestos|c[oó]mo\s+compro|d[oó]nde\s+compro|d[oó]nde\s+puedo\s+comprar|venden\s+repuestos|necesito\s+comprar|a\s+c[oó]mo\s+los\s+repuestos|precio\s+de|cotizar|comprar)\b/i.test(lower) ||
+    /^(?:hola\s+)?(?:quiero\s+comprar|comprar|compro|compras|cotizar)[\s.,!]*$/i.test(lower) ||
+    /\b(?:quiero|necesito|deseo|voy\s+a)\s+comprar\b/i.test(lower);
+
+  if (isPurchaseIntent) {
+    extracted.intencion_compra = true;
+    extracted.es_pregunta_comercial = true;
+    extracted.pregunta_comercial_tema = 'intencion_compra';
+  } else if (/\b(?:qui[eé]nes\s+son|qu[eé]\s+hacen|de\s+qu[eé]\s+es\s+nitrox|qu[eé]\s+es\s+red\s+nitrox)\b/i.test(lower)) {
     extracted.es_pregunta_comercial = true;
     extracted.pregunta_comercial_tema = 'identidad_empresa';
   } else if (/\b(?:tienen|manejan|venden|hay|consiguen)\b.*?\b(?:pastillas?|frenos?|kit|arrastre|repuesto|bater[ií]a|llanta|cadena|aceite|cilindro)\b/i.test(lower) ||
