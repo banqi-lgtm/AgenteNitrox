@@ -1635,7 +1635,6 @@ async function handleIncomingMessage(req, res) {
         for (const st of change.statuses) {
           console.log(`📊 [META STATUS]: +${st.recipient_id} -> ${st.status} (id: ${st.id})${st.errors ? ' ❌ ERROR: ' + JSON.stringify(st.errors) : ''}`);
         }
-        continue;
       }
 
       if (!change.messages || change.messages.length === 0) {
