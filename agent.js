@@ -1079,15 +1079,43 @@ async function generateMateoResponse(fromNumber, userText) {
     session.history = [];
   }
 
-    // 0. Saludo instantáneo en primer contacto (cero espera o dependencia de Gemini para el bienvenida)
-    const isFirstContact = (!session.data.nombres_apellidos && !session.data.nombre_taller && (!session.history || session.history.length === 0));
-    if (isFirstContact && (isPureGreeting(raw) || isGreeting(raw))) {
-      const welcome = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
+    // 0. Saludos y Retoma Instantánea de Conversaciones (cero latencia, recuperación garantizada)
+    if (isPureGreeting(raw) || isGreeting(raw)) {
+      const isFirstContact = (!session.data.nombres_apellidos && !session.data.nombre_taller && (!session.history || session.history.length === 0));
+      if (isFirstContact) {
+        const welcome = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
+        session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
+        session.history.push({ role: 'assistant', content: welcome, timestamp: Date.now() });
+        session.data._lastQuestion = 'NOMBRE';
+        await saveSession(fromNumber, session);
+        return [welcome];
+      }
+
+      // Caso B: Taller ya registrado oficialmente
+      const firstName = session.data.nombres_apellidos ? `, ${session.data.nombres_apellidos.trim().split(/\s+/)[0]}` : '';
+      const shopName = session.data.nombre_taller ? ` ${session.data.nombre_taller}` : '';
+      if (session.data._finished === true && session.data.id_unico) {
+        const reply = `¡Hola${firstName}! Qué gusto saludarte de nuevo 🏍️. Tu taller${shopName ? shopName : ''} ya está activo en la RED NITROX. ¿En qué te colaboro hoy?`;
+        session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
+        session.history.push({ role: 'assistant', content: reply, timestamp: Date.now() });
+        await saveSession(fromNumber, session);
+        return [reply];
+      }
+
+      // Caso C: Retoma de conversación en curso (incompleta)
+      const { FALLBACK_QUESTIONS } = require('./gemini_brain');
+      const progress = getRegistrationProgress(session.data, session.memory);
+      const nextKey = progress.missingMandatory[0]?.key || 'nombre_taller';
+      const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Cómo se llama tu taller de motos?';
+      const resumeReply = session.data.nombre_taller
+        ? `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. Estábamos hablando de tu taller${shopName}. ${pendingQ}`
+        : `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. ${pendingQ}`;
+
       session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
-      session.history.push({ role: 'assistant', content: welcome, timestamp: Date.now() });
-      session.data._lastQuestion = 'NOMBRE';
+      session.history.push({ role: 'assistant', content: resumeReply, timestamp: Date.now() });
+      session.data._lastQuestion = nextKey.toUpperCase();
       await saveSession(fromNumber, session);
-      return [welcome];
+      return [resumeReply];
     }
 
     // 1. Extraer entidades determinísticas locales del mensaje ANTES de llamar a Gemini
