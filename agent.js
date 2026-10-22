@@ -899,30 +899,46 @@ function extractEntities(text, sessionData) {
 function isBsuidId(id) { return /[A-Za-z]/.test(String(id || '')); }
 function phoneFromId(id) { return isBsuidId(id) ? '' : String(id || '').replace(/\D/g, ''); }
 
+const isRunningInCloud = Boolean(
+  process.env.K_SERVICE || 
+  process.env.FUNCTION_TARGET || 
+  process.env.GOOGLE_CLOUD_PROJECT || 
+  process.env.GCP_PROJECT ||
+  process.env.K_REVISION ||
+  process.env.CLOUD_RUN_JOB ||
+  process.env.GOOGLE_APPLICATION_CREDENTIALS
+);
+let firestoreAuthFailed = !isRunningInCloud;
+
 // Persistent session management via Firestore + RAM cache
 async function getSession(phoneNumber) {
   const cleanPhone = phoneFromId(phoneNumber);
-  try {
-    const doc = await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).get();
-    if (doc.exists) {
-      const fsData = doc.data() || {};
-      const local = memoryCache[phoneNumber];
-      let sess = fsData;
-      // Si Firestore tiene historial igual o más largo, o no hay local, tomamos Firestore
-      if (!local || (fsData.history && fsData.history.length >= (local.history?.length || 0))) {
-        sess = fsData;
-      } else {
-        sess = local;
+  if (!firestoreAuthFailed) {
+    try {
+      const doc = await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).get();
+      if (doc.exists) {
+        const fsData = doc.data() || {};
+        const local = memoryCache[phoneNumber];
+        let sess = fsData;
+        // Si Firestore tiene historial igual o más largo, o no hay local, tomamos Firestore
+        if (!local || (fsData.history && fsData.history.length >= (local.history?.length || 0))) {
+          sess = fsData;
+        } else {
+          sess = local;
+        }
+        sess.data = sess.data || {};
+        if (cleanPhone && (!sess.data.celular_whatsapp || sess.data.celular_whatsapp.length < 10)) {
+          sess.data.celular_whatsapp = cleanPhone;
+        }
+        memoryCache[phoneNumber] = sess;
+        return sess;
       }
-      sess.data = sess.data || {};
-      if (cleanPhone && (!sess.data.celular_whatsapp || sess.data.celular_whatsapp.length < 10)) {
-        sess.data.celular_whatsapp = cleanPhone;
+    } catch (e) {
+      if (/default credentials/i.test(e.message)) {
+        firestoreAuthFailed = true;
       }
-      memoryCache[phoneNumber] = sess;
-      return sess;
+      // Fallback a memoria
     }
-  } catch (e) {
-    // Si no hay Firestore o falla credencial (ej. local), fallback a memoria
   }
 
   if (memoryCache[phoneNumber]) {
@@ -946,10 +962,13 @@ async function getSession(phoneNumber) {
 
 async function saveSession(phoneNumber, session) {
   memoryCache[phoneNumber] = session;
-  try {
-    await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).set(session);
-  } catch (e) {
-    console.warn('[FIRESTORE SAVE SESSION]', e.message);
+  if (!firestoreAuthFailed) {
+    try {
+      await admin.firestore().collection('sesiones_mateo').doc(phoneNumber).set(session);
+    } catch (e) {
+      if (/default credentials/i.test(e.message)) firestoreAuthFailed = true;
+      console.warn('[FIRESTORE SAVE SESSION]', e.message);
+    }
   }
 }
 
@@ -1059,6 +1078,17 @@ async function generateMateoResponse(fromNumber, userText) {
     session.data = cleanPhone ? { celular_whatsapp: cleanPhone } : { wa_user_id: String(fromNumber) };
     session.history = [];
   }
+
+    // 0. Saludo instantáneo en primer contacto (cero espera o dependencia de Gemini para el bienvenida)
+    const isFirstContact = (!session.data.nombres_apellidos && !session.data.nombre_taller && (!session.history || session.history.length === 0));
+    if (isFirstContact && (isPureGreeting(raw) || isGreeting(raw))) {
+      const welcome = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
+      session.history.push({ role: 'user', content: raw, timestamp: Date.now() });
+      session.history.push({ role: 'assistant', content: welcome, timestamp: Date.now() });
+      session.data._lastQuestion = 'NOMBRE';
+      await saveSession(fromNumber, session);
+      return [welcome];
+    }
 
     // 1. Extraer entidades determinísticas locales del mensaje ANTES de llamar a Gemini
     // para que la memoria y sesión estén 100% actualizadas al generar la respuesta

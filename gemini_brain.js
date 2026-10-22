@@ -73,13 +73,14 @@ function getPendingTopics(memory) {
 // Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
 // ───────────────────────────────────────────────────────────────────────────
 const MODEL_CHAIN = [
-  'googleai/gemini-3-flash-preview',
+  'googleai/gemini-flash-lite-latest',
+  'googleai/gemini-3.5-flash-lite',
   'googleai/gemini-3.6-flash',
-  'googleai/gemini-3.5-flash'
+  'googleai/gemini-3-flash-preview'
 ];
-const HEDGE_DELAYS_MS = [0, 1800, 3800];   // cuándo lanzar cada candidato si nadie ha respondido
-const PER_CALL_TIMEOUT_MS = 5500;
-const TOTAL_BUDGET_MS = 8500;
+const HEDGE_DELAYS_MS = [0, 1200, 2500, 3800];   // cuándo lanzar cada candidato si nadie ha respondido
+const PER_CALL_TIMEOUT_MS = 3000;
+const TOTAL_BUDGET_MS = 4800;
 const modelCooldownUntil = {};
 
 function cooldownFor(err) {
@@ -292,13 +293,13 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
   }
 
   try {
-    // Prioridad Gemini 3.8 Flash; si está saturado o sin cuota, cascada rápida con hedging
+    // Prioridad modelos ultra-rápidos; si está saturado o sin cuota, cascada con hedging
     const response = await generateResilient({
       system: SYSTEM_PROMPT,
       prompt: contextPrompt,
       config: {
         temperature: 0.35,
-        maxOutputTokens: 1500,
+        maxOutputTokens: 750,
         responseMimeType: 'application/json'
       }
     });
