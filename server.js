@@ -1240,12 +1240,21 @@ app.get('/api/crm/conversacion-en-vivo/:phone', requireAuth, async (req, res) =>
   }
 });
 
-// CRM Endpoint para purgar residuos corruptos de una sesión y reorientar a NOMBRE
+// CRM Endpoint para purgar residuos o borrar por completo una sesión
 app.post('/api/crm/limpiar-sesion/:phone', requireAuth, async (req, res) => {
   try {
     const phone = String(req.params.phone || '').replace(/\D/g, '');
+    const isFull = req.query.full === 'true' || req.body?.full === true;
     const sessRef = admin.firestore().collection('sesiones_mateo').doc(phone);
     const snap = await sessRef.get();
+    
+    if (isFull) {
+      if (snap.exists) await sessRef.delete();
+      const { memoryCache } = require('./agent');
+      if (memoryCache && memoryCache[phone]) delete memoryCache[phone];
+      return res.json({ success: true, message: `Sesión de +${phone} eliminada al 100% (historial borrado a cero)` });
+    }
+
     if (!snap.exists) {
       return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
     }
@@ -1269,6 +1278,19 @@ app.post('/api/crm/limpiar-sesion/:phone', requireAuth, async (req, res) => {
       memoryCache[phone] = session;
     }
     return res.json({ success: true, message: `Sesión para +${phone} limpiada exitosamente`, session });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/crm/conversacion/:phone', requireAuth, async (req, res) => {
+  try {
+    const phone = String(req.params.phone || '').replace(/\D/g, '');
+    const sessRef = admin.firestore().collection('sesiones_mateo').doc(phone);
+    await sessRef.delete();
+    const { memoryCache } = require('./agent');
+    if (memoryCache && memoryCache[phone]) delete memoryCache[phone];
+    return res.json({ success: true, message: `Sesión de +${phone} borrada totalmente` });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
