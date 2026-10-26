@@ -507,9 +507,16 @@ function integrateFactsIntoMemory(memory, extractedEntities, userText = '') {
 function recordAskedQuestion(memory, topicKey, questionText) {
   if (!memory || !questionText) return;
 
+  const cleanQ = questionText.trim();
+  const cleanTopic = topicKey || 'general';
+  const isDuplicate = (memory.askedQuestions || []).some(
+    q => q.topicKey === cleanTopic && q.questionText === cleanQ
+  );
+  if (isDuplicate) return;
+
   const entry = {
-    topicKey: topicKey || 'general',
-    questionText: questionText.trim(),
+    topicKey: cleanTopic,
+    questionText: cleanQ,
     timestamp: Date.now()
   };
 

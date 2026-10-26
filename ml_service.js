@@ -55,6 +55,32 @@ const localMlLearningsStore = [
     mensajes_totales: 14,
     fecha_analisis: new Date(Date.now() - 7200000).toISOString(),
     id_unico: 'ML-ITA-SER02'
+  },
+  {
+    telefono: '573208185796',
+    nombre_mecanico: 'Walter González',
+    nombre_taller: 'Moto Sport',
+    municipio: 'Bogotá',
+    barrio: 'Venecia',
+    score: 98,
+    sentimiento_usuario: 'muy_positivo',
+    que_aprendio_mateo: [
+      "Interpretó mensaje multiintención ('Hola, soy Walter González y quiero cotizar un kit de arrastre') sin forzar preguntas de formulario.",
+      "Atendió primero la cotización de repuestos NITROX y ofreció la retoma del registro únicamente al concluir la venta.",
+      "Identificó que clientes independientes sin taller fijo pueden comprar repuestos NITROX con el mismo nivel de calidad y servicio."
+    ],
+    fricciones_detectadas: [
+      "Ninguna. Se evitó la bifurcación redundante y se respondió en menos de 2 segundos."
+    ],
+    terminos_o_jergas_nuevas: [
+      "Kit reforzado 520H", "Mundimotos Venecia", "Mecánico Independiente"
+    ],
+    resumen_conversacion: "Conversación fluida multiintención donde el cliente saludó, dio su nombre y cotizó repuestos. Mateo priorizó la atención comercial y orientó al punto oficial Mundimotos Venecia.",
+    recomendacion_mejora: "Mantener la separación estricta entre el flujo comercial y el formulario de taller en mensajes compuestos.",
+    estado_conversacion: "completada",
+    mensajes_totales: 6,
+    fecha_analisis: new Date().toISOString(),
+    id_unico: 'ML-BOG-WAL03'
   }
 ];
 

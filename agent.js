@@ -81,12 +81,20 @@ function cleanPersonName(str) {
   // Si contiene negaciones, protestas o quejas
   if (/\b(?:no\s+es\s+mi\s+nombre|no\s+sea|no\s+me\s+llamo|te\s+equivocaste|mentira|equivocado|no\s+joda|saludas?|respondes?|hablas?)\b/i.test(s)) return '';
 
-  s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es|yo soy|yo me llamo)\s+/gi, '');
-  // Remover cláusulas adversativas o de compra añadidas al nombre (ej: "Walter González pero hoy quiero hacer una compra")
-  s = s.replace(/\s+(?:pero|mas|aunque|sin embargo)?\s*(?:hoy|solo)?\s*(?:quiero|deseo|necesito|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra|cotizar).*$/gi, '').trim();
+  s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|buenas noches)[,;\s]+\s*/gi, '');
+  s = s.replace(/^(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es|yo\s+me\s+llamo|puedes\s+decirme|mi\s+nombre\s+completo\s+es)\s+/gi, '');
+  // Remover cláusulas adversativas, conjunciones o de compra añadidas al nombre (ej: "Walter González pero hoy quiero hacer una compra", "Walter González y hoy quiero cotizar...")
+  s = s.replace(/\s+(?:pero|y|mas|aunque|sin embargo)?\s*(?:hoy|solo)?\s*(?:quiero|deseo|necesito|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra|cotizar|pedir|llevar).*$/gi, '').trim();
+  // Remover cláusulas intermedias de taller o roles: ", mi taller se llama Moto Sport..." o ", gerente del taller"
+  s = s.replace(/[,;]?\s*(?:y\s+)?(?:mi\s+taller\s+se\s+llama|el\s+taller\s+se\s+llama|el\s+negocio\s+se\s+llama|mi\s+taller\s+es|el\s+taller\s+es|no\s+tengo\s+taller|todav[ií]a\s+no\s+tengo\s+taller|trabajo\s+independiente).*$/gi, '').trim();
+  s = s.replace(/[,;]?\s*(?:gerente|propietario|mecanico|mecánico|dueño|patrón|patron|administrador)(?:\s+del?\s+taller)?.*$/gi, '').trim();
+  s = s.replace(/\s+(?:pero\s+dime|dime).*$/gi, '').trim();
   s = s.replace(/(?:taller|motos|repuestos).*$/gi, '').trim();
-  s = s.replace(/\s+(?:y|de|del|pero)$/gi, '').trim();
+  s = s.replace(/\s+(?:y|e|de|del|pero)$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
+
+  // Si después de limpiar aún contiene verbos o términos comerciales, no es un nombre personal
+  if (/\b(?:cotizar|cotizacion|cotización|comprar|compra|repuesto|repuestos|kit|arrastre|freno|frenos|pastillas|bandas|cadena|aceite|taller|precio|cuanto|cuánto|necesito|quiero)\b/i.test(s)) return '';
 
   if (isPureGreeting(s) || isGreetingResponse(s) || isGreeting(s)) return '';
   if (/[?¿]/.test(s)) return '';
@@ -122,7 +130,7 @@ function cleanWorkshopName(str) {
   if (/^(?:pastillas?(?:\s+de\s+frenos?)?|frenos?|kit(?:\s+de\s+arrastre)?|bandas?(?:\s+de\s+frenos?)?|aceite|repuestos?|cadena|cadenas|buj[ií]as?|llantas?|disco(?:s)?(?:\s+de\s+frenos?)?)$/i.test(s)) return '';
   if (/\b(?:pastillas?\s+de\s+frenos?|kit\s+de\s+arrastre|cambio\s+de\s+aceite)\b/i.test(s)) return '';
 
-  if (/^(?:no tengo taller|a domicilio|independiente|trabajo a domicilio|particular)/i.test(s)) {
+  if (/^(?:no tengo taller|a domicilio|independiente|trabajo a domicilio|particular|todav[ií]a\s+no\s+tengo\s+taller)/i.test(s)) {
     return 'Mecánico Independiente / A domicilio';
   }
   // Remove attached trailing city ("La 50 en Medellín" -> "La 50")
@@ -143,13 +151,24 @@ function cleanWorkshopName(str) {
 function parseNameAndWorkshop(raw) {
   const clean = (raw || '').trim();
   if (!clean || isGreeting(clean)) return { name: '', workshop: '', ambiguous: null };
-  if (/[?¿]/.test(clean)) return { name: '', workshop: '', ambiguous: null };
   if (/\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es\s+mi\s+nombre|no\s+me\s+llamo|te\s+equivocaste)\b/i.test(clean)) {
     return { name: '', workshop: '', ambiguous: null };
   }
 
+  // Pre-limpieza para aislar nombre y taller si hay colas comerciales o preguntas
+  let working = clean.replace(/[,;]?\s*(?:pero|y|mas|aunque|sin embargo)?\s*(?:hoy|solo)?\s*(?:quiero|deseo|necesito|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra|cotizar|adquirir|pedir).*$/gi, '').trim();
+  working = working.replace(/[?¿].*$/g, '').trim();
+  if (!working) working = clean;
+
+  // Detección directa de "no tengo taller / independiente"
+  if (/\b(?:no\s+tengo\s+taller|todav[ií]a\s+no\s+tengo\s+taller|trabajo\s+independiente|sin\s+taller)\b/i.test(clean)) {
+    const beforeNoTaller = working.replace(/\b(?:no\s+tengo\s+taller|todav[ií]a\s+no\s+tengo\s+taller|trabajo\s+independiente|sin\s+taller).*$/gi, '').trim();
+    const pName = cleanPersonName(beforeNoTaller);
+    return { name: pName || '', workshop: 'Mecánico Independiente / A domicilio', ambiguous: null };
+  }
+
   // 1. Explicit multi-line input
-  const lines = clean.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lines = working.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (lines.length >= 2) {
     const isW0 = workshopKeywords.test(lines[0]);
     const isW1 = workshopKeywords.test(lines[1]);
@@ -162,12 +181,12 @@ function parseNameAndWorkshop(raw) {
 
   // 2. Pattern: Person first, then workshop with "se llama", "el taller es", "taller":
   // e.g. "Soy Sergio Se Llama Panama El Taller", "Soy Sergio y el taller es Panama", "Sergio, taller Panama", "Sergio se llama Panama el taller"
-  const personFirstMatch = clean.match(/^(?:hola|buenas|buenos dias)?\s*(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+)?)\s*[,;]?\s*(?:y\s+)?(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+de\s+nombre|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?:\s+el\s+taller)?$/i)
-    || clean.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*[,;]?\s*(?:y\s+)?(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+taller\s+de\s+nombre|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?:\s+el\s+taller)?$/i);
+  const personFirstMatch = working.match(/^(?:hola|buenas|buenos dias)?\s*(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+)?)\s*[,;]?\s*(?:y\s+)?(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+negocio\s+se\s+llama|el\s+taller\s+de\s+nombre|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s#\-\.]+?)(?:\s+el\s+taller)?$/i)
+    || working.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*[,;]?\s*(?:y\s+)?(?:se\s+llama|el\s+taller\s+es|el\s+taller\s+se\s+llama|mi\s+taller\s+es|mi\s+taller\s+se\s+llama|el\s+negocio\s+se\s+llama|el\s+taller\s+de\s+nombre|taller)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s#\-\.]+?)(?:\s+el\s+taller)?$/i);
   if (personFirstMatch && personFirstMatch[1].trim() && personFirstMatch[2].trim()) {
     const nameCand = personFirstMatch[1].trim();
     const shopCand = personFirstMatch[2].trim();
-    if (!workshopKeywords.test(nameCand) && !/^(?:el|la|los|las|un|una|mi|tu|su)$/i.test(nameCand) && (commonFirstNames.test(nameCand) || /soy|me llamo|yo soy|mi nombre/i.test(clean))) {
+    if (!workshopKeywords.test(nameCand) && !/^(?:el|la|los|las|un|una|mi|tu|su)$/i.test(nameCand) && (commonFirstNames.test(nameCand) || /soy|me llamo|yo soy|mi nombre/i.test(working))) {
       return { name: cleanPersonName(nameCand), workshop: cleanWorkshopName(shopCand), ambiguous: null };
     }
   }
@@ -545,6 +564,20 @@ function extractEntities(text, sessionData) {
     }
   }
 
+  // Universal: Si el usuario dio su nombre o taller explícitamente en cualquier turno (ej: saludo con compra o cotización)
+  if (!sessionData.nombres_apellidos && !updates.nombres_apellidos) {
+    const parsedUniversal = parseNameAndWorkshop(raw);
+    if (parsedUniversal.name) {
+      updates.nombres_apellidos = parsedUniversal.name;
+      if (parsedUniversal.workshop && !sessionData.nombre_taller && !updates.nombre_taller) {
+        updates.nombre_taller = parsedUniversal.workshop;
+        if (parsedUniversal.workshop.includes('Independiente')) {
+          updates.relacion_taller = 'Mecánico Independiente / A domicilio';
+        }
+      }
+    }
+  }
+
   // 2. City / Municipality
   if (!updates.ciudad_taller && !sessionData.ciudad_taller) {
     const cDetected = cleanCityName(lower);
@@ -613,7 +646,7 @@ function extractEntities(text, sessionData) {
       if (updates.barrio_taller.toLowerCase() === 'dorado') updates.barrio_taller = 'El Dorado';
     } else if (isExplicitBarrioQuestion && !sessionData.barrio_taller && !updates.ciudad_taller) {
       const cleanRawBarrio = raw.trim();
-      if (!isCity(cleanRawBarrio) && !cleanCityName(cleanRawBarrio) && !cleanRawBarrio.toLowerCase().includes('taller')) {
+      if (!cleanCityName(cleanRawBarrio) && !cleanRawBarrio.toLowerCase().includes('taller')) {
         updates.barrio_taller = cleanRawBarrio;
       }
     }
@@ -1111,9 +1144,9 @@ async function generateMateoResponse(fromNumber, userText) {
   }
 
     // 0. Saludos y Retoma Instantánea de Conversaciones (cero latencia, recuperación garantizada)
-    // EXCEPCIÓN: Si el mensaje contiene intención de compra o repuestos, enviar a NLP y Gemini para la bifurcación
-    const hasPurchaseKeywords = /\b(?:comprar|compra|cotizar|repuestos?|precios?|cu[aá]nto\s+vale)\b/i.test(raw);
-    if ((isPureGreeting(raw) || isGreeting(raw)) && !hasPurchaseKeywords) {
+    // EXCEPCIÓN: Si el mensaje contiene intención de compra, cotización, catálogo o auto-identificación, procesar con NLP y Gemini
+    const hasCommercialOrFormKeywords = /\b(?:comprar|compra|cotizar|cotizaci[oó]n|repuestos?|precios?|cu[aá]nto|qu[eé]\s+vale|cat[aá]logo|tienen|pastillas|kit|arrastre|bandas|buj[ií]a|cadena|soy|me\s+llamo|mi\s+taller|no\s+tengo\s+taller)\b/i.test(raw);
+    if ((isPureGreeting(raw) || isGreeting(raw)) && !hasCommercialOrFormKeywords) {
       const isFirstContact = (!session.data.nombres_apellidos && !session.data.nombre_taller && (!session.history || session.history.length === 0));
       if (isFirstContact) {
         const welcome = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
@@ -1264,8 +1297,10 @@ async function generateMateoResponse(fromNumber, userText) {
   // REGLA FUNDAMENTAL DE PROGRESIÓN CONVERSACIONAL:
   // Si la vinculación no ha finalizado y el mensaje de Mateo no contiene ninguna pregunta (ej: se quedó solo en "¡Qué pena contigo por la confusión."),
   // es OBLIGATORIO anexar la pregunta que hace avanzar la ficha en ese mismo mensaje.
-  // EXCEPCIÓN: Si estamos en modo de asesoría de compra de repuestos, no forzar preguntas de registro.
-  if (!session.data._finished && !brainResult.reply.includes('?') && session.data._modo_compra !== 'asesoria_compra') {
+  // EXCEPCIÓN: Si estamos en modo de atención comercial (Flujo A) o el usuario se despide/pausa, no forzar preguntas de registro.
+  const isCommercialFlow = session.data.active_flow === 'commercial' || session.data._modo_compra === 'asesoria_compra';
+  const isFarewellOrPause = Boolean(session.data._es_despedida || session.data._es_pausa || /^(?:muchas\s+gracias|gracias|hasta\s+luego|chao|adi[oó]s|nos\s+vemos|hablamos\s+luego|despu[eé]s\s+te\s+confirmo|listo\s+muchas\s+gracias)[\s.,!]*$/i.test(raw));
+  if (!session.data._finished && !brainResult.reply.includes('?') && !isCommercialFlow && !isFarewellOrPause) {
     if (!session.data.nombres_apellidos) {
       brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?`;
     } else if (!session.data.nombre_taller) {
@@ -1275,8 +1310,8 @@ async function generateMateoResponse(fromNumber, userText) {
     }
   }
 
-  // Saludo cordial y presentación si Mateo aún no se ha presentado
-  if (!session.data.nombres_apellidos && !session.data.nombre_taller && (/^(?:¿?c[oó]mo\s+te\s+llamas\??|¿?cu[aá]l\s+es\s+tu\s+nombre\??|¿?c[oó]mo\s+es\s+tu\s+nombre\??)$/i.test((brainResult.reply || '').trim()))) {
+  // Saludo cordial y presentación si Mateo aún no se ha presentado (solo en Flujo B de Registro, no en compra directa ni despedida)
+  if (!session.data.nombres_apellidos && !session.data.nombre_taller && !isCommercialFlow && !isFarewellOrPause && (/^(?:¿?c[oó]mo\s+te\s+llamas\??|¿?cu[aá]l\s+es\s+tu\s+nombre\??|¿?c[oó]mo\s+es\s+tu\s+nombre\??)$/i.test((brainResult.reply || '').trim()))) {
     brainResult.reply = '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?';
   }
 

@@ -80,8 +80,8 @@ const MODEL_CHAIN = [
   'googleai/gemini-3.5-flash-lite'
 ];
 const HEDGE_DELAYS_MS = [0, 600, 1400, 2200];   // respuesta ultra-rápida en <800ms
-const PER_CALL_TIMEOUT_MS = 2000;
-const TOTAL_BUDGET_MS = 3200;
+const PER_CALL_TIMEOUT_MS = 2500;
+const TOTAL_BUDGET_MS = 4500;
 const modelCooldownUntil = {};
 
 function cooldownFor(err) {
@@ -218,19 +218,65 @@ async function processGeminiBrainTurn(session, userText) {
   const pendingTopics = getConversationalPendingTopics(session.data, memory);
   const memorySummary = buildConversationSummary(memory);
 
-  // Sincronizar estado de bifurcación de compra vs. formulario
-  if (session.data._modo_compra === 'preguntando_opcion') {
-    if (nlpResult.entities.eleccion_flujo_compra === 'solo_comprar') {
-      session.data._modo_compra = 'asesoria_compra';
-    } else if (nlpResult.entities.eleccion_flujo_compra === 'seguir_formulario') {
-      delete session.data._modo_compra;
+  // ───────────────────────────────────────────────────────────────────────────
+  // GESTIÓN DE ESTADOS Y SEPARACIÓN DE FLUJOS INDEPENDIENTES (FLUJO A vs FLUJO B)
+  // Flujo A: Compras, cotizaciones y atención comercial NITROX
+  // Flujo B: Formulario de registro y vinculación de talleres a RED NITROX
+  // ───────────────────────────────────────────────────────────────────────────
+  session.data.active_flow = session.data.active_flow || 'registration';
+  session.data.commercial_state = session.data.commercial_state || {};
+  session.data.last_user_message = userText;
+  session.data.last_updated_at = new Date().toISOString();
+
+  // Actualizar commercial_state si en este mensaje se identificó repuesto, moto o ubicación comercial
+  if (nlpResult.entities.repuesto_solicitado) {
+    session.data.commercial_state.repuesto = nlpResult.entities.repuesto_solicitado;
+  }
+  if (nlpResult.entities.moto_solicitada) {
+    session.data.commercial_state.moto = nlpResult.entities.moto_solicitada;
+  }
+  if (nlpResult.entities.barrio_solicitado || nlpResult.entities.ciudad_solicitada || nlpResult.entities.ciudad_taller) {
+    const loc = [nlpResult.entities.barrio_solicitado, nlpResult.entities.ciudad_solicitada || nlpResult.entities.ciudad_taller].filter(Boolean).join(', ');
+    if (loc) session.data.commercial_state.ciudad_o_barrio = loc;
+  }
+
+  const isCommercialIntent = Boolean(
+    nlpResult.entities.intencion_compra ||
+    nlpResult.entities.es_pregunta_comercial ||
+    session.data._modo_compra === 'asesoria_compra'
+  );
+
+  const wantsToResumeRegistration = Boolean(
+    nlpResult.entities.intencion_retomar_formulario ||
+    nlpResult.entities.eleccion_flujo_compra === 'seguir_formulario' ||
+    ((session.data.active_flow === 'commercial' && (session.data.commercial_state?.status === 'resuelto' || session.data._modo_compra === 'compra_resuelta')) &&
+     /^(?:s[ií]|claro|de\s+una|h[aá]gale|obvio|dale|por\s+supuesto|sigamos|el\s+formulario|retomemos|vincular|registrar)\b/i.test(nlpResult.normalizedText))
+  );
+
+  const isExplicitRegistrationRejection = Boolean(nlpResult.entities.rechazo_registro);
+
+  if (isExplicitRegistrationRejection) {
+    session.data.previous_flow = session.data.active_flow;
+    session.data.active_flow = 'commercial';
+    session.data._modo_compra = 'asesoria_compra';
+    session.data.rechaza_registro = true;
+  } else if (isCommercialIntent && !wantsToResumeRegistration) {
+    // Si el usuario manifestó intención de compra o cotización, cambiar DE INMEDIATO a Flujo Comercial
+    if (session.data.active_flow !== 'commercial') {
+      session.data.previous_flow = session.data.active_flow || 'registration';
     }
-  } else if (session.data._modo_compra === 'compra_resuelta') {
-    if (/^(?:s[ií]|claro|de\s+una|h[aá]gale|obvio|dale|por\s+supuesto|sigamos|el\s+formulario)\b/i.test(nlpResult.normalizedText)) {
-      delete session.data._modo_compra;
+    session.data.active_flow = 'commercial';
+    session.data.current_intent = nlpResult.entities.pregunta_comercial_tema || 'compra';
+    session.data._modo_compra = 'asesoria_compra';
+  } else if (wantsToResumeRegistration) {
+    // Retomar el formulario de registro donde quedó, conservando todos los datos
+    session.data.previous_flow = session.data.active_flow;
+    session.data.active_flow = 'registration';
+    session.data.current_intent = 'registro_taller';
+    delete session.data._modo_compra;
+    if (session.data.commercial_state) {
+      session.data.commercial_state.status = 'resuelto';
     }
-  } else if (nlpResult.entities.intencion_compra && !isAlreadyRegistered && session.data._modo_compra !== 'asesoria_compra') {
-    session.data._modo_compra = 'preguntando_opcion';
   }
 
   // Contexto conversacional enriquecido para Gemini
@@ -257,7 +303,49 @@ REGLAS ABSOLUTAS:
 
 ÚLTIMO MENSAJE DEL MECÁNICO:
 "${userText}"`;
+  } else if (session.data.active_flow === 'commercial') {
+    const name = session.data.nombres_apellidos || '';
+    const workshop = session.data.nombre_taller || '';
+    const repuesto = session.data.commercial_state.repuesto || '';
+    const moto = session.data.commercial_state.moto || '';
+    const location = session.data.commercial_state.ciudad_o_barrio || session.data.ciudad_taller || session.data.barrio_taller || '';
+    const commStatus = session.data.commercial_state.status || 'indagando';
+
+    contextPrompt = `HISTORIAL RECIENTE:
+${history.slice(-8).map(m => `${m.role === 'user' ? 'Cliente' : 'Mateo'}: "${m.content}"`).join('\n') || '(Inicio)'}
+
+🚨 ESTADO ACTIVO: FLUJO A — ATENCIÓN COMERCIAL Y ASESORÍA DE COMPRAS NITROX (INDIVIDUAL Y SEPARADO DEL FORMULARIO)
+DATOS COMERCIALES YA CONOCIDOS:
+- Nombre del cliente: ${name || 'Aún no proporcionado'}
+- Taller (si lo mencionó): ${workshop || 'No mencionado'}
+- Repuesto buscado: ${repuesto || 'Pendiente por identificar'}
+- Motocicleta / Modelo: ${moto || 'Pendiente por identificar'}
+- Ubicación / Ciudad o Barrio: ${location || 'Pendiente por identificar'}
+- Estado comercial: ${commStatus}
+
+REGLAS ABSOLUTAS DEL FLUJO COMERCIAL:
+1. PRIORIDAD TOTAL A LA COMPRA/COTIZACIÓN: El cliente quiere comprar o cotizar repuestos. Atiéndelo de inmediato con total calidez y conocimiento experto.
+2. TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro del taller (PROHIBIDO preguntar cómo se llama su taller si no lo dijo, rol de dueño o mecánico, cuántas motos atiende por semana, cédula, correo o Habeas Data).
+3. PROHIBIDO OBLIGAR AL CLIENTE A ELEGIR: Si el cliente ya manifestó que quiere comprar (ej. "Walter González pero hoy quiero hacer una compra" o "No hoy quiero comprar"), PROHIBIDO preguntar "¿Seguimos con el formulario o quieres solo comprar?". Salúdalo con calidez por su nombre y atiende su compra de inmediato:
+   "¡Mucho gusto, ${name ? name.split(/\s+/)[0] : 'amigo'}! De una, cuéntame qué repuesto necesitas y te ayudo con la compra."
+4. EXCLUSIVIDAD 100% NITROX: Solo repuestos oficiales NITROX (kits de arrastre reforzados 420H, 428H, 520H; cadenas Gold/O-Ring; pastillas y bandas de freno; kits de clutch). CERO marcas competidoras.
+5. NO INVENTAR PRECIOS FIJOS O INVENTARIOS EXACTOS: Si pide precios o stock exacto, dale el rango o explícale que en el punto oficial Mundimotos / WhatsApp de pedidos (+57 302 427 6647) se lo confirman al instante con despacho a su taller.
+6. SI FALTA LA MOTO: Pregunta marca, modelo o cilindraje para identificar la referencia correcta (ej. "¿Qué modelo de Pulsar tienes? Así identificamos la referencia adecuada.").
+7. SI YA TIENES REPUESTO Y MOTO PERO FALTA UBICACIÓN: Pide su ciudad y barrio o ubicación por WhatsApp para recomendarle la sede Mundimotos más cercana.
+8. SI LA SOLICITUD COMERCIAL YA ESTÁ RESUELTA:
+   Puedes ofrecer de forma natural, breve y opcional (sin presionar):
+   "Listo${name ? ' ' + name.split(/\s+/)[0] : ''}. Si quieres, después retomamos el registro de tu taller para que también puedas aprovechar los beneficios de la Ruta NITROX 🏍️"
+9. Longitud: 5 a 22 palabras. Tono cálido paisa, profesional y cercano. Cero "hermano".
+10. MULTIINTENCIÓN EN UN SOLO MENSAJE: Si el cliente saludó, dio su nombre/taller y pidió cotizar/comprar (ej. "Hola, soy Walter González, mi taller es Moto Sport y quiero cotizar un kit de arrastre"), salúdalo por su nombre, agradece y entra DIRECTO a cotizar: "¡Mucho gusto Walter! Claro que sí, te ayudo con la cotización del kit de arrastre. ¿Para qué moto lo buscas?". CERO preguntas de registro de taller.
+11. DESPEDIDAS CON PREGUNTAS: Si el cliente dijo "Gracias, chao. Ah, una cosa, ¿cuánto vale el kit?", atiende y responde con prioridad a su pregunta sobre el repuesto. NO cierres la interacción.
+12. PAUSAS COMERCIALES: Si el cliente dice "después te confirmo", "hablamos luego", "déjame pensarlo", responde cordialmente ("¡De una, con mucho gusto! Aquí quedo atento cuando decidas confirmar.") sin forzar venta ni darla por perdida.
+13. COTIZACIÓN MÚLTIPLE: Si el cliente ya mencionó varios repuestos (ej. kit de arrastre y zapatas), NO vuelvas a pedir los repuestos. Confirma que NITROX maneja ambas referencias y pregúntale por el modelo de moto o ciudad.
+14. CLIENTE SIN TALLER / INDEPENDIENTE: Si el cliente dice que no tiene taller o trabaja independiente, acéptalo con naturalidad ("¡De una!") y continúa la asesoría comercial con total normalidad sin exigirle nombre de taller.
+
+ÚLTIMO MENSAJE DEL CLIENTE:
+"${userText}"`;
   } else {
+    // Flujo B: Formulario de Registro
     contextPrompt = `HISTORIAL RECIENTE:
 ${history.slice(-10).map(m => `${m.role === 'user' ? 'Mecánico' : 'Mateo'}: "${m.content}"`).join('\n') || '(Inicio)'}
 
@@ -297,24 +385,6 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
 7. REGLA ESTRICTA DE FINALIZACIÓN:
    - SI "Puede finalizar" es NO, QUEDA TERMINANTEMENTE PROHIBIDO poner listo_para_finalizar en true ni despedirte diciendo que ya hace parte de la red. Debes continuar con el siguiente tema pendiente de forma amena.
 8. MULETILLAS: PROHIBIDO decir "contame" o "y contame" repetitivamente. Máximo 22 palabras (ideal 5 a 18 palabras). Sin hermano ni repetición de nombres.`;
-
-    if (session.data._modo_compra === 'preguntando_opcion') {
-      contextPrompt += `\n\n🚨 ATENCIÓN PRIORIDAD COMERCIAL / BIFURCACIÓN DE COMPRA:
-El usuario manifestó intención de comprar repuestos ("${userText}").
-TERMINANTEMENTE PROHIBIDO continuar ciegamente con la siguiente pregunta del formulario de registro (como si es dueño o mecánico, cuántas motos atiende, cédula o correo).
-DEBES FORMULAR LA PREGUNTA DE BIFURCACIÓN EXACTA:
-"¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?"`;
-    } else if (session.data._modo_compra === 'asesoria_compra') {
-      contextPrompt += `\n\n🚨 MODO ASESORÍA DE COMPRA NITROX ACTIVO:
-El usuario eligió atender su compra de repuestos.
-TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, especialidad, motos por semana, cédula, correo) hasta completar la asesoría de compra.
-1. Asesora 100% con la línea oficial NITROX (kits de arrastre reforzados, cadenas Gold/O-Ring, pastillas/bandas, clutch). Cero marcas de la competencia.
-2. Si aún no sabes qué repuesto o para qué moto busca, pregúntale: "¿Qué repuesto NITROX buscas y para qué moto?".
-3. Si ya sabes qué repuesto y para qué moto, pero no sabes la ubicación, pídele su barrio y ciudad o ubicación por WhatsApp para darle la sede Mundimotos más cercana.
-4. Si ya le indicaste la sede Mundimotos (o despacho por mundimotos.com / WhatsApp pedidos +57 302 427 6647):
-   CIERRA LA ASESORÍA DE COMPRA Y PREGUNTA SI RETOMAN EL FORMULARIO:
-   "¡Listo! Ya tienes toda la información de tu compra. ¿Ahora sí seguimos con el formulario de tu taller para dejarte activo en la Red NITROX con todos tus premios y beneficios?"`;
-    }
 
     if (nlpResult.entities.situacion_salud_o_personal) {
       contextPrompt += `\n\n9. ATENCIÓN PRIORITARIA: El usuario compartió malestar físico o enfermedad (ej. dolor de estómago). TERMINANTEMENTE PROHIBIDO pedir cédula, correo o datos legales en este turno. Dale un consejo humano de alivio (manzanilla, descanso) y deja la conversación tranquila sin presionar por datos de registro.`;
@@ -367,15 +437,19 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
     // Longitud WhatsApp: recorte local instantáneo (sin una segunda llamada a la IA)
     reply = trimReplyLocally(reply);
 
-    // Detección de bifurcación o retoma comercial en la respuesta
-    if (/formulario.*solo\s+comprar|solo\s+comprar.*formulario/i.test(reply)) {
-      session.data._modo_compra = 'preguntando_opcion';
-    } else if (/ahora\s+s[ií]\s+seguimos\s+con\s+el\s+formulario/i.test(reply)) {
+    // Detección de retoma comercial en la respuesta
+    if (/ahora\s+s[ií]\s+seguimos\s+con\s+el\s+formulario|despu[eé]s\s+retomamos\s+(?:el\s+registro|tu\s+registro|el\s+formulario)/i.test(reply)) {
+      if (session.data.commercial_state) session.data.commercial_state.status = 'resuelto';
       session.data._modo_compra = 'compra_resuelta';
-    } else if (session.data._modo_compra === 'preguntando_opcion' && !/solo\s+comprar|comprar/i.test(reply)) {
-      // Guardabarrera: si se debe bifurcar la compra pero el modelo insistió con preguntas del formulario
-      const nameGreeting = session.data.nombres_apellidos ? `¡Mucho gusto, ${String(session.data.nombres_apellidos).split(/\s+/)[0]}! 🏍️ ` : '¡Claro que sí! ';
-      reply = `${nameGreeting}¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?`;
+    } else if (session.data.active_flow === 'commercial') {
+      // Guardabarrera para Flujo Comercial:
+      // Si el modelo por error formuló una pregunta de registro de taller
+      const isAccidentalRegistrationQuestion = /\b(?:c[oó]mo\s+se\s+llama\s+tu\s+taller|qu[eé]\s+nombre\s+tiene\s+tu\s+taller|eres\s+el\s+due[ñn]o\s+o\s+mec[aá]nico|cu[aá]ntas\s+motos\s+atienden|me\s+regalas\s+tu\s+c[eé]dula|me\s+compartes\s+tu\s+correo|autorizas\s+a\s+red\s+nitrox)\b/i.test(reply);
+      if (isAccidentalRegistrationQuestion) {
+        const firstName = session.data.nombres_apellidos ? String(session.data.nombres_apellidos).split(/\s+/)[0] : '';
+        const nameGreeting = firstName ? `¡Mucho gusto, ${firstName}! ` : '¡De una! ';
+        reply = `${nameGreeting}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te ayudo con la compra.`;
+      }
     }
 
     // 4. GUARDABARRERAS SEMÁNTICO Y ANTI-REPETICIÓN
@@ -418,6 +492,14 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
     if (parsed.datos_extraidos && typeof parsed.datos_extraidos === 'object') {
       integrateFactsIntoMemory(memory, parsed.datos_extraidos, userText);
     }
+    if (parsed.datos_comerciales && typeof parsed.datos_comerciales === 'object') {
+      session.data.commercial_state = session.data.commercial_state || {};
+      for (const [ck, cv] of Object.entries(parsed.datos_comerciales)) {
+        if (cv !== null && cv !== undefined && cv !== '') {
+          session.data.commercial_state[ck] = cv;
+        }
+      }
+    }
 
     // Costo económico
     const totalTok = inTok + outTok;
@@ -446,8 +528,8 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
     }
 
     // 4.1 GARANTÍA DE PROGRESIÓN CONVERSACIONAL (REGLA DE UNA SOLA PREGUNTA OBLIGATORIA)
-    // EXCEPCIONES: NO forzar preguntas si el usuario fue hostil, reportó malestar de salud o está en modo compra
-    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation && session.data._modo_compra !== 'asesoria_compra' && session.data._modo_compra !== 'preguntando_opcion') {
+    // EXCEPCIONES: NO forzar preguntas si el usuario fue hostil, reportó malestar de salud o está en modo comercial
+    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation && session.data.active_flow !== 'commercial' && session.data._modo_compra !== 'asesoria_compra' && session.data._modo_compra !== 'preguntando_opcion') {
       const remainingPending = getConversationalPendingTopics(session.data, memory);
       let nextKeyToAsk = null;
       let nextQuestionText = null;
@@ -495,13 +577,33 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
       session.data[k] = v.value;
     }
 
-    // Respaldo sin IA según estado comercial o registro pendiente
+    // Respaldo sin IA según estado comercial, despedidas o registro pendiente
     let fallbackReply;
-    if (session.data._modo_compra === 'preguntando_opcion' || nlpResult.entities.intencion_compra) {
-      fallbackReply = '¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?';
-      session.data._modo_compra = 'preguntando_opcion';
-    } else if (session.data._modo_compra === 'asesoria_compra') {
-      fallbackReply = '¡De una! ¿Qué repuesto NITROX estás buscando y para qué moto?';
+    const isCommercial = session.data.active_flow === 'commercial' || nlpResult.entities.intencion_compra || nlpResult.entities.es_pregunta_comercial || nlpResult.entities.despedida_con_pregunta;
+
+    if (nlpResult.entities.es_despedida && !nlpResult.entities.despedida_con_pregunta && !isCommercial) {
+      fallbackReply = '¡Con todo gusto! Que estés muy bien y que tengas un excelente día.';
+    } else if (nlpResult.entities.es_pausa && !isCommercial) {
+      fallbackReply = '¡Listo, perfecto! Aquí quedamos atentos para cuando desees continuar. ¡Un feliz día!';
+    } else if (isCommercial) {
+      session.data.active_flow = 'commercial';
+      const firstName = session.data.nombres_apellidos ? session.data.nombres_apellidos.trim().split(' ')[0] : '';
+      const greetingName = firstName ? `¡Mucho gusto, ${firstName}! ` : '¡De una! ';
+      const commState = session.data.commercial_state || {};
+
+      if (nlpResult.entities.cotizacion_multiple) {
+        fallbackReply = `${greetingName}Claro que sí, con gusto te cotizo esas referencias NITROX. ¿Para qué moto las necesitas?`;
+      } else if (!commState.repuesto || !commState.moto) {
+        if (commState.repuesto && !commState.moto) {
+          fallbackReply = `${greetingName}¡Excelente elección el ${commState.repuesto} NITROX! ¿Para qué modelo de moto lo necesitas?`;
+        } else {
+          fallbackReply = `${greetingName}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te colaboro con la cotización o compra.`;
+        }
+      } else if (!commState.ciudad_o_barrio) {
+        fallbackReply = '¡Excelente! ¿En qué ciudad o barrio estás para indicarte el punto de venta más cercano?';
+      } else {
+        fallbackReply = '¡Listo! Ya te confirmo disponibilidad y punto de venta NITROX más cercano.';
+      }
     } else {
       const latestPending = getConversationalPendingTopics(session.data, memory);
       let chosenKey = null;

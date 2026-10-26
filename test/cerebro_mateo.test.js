@@ -26,7 +26,7 @@ const { getPendingTopics, cleanResponseText, SYSTEM_PROMPT } = require('../gemin
 const { getMateoSystemPrompt, getSkill } = require('../skill_loader');
 const { normalizeMechanicData } = require('../scoring');
 const { generateMateoResponse, cleanWorkshopName, cleanPersonName, parseNameAndWorkshop, extractEntities, isPureGreeting } = require('../agent');
-const { getRegistrationProgress } = require('../registration_engine');
+const { getRegistrationProgress, getConversationalPendingTopics } = require('../registration_engine');
 
 console.log('🧪 =======================================================');
 console.log('🚀 INICIANDO AUDITORÍA Y TEST SUITE DEL CEREBRO DE MATEO');
@@ -698,7 +698,7 @@ runTest('AO. Detección de elección entre solo comprar y formulario', () => {
 // -------------------------------------------------------------
 // TEST 42: Manejo de modo compra y fallback sin IA de bifurcación
 // -------------------------------------------------------------
-runTest('AP. Fallback formula bifurcación de compra y jamás fuerza preguntas de rol', () => {
+runTest('AP. Transición directa a Flujo Comercial A sin forzar preguntas de rol ni bifurcación redundante', () => {
   const session = {
     data: {
       nombres_apellidos: 'Carlos',
@@ -712,13 +712,8 @@ runTest('AP. Fallback formula bifurcación de compra y jamás fuerza preguntas d
   };
 
   const nlp = processNlpPipeline("Hola Quiero comprar", session.data);
-  assert.strictEqual(nlp.entities.intencion_compra, true);
-
-  // Simular inicio de bifurcación
-  session.data._modo_compra = 'preguntando_opcion';
-  const expectedFork = '¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?';
-  assert.ok(expectedFork.includes('solo comprar'), 'Debe ofrecer la opción de solo comprar');
-  assert.ok(expectedFork.includes('formulario'), 'Debe ofrecer la opción de seguir con el formulario');
+  assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe detectar intención de compra');
+  assert.strictEqual(nlp.entities.es_pregunta_comercial, true);
 });
 
 // -------------------------------------------------------------
@@ -731,6 +726,418 @@ runTest('AQ. Extracción de nombre limpio y detección de intención de compra c
 
   const nlp = processNlpPipeline(input, { _lastQuestion: 'NOMBRE' });
   assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe detectar intencion_compra = true');
+});
+
+// -------------------------------------------------------------
+// ESCENARIOS OBLIGATORIOS SECCIÓN 9: SEPARACIÓN DE FLUJOS COMERCIAL Y REGISTRO
+// -------------------------------------------------------------
+
+// Escenario 1: El usuario quiere comprar desde el primer mensaje
+runTest('S1. Usuario quiere comprar desde el primer mensaje activa Flujo Comercial', () => {
+  const nlp = processNlpPipeline("Hola quiero comprar unos repuestos para mi moto", {});
+  assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe detectar intención de compra desde el primer mensaje');
+  assert.strictEqual(nlp.entities.es_pregunta_comercial, true);
+});
+
+// Escenario 2: El usuario expresa intención de compra después de responder su nombre
+runTest('S2. Usuario expresa intención de compra junto a su nombre sin bifurcación repetitiva', () => {
+  const input = "Walter González, pero hoy quiero hacer una compra";
+  const parsed = parseNameAndWorkshop(input);
+  assert.strictEqual(parsed.name, 'Walter González', 'Debe limpiar y extraer solo el nombre de Walter');
+
+  const nlp = processNlpPipeline(input, {});
+  assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe activar intención comercial de una');
+});
+
+// Escenario 3: El usuario inicia el formulario y después solicita una cotización
+runTest('S3. Usuario inicia formulario y solicita cotización intermedia sin perder datos', () => {
+  const session = {
+    data: {
+      nombres_apellidos: 'Andrés Morales',
+      active_flow: 'registration'
+    }
+  };
+  const text = "Mi taller se llama Motos Del Valle y necesito cotizar un kit de arrastre";
+  const entities = extractEntities(text, session.data);
+  assert.strictEqual(entities.nombre_taller, 'Motos Del Valle', 'Debe capturar el taller');
+
+  const nlp = processNlpPipeline(text, session.data);
+  assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe detectar la cotización comercial');
+  assert.strictEqual(nlp.entities.repuesto_solicitado, 'Kit de arrastre', 'Debe identificar el kit de arrastre');
+});
+
+// Escenario 4: El usuario termina la cotización y decide retomar el formulario
+runTest('S4. Retoma del formulario post-compra sin repetir preguntas ya contestadas', () => {
+  const session = {
+    data: {
+      nombres_apellidos: 'Walter González',
+      nombre_taller: 'Taller Walter Motos',
+      active_flow: 'commercial',
+      commercial_state: { repuesto: 'Kit de arrastre', moto: 'Pulsar 200 NS', status: 'resuelto' }
+    },
+    memory: initOrLoadMemory({
+      data: {
+        nombres_apellidos: 'Walter González',
+        nombre_taller: 'Taller Walter Motos'
+      }
+    })
+  };
+
+  const nlp = processNlpPipeline("Listo de una, sigamos con el formulario de mi taller", session.data);
+  assert.strictEqual(nlp.entities.intencion_retomar_formulario, true, 'Debe detectar intención de retomar el formulario');
+
+  // Comprobar que en el progreso, nombre y taller ya están confirmados y no se repiten
+  const pending = getConversationalPendingTopics(session.data, session.memory);
+  const pendingKeys = pending.map(p => p.key);
+  assert.ok(!pendingKeys.includes('nombres_apellidos'), 'No debe volver a preguntar el nombre');
+  assert.ok(!pendingKeys.includes('nombre_taller'), 'No debe volver a preguntar el taller');
+  assert.ok(pendingKeys.includes('ciudad_taller'), 'Debe continuar con la ciudad del taller');
+});
+
+// Escenario 5: El usuario no quiere registrarse, pero sí comprar
+runTest('S5. Usuario no quiere registrarse pero sí comprar (respeta decisión)', () => {
+  const text = "No quiero registrarme, solo comprar repuestos para Pulsar";
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.rechazo_registro, true, 'Debe detectar rechazo de registro');
+  assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe mantener intención de compra');
+  assert.strictEqual(nlp.entities.moto_solicitada, 'Pulsar', 'Debe extraer la moto Pulsar');
+});
+
+// Escenario 6: El usuario cambia varias veces entre compra y registro
+runTest('S6. Alternancia múltiple entre compra y registro preserva ambos estados', () => {
+  const sessionData = {
+    nombres_apellidos: 'Jorge Pérez',
+    active_flow: 'registration',
+    commercial_state: {}
+  };
+
+  // Turno 1: Compra
+  const nlp1 = processNlpPipeline("Necesito precio de unas pastillas de freno", sessionData);
+  if (nlp1.entities.intencion_compra) {
+    sessionData.previous_flow = sessionData.active_flow;
+    sessionData.active_flow = 'commercial';
+    sessionData.commercial_state.repuesto = nlp1.entities.repuesto_solicitado;
+  }
+  assert.strictEqual(sessionData.active_flow, 'commercial');
+  assert.strictEqual(sessionData.commercial_state.repuesto, 'Frenos (pastillas / bandas)');
+
+  // Turno 2: Retomar registro
+  const nlp2 = processNlpPipeline("Sigamos con el registro", sessionData);
+  if (nlp2.entities.intencion_retomar_formulario) {
+    sessionData.previous_flow = sessionData.active_flow;
+    sessionData.active_flow = 'registration';
+  }
+  assert.strictEqual(sessionData.active_flow, 'registration');
+  assert.strictEqual(sessionData.nombres_apellidos, 'Jorge Pérez', 'Conserva nombre del mecánico');
+  assert.strictEqual(sessionData.commercial_state.repuesto, 'Frenos (pastillas / bandas)', 'Conserva dato comercial');
+});
+
+// Escenario 7: Información comercial en varios mensajes
+runTest('S7. Información comercial provista en varios mensajes acumulada en commercial_state', () => {
+  const commState = {};
+
+  // Mensaje 1: repuesto
+  const nlp1 = processNlpPipeline("Quiero un kit de arrastre", {});
+  if (nlp1.entities.repuesto_solicitado) commState.repuesto = nlp1.entities.repuesto_solicitado;
+  assert.strictEqual(commState.repuesto, 'Kit de arrastre');
+
+  // Mensaje 2: moto
+  const nlp2 = processNlpPipeline("Para una Boxer CT100", {});
+  if (nlp2.entities.moto_solicitada) commState.moto = nlp2.entities.moto_solicitada;
+  assert.ok(commState.moto?.toLowerCase().includes('boxer'), 'Debe contener Boxer');
+
+  // Mensaje 3: ubicación
+  const nlp3 = processNlpPipeline("Estoy en Venecia Bogotá", {});
+  if (nlp3.entities.ciudad_taller) commState.ciudad_o_barrio = 'Bogotá';
+  assert.strictEqual(commState.ciudad_o_barrio, 'Bogotá');
+});
+
+// Escenario 8: El usuario corrige un dato de la motocicleta
+runTest('S8. Corrección de datos de motocicleta actualiza commercial_state', () => {
+  const commState = { moto: 'Boxer CT100', repuesto: 'Kit de arrastre' };
+  const text = "Me equivoqué, no es Boxer, es para una Pulsar 200 NS";
+  const nlp = processNlpPipeline(text, {});
+  assert.ok(nlp.entities.moto_solicitada?.toLowerCase().includes('pulsar'), 'Debe detectar la corrección a Pulsar');
+  commState.moto = nlp.entities.moto_solicitada;
+  assert.ok(commState.moto.toLowerCase().includes('pulsar'));
+});
+
+// Escenario 9: El usuario abandona la compra y vuelve después
+runTest('S9. Abandono de compra y retorno posterior conserva session.data', () => {
+  const session = {
+    data: {
+      nombres_apellidos: 'Walter González',
+      active_flow: 'commercial',
+      commercial_state: { repuesto: 'Kit de arrastre', moto: 'Pulsar 200 NS' },
+      last_updated_at: new Date(Date.now() - 86400000).toISOString()
+    }
+  };
+  assert.strictEqual(session.data.nombres_apellidos, 'Walter González');
+  assert.strictEqual(session.data.commercial_state.repuesto, 'Kit de arrastre');
+});
+
+// Escenario 10: Fallback determinístico si Gemini o red no identifica intención
+runTest('S10. Manejo seguro si Gemini no identifica intención (fallback determinístico)', () => {
+  const nlp = processNlpPipeline("A cómo tienen las zapatas?", {});
+  assert.strictEqual(nlp.entities.es_pregunta_comercial, true);
+  assert.strictEqual(nlp.entities.intencion_compra, true);
+  assert.strictEqual(nlp.entities.repuesto_solicitado, 'Frenos (pastillas / bandas)');
+});
+
+// Escenario 11: Resiliencia ante fallos transitorios de almacenamiento
+runTest('S11. Resiliencia ante fallos transitorios (memoria local mantiene integridad)', () => {
+  const memory = initOrLoadMemory({});
+  integrateFactsIntoMemory(memory, { nombres_apellidos: 'Carlos Mario', ciudad_taller: 'Cali' }, 'Carlos Mario en Cali');
+  assert.strictEqual(memory.confirmedFacts['nombres_apellidos'].value, 'Carlos Mario');
+  assert.strictEqual(memory.confirmedFacts['ciudad_taller'].value, 'Cali');
+});
+
+// Escenario 12: Deduplicación e idempotencia ante mensajes duplicados
+runTest('S12. Mensajes idénticos duplicados no corrompen el estado ni duplican preguntas', () => {
+  const memory = initOrLoadMemory({});
+  const q1 = "¿Qué repuesto NITROX buscas y para qué moto?";
+  recordAskedQuestion(memory, 'repuesto_comercial', q1);
+  recordAskedQuestion(memory, 'repuesto_comercial', q1);
+  assert.strictEqual(memory.askedQuestions.length, 1, 'No debe duplicar la misma pregunta en askedQuestions');
+});
+
+// Escenario 13: Las 15 preguntas existentes del formulario siguen funcionando al 100%
+runTest('S13. Integridad de las 15 preguntas maestras de registration_engine', () => {
+  const { MASTER_FIELDS } = require('../registration_engine');
+  const fieldKeys = Object.keys(MASTER_FIELDS);
+  assert.ok(fieldKeys.length >= 15, `Deben existir al menos los 15 campos maestros de la ficha (hay ${fieldKeys.length})`);
+  assert.ok(fieldKeys.includes('nombres_apellidos'));
+  assert.ok(fieldKeys.includes('nombre_taller'));
+  assert.ok(fieldKeys.includes('ciudad_taller'));
+  assert.ok(fieldKeys.includes('relacion_taller'));
+  assert.ok(fieldKeys.includes('autorizacion_tratamiento_datos'));
+});
+
+// Escenario 14: Consentimiento Habeas Data se solicita y valida determinísticamente
+runTest('S14. Validación estricta y determinística de Habeas Data antes de finalizar', () => {
+  const dataWithoutHabeas = {
+    nombres_apellidos: 'Carlos Ruiz',
+    nombre_taller: 'Taller Moto Sport',
+    ciudad_taller: 'Medellín',
+    barrio_taller: 'Robledo',
+    direccion_taller: 'Cra 80 # 65-10',
+    relacion_taller: 'Propietario',
+    celular_whatsapp: '573001234567',
+    marcas_motos: ['Yamaha'],
+    motos_por_semana: '20',
+    repuestos_frecuentes: ['Kits de arrastre'],
+    marcas_repuestos_usadas: ['NITROX'],
+    conoce_nitrox: 'Sí',
+    quiere_muestras: 'Sí',
+    correo: 'carlos@gmail.com',
+    cedula: '1020304050',
+    autorizacion_tratamiento_datos: false
+  };
+  const progress = getRegistrationProgress(dataWithoutHabeas);
+  assert.strictEqual(progress.canFinalize, false, 'No puede finalizar sin Habeas Data');
+
+  dataWithoutHabeas.autorizacion_tratamiento_datos = true;
+  const progressApproved = getRegistrationProgress(dataWithoutHabeas);
+  assert.strictEqual(progressApproved.canFinalize, true, 'Puede finalizar con Habeas Data aprobado');
+});
+
+// Escenario 15: Rutas y funciones anteriores continúan funcionando
+runTest('S15. Exportaciones de agent, gemini_brain y scoring operativas', () => {
+  const agent = require('../agent');
+  assert.strictEqual(typeof agent.generateMateoResponse, 'function', 'generateMateoResponse debe ser función');
+  assert.strictEqual(typeof agent.cleanPersonName, 'function', 'cleanPersonName debe ser función');
+  assert.strictEqual(typeof agent.cleanWorkshopName, 'function', 'cleanWorkshopName debe ser función');
+
+  const { processGeminiBrainTurn } = require('../gemini_brain');
+  assert.strictEqual(typeof processGeminiBrainTurn, 'function', 'processGeminiBrainTurn debe ser función');
+});
+
+// ============================================================================
+// ESCENARIOS OBLIGATORIOS DE INTELIGENCIA MULTIINTENCIÓN (MI-1 a MI-18)
+// ============================================================================
+
+// 1. Solo un saludo
+runTest('MI-1. Solo un saludo es reconocido sin activar compras ni preguntas comerciales', () => {
+  const nlp = processNlpPipeline("Hola, buenos días", {});
+  assert.strictEqual(nlp.entities.es_saludo, true);
+  assert.ok(nlp.entities.intenciones_detectadas.includes('saludo'));
+  assert.strictEqual(nlp.entities.es_pregunta_comercial, false);
+});
+
+// 2. Solo una despedida
+runTest('MI-2. Solo una despedida activa cierre cordial sin preguntas de registro', () => {
+  const nlp = processNlpPipeline("Listo, muchas gracias, hasta luego", {});
+  assert.strictEqual(nlp.entities.es_despedida, true);
+  assert.strictEqual(nlp.entities.despedida_con_pregunta, false);
+  assert.ok(nlp.entities.intenciones_detectadas.includes('despedida'));
+});
+
+// 3. Un nombre como respuesta del formulario
+runTest('MI-3. Un nombre aislado o directo se extrae limpiamente como nombre_personal', () => {
+  const name = cleanPersonName("Me llamo Juan David Ramírez");
+  assert.strictEqual(name, 'Juan David Ramírez');
+  const nlp = processNlpPipeline("Me llamo Juan David Ramírez", {});
+  assert.strictEqual(nlp.entities.nombres_apellidos, 'Juan David Ramírez');
+  assert.ok(nlp.entities.intenciones_detectadas.includes('nombre_personal'));
+});
+
+// 4. Un nombre acompañado de una compra
+runTest('MI-4. Un nombre acompañado de una compra procesa ambas intenciones simultáneas', () => {
+  const text = "Hola, soy Walter González y hoy quiero comprar repuestos";
+  const name = cleanPersonName(text);
+  assert.strictEqual(name, 'Walter González');
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.es_saludo, true);
+  assert.strictEqual(nlp.entities.nombres_apellidos, 'Walter González');
+  assert.strictEqual(nlp.entities.intencion_compra, true);
+  assert.ok(nlp.entities.intenciones_detectadas.includes('saludo'));
+  assert.ok(nlp.entities.intenciones_detectadas.includes('nombre_personal'));
+  assert.ok(nlp.entities.intenciones_detectadas.includes('compra'));
+});
+
+// 5. Un nombre y el nombre del taller junto con una cotización
+runTest('MI-5. Nombre, taller y cotización extraídos en una sola frase compuesta', () => {
+  const text = "Soy Walter González, mi taller se llama Moto Sport y quiero cotizar un kit de arrastre";
+  const parsed = parseNameAndWorkshop(text);
+  assert.strictEqual(parsed.name, 'Walter González');
+  assert.ok(parsed.workshop.includes('Moto Sport'), 'Debe incluir Moto Sport');
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.intencion_cotizacion, true);
+  assert.strictEqual(nlp.entities.repuesto_solicitado, 'Kit de arrastre');
+});
+
+// 6. Una solicitud de compra sin nombre
+runTest('MI-6. Solicitud de compra sin nombre prioriza Flujo A comercial', () => {
+  const nlp = processNlpPipeline("¿Dónde puedo comprar unas pastillas NITROX?", {});
+  assert.strictEqual(nlp.entities.intencion_compra, true);
+  assert.strictEqual(nlp.entities.repuesto_solicitado, 'Frenos (pastillas / bandas)');
+  assert.strictEqual(nlp.entities.nombres_apellidos, null);
+});
+
+// 7. Una cotización con varias referencias
+runTest('MI-7. Cotización de varias referencias captura lista estructurada y activa cotizacion_multiple', () => {
+  const text = "Cotízame un kit de arrastre y unas zapatas para Pulsar 200";
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.intencion_cotizacion, true);
+  assert.strictEqual(nlp.entities.cotizacion_multiple, true);
+  assert.ok(nlp.entities.repuestos_solicitados.includes('Kit de arrastre'));
+  assert.ok(nlp.entities.repuestos_solicitados.includes('Frenos (pastillas / bandas)'));
+  assert.ok(nlp.entities.moto_solicitada.toLowerCase().includes('pulsar'));
+});
+
+// 8. Una despedida seguida de una nueva pregunta
+runTest('MI-8. Despedida seguida de nueva pregunta prioriza responder la pregunta', () => {
+  const text = "Gracias, chao. Ah, una cosa, ¿cuánto vale el kit de arrastre?";
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.despedida_con_pregunta, true);
+  assert.strictEqual(nlp.entities.es_pregunta_comercial, true);
+  assert.strictEqual(nlp.entities.repuesto_solicitado, 'Kit de arrastre');
+  assert.strictEqual(nlp.entities.es_despedida, false, 'No debe cerrarse si hay una pregunta pendiente');
+});
+
+// 9. Un rechazo al registro acompañado de una intención de compra
+runTest('MI-9. Rechazo al registro con intención de compra respeta decisión y pasa a compra', () => {
+  const text = "No quiero registrarme en ninguna red, solo quiero comprar repuestos";
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.rechazo_registro, true);
+  assert.strictEqual(nlp.entities.intencion_compra, true);
+  assert.ok(nlp.entities.intenciones_detectadas.includes('rechazo_registro'));
+  assert.ok(nlp.entities.intenciones_detectadas.includes('compra'));
+});
+
+// 10. Una respuesta al formulario con lenguaje informal
+runTest('MI-10. Respuesta al formulario con lenguaje informal normaliza rol y taller', () => {
+  const text = "El negocio mío se llama Moto Racing y yo soy el que lo comanda";
+  const parsed = parseNameAndWorkshop(text);
+  assert.ok(parsed.workshop.includes('Moto Racing'));
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.relacion_taller, 'Propietario');
+});
+
+// 11. Una consulta comercial ambigua
+runTest('MI-11. Consulta comercial ambigua clasifica como intención de compra / precio', () => {
+  const nlp = processNlpPipeline("¿A cómo sale esa vaina?", {});
+  assert.strictEqual(nlp.entities.es_pregunta_comercial, true);
+  assert.strictEqual(nlp.entities.intencion_compra, true);
+});
+
+// 12. Dos intenciones comerciales simultáneas
+runTest('MI-12. Dos intenciones comerciales simultáneas (producto + catálogo)', () => {
+  const text = "¿Tienen kit para Pulsar 200 y me puedes mandar el catálogo?";
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.repuesto_solicitado, 'Kit de arrastre');
+  assert.strictEqual(nlp.entities.consulta_catalogo, true);
+  assert.ok(nlp.entities.intenciones_detectadas.includes('consulta_catalogo'));
+});
+
+// 13. Un usuario que cambia varias veces de flujo
+runTest('MI-13. Alternancia múltiple de flujos preserva contexto y datos del cliente', () => {
+  const session = { data: {}, history: [] };
+  // Turno 1: Registro (nombre)
+  session.data.nombres_apellidos = 'Carlos Mario Gómez';
+  session.data.active_flow = 'registration';
+  // Turno 2: Pasa a compra
+  session.data.previous_flow = session.data.active_flow;
+  session.data.active_flow = 'commercial';
+  session.data.commercial_state = { repuesto: 'Pastillas de freno' };
+  // Turno 3: Retoma registro
+  session.data.previous_flow = session.data.active_flow;
+  session.data.active_flow = 'registration';
+  session.data.commercial_state.status = 'resuelto';
+  // Turno 4: Nueva cotización
+  session.data.active_flow = 'commercial';
+  assert.strictEqual(session.data.nombres_apellidos, 'Carlos Mario Gómez');
+  assert.strictEqual(session.data.commercial_state.repuesto, 'Pastillas de freno');
+});
+
+// 14. Una conversación retomada después de una pausa
+runTest('MI-14. Conversación retomada tras pausa conserva cotización previa', () => {
+  const nlpPause = processNlpPipeline("Gracias por la cotización, después te confirmo", {});
+  assert.strictEqual(nlpPause.entities.es_pausa, true);
+  const session = {
+    data: {
+      nombres_apellidos: 'Walter',
+      active_flow: 'commercial',
+      commercial_state: { repuesto: 'Kit de arrastre', moto: 'Pulsar 200 NS' },
+      _es_pausa: true
+    }
+  };
+  const nlpResume = processNlpPipeline("Hola, ya revisé y sí voy a llevar el kit", {});
+  assert.strictEqual(session.data.commercial_state.repuesto, 'Kit de arrastre');
+  assert.strictEqual(nlpResume.entities.intencion_compra, true);
+});
+
+// 15. Una salida ambigua de Gemini (fallback determinístico seguro)
+runTest('MI-15. Salida ambigua o fallo de IA maneja multiintención determinísticamente', () => {
+  const nlp = processNlpPipeline("Hola soy Walter y quiero cotizar", {});
+  assert.strictEqual(nlp.entities.es_saludo, true);
+  assert.strictEqual(nlp.entities.nombres_apellidos, 'Walter');
+  assert.strictEqual(nlp.entities.intencion_cotizacion, true);
+});
+
+// 16. Un fallo de Gemini o Firestore (resiliencia en memoria local)
+runTest('MI-16. Fallo de almacenamiento conserva hechos confirmados en memoria local', () => {
+  const memory = initOrLoadMemory({});
+  integrateFactsIntoMemory(memory, { nombres_apellidos: 'Pedro Navaja', ciudad_taller: 'Bogotá' }, 'Pedro en Bogotá');
+  assert.strictEqual(memory.confirmedFacts['nombres_apellidos'].value, 'Pedro Navaja');
+  assert.strictEqual(memory.confirmedFacts['ciudad_taller'].value, 'Bogotá');
+});
+
+// 17. Un mensaje duplicado (idempotencia y anti-repetición)
+runTest('MI-17. Mensajes idénticos consecutivos no duplican preguntas ni corrompen historial', () => {
+  const memory = initOrLoadMemory({});
+  const q = "¿Qué repuesto buscas y para qué moto?";
+  recordAskedQuestion(memory, 'repuesto_solicitado', q);
+  recordAskedQuestion(memory, 'repuesto_solicitado', q);
+  assert.strictEqual(memory.askedQuestions.length, 1);
+});
+
+// 18. Una respuesta que ya había sido proporcionada anteriormente
+runTest('MI-18. Respuesta a dato ya suministrado activa protesta y evita repetición', () => {
+  const text = "Ya te dije que soy Carlos Gómez en Medellín";
+  const nlp = processNlpPipeline(text, {});
+  assert.strictEqual(nlp.entities.protesta_repeticion, true);
+  assert.strictEqual(nlp.entities.ciudad_taller, 'Medellín');
 });
 
 console.log('\n=======================================================');

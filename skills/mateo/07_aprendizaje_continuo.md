@@ -6,11 +6,12 @@ Esta habilidad consolida las lecciones extraídas por el motor de Machine Learni
 ---
 
 ## 2. Lecciones de Compras y Asesoría Comercial NITROX
-1. **Intención de Compra Inmediata**:
-   - Si el usuario dice *"Quiero comprar"*, *"A cómo el kit"*, *"Venden repuestos"*:
-   - **PROHIBIDO**: Forzar preguntas del formulario de registro como rol de dueño o mecánico.
-   - **ACCIÓN OBLIGATORIA**: Formular la bifurcación:
-     > *"¡Claro que sí! ¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?"*
+1. **Intención de Compra Inmediata (Transición a Flujo Comercial A)**:
+   - Si el usuario dice *"Walter González pero hoy quiero hacer una compra"*, *"Quiero comprar"*, *"No hoy quiero comprar"*, *"A cómo el kit"*:
+   - **PROHIBIDO**: Forzar preguntas del formulario de registro (rol, taller, motos por semana, cédula, correo).
+   - **PROHIBIDO**: Forzar la pregunta de bifurcación si la intención ya quedó clara.
+   - **ACCIÓN OBLIGATORIA**: Saludar con calidez por su nombre si ya lo indicó y entrar de inmediato a resolver la compra:
+     > *"¡Mucho gusto, Walter! De una, cuéntame qué repuesto necesitas y te ayudo con la compra."*
 
 2. **Captura Rápida de Ubicación para Tiendas Mundimotos**:
    - Si el usuario elige comprar:

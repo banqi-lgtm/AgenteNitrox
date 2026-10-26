@@ -242,6 +242,7 @@ function lemmatize(tokenInfo, fullText) {
 function extractSemanticEntities(text, sessionContext = {}) {
   const raw = (text || '').trim();
   const lower = raw.toLowerCase().replace(/[.,!¡?¿]+/g, ' ');
+  const unaccented = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   const extracted = {
     // Entidades clave
@@ -275,10 +276,28 @@ function extractSemanticEntities(text, sessionContext = {}) {
     cedula: null,
 
     // Señales conversacionales y de control
+    intenciones_detectadas: [],
+    es_saludo: false,
+    es_despedida: false,
+    es_pausa: false,
+    despedida_con_pregunta: false,
+    no_tiene_taller: false,
     es_pregunta_comercial: false,
     pregunta_comercial_tema: null,
     intencion_compra: false,
+    intencion_cotizacion: false,
+    cotizacion_multiple: false,
+    consulta_catalogo: false,
+    consulta_compatibilidad: false,
+    consulta_ubicacion: false,
     eleccion_flujo_compra: null, // 'solo_comprar' | 'seguir_formulario'
+    repuesto_solicitado: null,
+    repuestos_solicitados: [],
+    moto_solicitada: null,
+    ciudad_solicitada: null,
+    barrio_solicitado: null,
+    intencion_retomar_formulario: false,
+    rechazo_registro: false,
     protesta_repeticion: false,
     rechazo_dato: {},
     situacion_salud_o_personal: false,
@@ -322,7 +341,7 @@ function extractSemanticEntities(text, sessionContext = {}) {
     extracted.friccion_o_reclamo = true;
   }
 
-  // 3. CONSULTAS COMERCIALES Y/O INTENCIÓN DE COMPRA DEL USUARIO
+  // 3. CONSULTAS COMERCIALES Y/O INTENCIÓN DE COMPRA DEL USUARIO (FLUJO A)
   // Detección de respuesta a la bifurcación: ¿Seguimos con el formulario o quieres solo comprar?
   const wasForkAsked = sessionContext._modo_compra === 'preguntando_opcion' ||
                        sessionContext._lastQuestion === 'OPCION_COMPRA_O_FORMULARIO' ||
@@ -336,28 +355,131 @@ function extractSemanticEntities(text, sessionContext = {}) {
     }
   }
 
-  // Detección de Intención de Compra explícita
-  const isPurchaseIntent = /\b(?:quiero\s+comprar|comprar\s+repuestos|c[oó]mo\s+compro|d[oó]nde\s+compro|d[oó]nde\s+puedo\s+comprar|venden\s+repuestos|necesito\s+comprar|a\s+c[oó]mo\s+los\s+repuestos|precio\s+de|cotizar|comprar|hacer\s+una\s+compra|para\s+una\s+compra)\b/i.test(lower) ||
-    /^(?:hola\s+)?(?:quiero\s+comprar|comprar|compro|compras|cotizar)[\s.,!]*$/i.test(lower) ||
-    /\b(?:quiero|necesito|deseo|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra)\b/i.test(lower);
+  // Detección de reanudar formulario (transición de Flujo Comercial a Registro)
+  if (/\b(?:sigamos\s+con\s+el\s+formulario|retomemos\s+el\s+formulario|volver\s+al\s+formulario|seguir\s+con\s+el\s+registro|retomar\s+el\s+registro|continuar\s+el\s+registro|inscribir\s+el\s+taller|vincular\s+el\s+taller|terminar\s+el\s+formulario|ahora\s+s[ií]\s+el\s+formulario|sigamos\s+con\s+el\s+registro)\b/i.test(lower)) {
+    extracted.intencion_retomar_formulario = true;
+  }
 
-  if (isPurchaseIntent) {
+  // Detección de rechazo explícito de registro
+  if (/\b(?:no\s+quiero\s+(?:registrarme|formulario|registro|vincularme)|solo\s+quiero\s+comprar|no\s+me\s+interesa\s+el\s+registro|nada\s+de\s+formularios?)\b/i.test(lower)) {
+    extracted.rechazo_registro = true;
+  }
+
+  // Detección de Intención de Compra y Cotización explícita (Flujo A)
+  const isQuotePhrase = /\b(?:cotizar|cotizaci[oó]n|cot[ií]zame|m[aá]ndame\s+(?:una\s+)?cotizaci[oó]n|cu[aá]nto\s+me\s+cuesta|cu[aá]nto\s+me\s+vale|cu[aá]nto\s+vale\s+todo|precios\s+al\s+por\s+mayor|comparar\s+precios|presupuesto)\b/i.test(lower);
+  const isPurchaseIntent = isQuotePhrase ||
+    /\b(?:quiero\s+comprar|comprar\s+repuestos|c[oó]mo\s+compro|d[oó]nde\s+compro|d[oó]nde\s+puedo\s+comprar|venden\s+repuestos|necesito\s+comprar|a\s+c[oó]mo\s+los\s+repuestos|precio\s+de|comprar|hacer\s+una\s+compra|para\s+una\s+compra|adquirir\s+repuestos|voy\s+a\s+llevar|me\s+llevo|llevar\s+el\s+kit|llevar\s+los|llevar\s+las)\b/i.test(lower) ||
+    /^(?:hola\s+)?(?:quiero\s+comprar|comprar|compro|compras|cotizar|necesito\s+repuestos?)[\s.,!]*$/i.test(lower) ||
+    /\b(?:quiero|necesito|deseo|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra|adquirir|cotizar|llevar)\b/i.test(lower) ||
+    /\b(?:no\s*,?\s*(?:hoy\s+)?quiero\s+comprar|solo\s+quiero\s+comprar|solo\s+comprar|hoy\s+necesito\s+comprar)\b/i.test(lower) ||
+    /\b(?:a\s+c[oó]mo\s+(?:tienen|est[aá]n?)|cu[aá]nto\s+vale|cu[aá]nto\s+cuesta|qu[eé]\s+precio\s+tiene)\b.*?\b(?:repuesto|kit|cadena|pastillas?|frenos?|bandas?|zapatas?|clutch|embrague|bater[ií]a|llanta|buj[ií]a)\b/i.test(lower) ||
+    /\b(?:a\s+c[oó]mo\s+sale|a\s+c[oó]mo\s+(?:lo\s+)?tienen|cu[aá]nto\s+vale\s+esa\s+vaina|tienen\s+de\s+eso|m[aá]ndame\s+precio|qu[eé]\s+vale\s+el\s+kit|qu[eé]\s+vale\s+esa\s+vaina)\b/i.test(lower) ||
+    /\b(?:tienen|manejan|venden|consiguen)\s+repuestos\s+(?:para|pa)\b/i.test(lower);
+
+  if (isQuotePhrase) {
+    extracted.intencion_cotizacion = true;
+    extracted.intencion_compra = true;
+    extracted.es_pregunta_comercial = true;
+    extracted.pregunta_comercial_tema = 'cotizacion';
+  } else if (isPurchaseIntent) {
     extracted.intencion_compra = true;
     extracted.es_pregunta_comercial = true;
     extracted.pregunta_comercial_tema = 'intencion_compra';
   } else if (/\b(?:qui[eé]nes\s+son|qu[eé]\s+hacen|de\s+qu[eé]\s+es\s+nitrox|qu[eé]\s+es\s+red\s+nitrox)\b/i.test(lower)) {
     extracted.es_pregunta_comercial = true;
     extracted.pregunta_comercial_tema = 'identidad_empresa';
-  } else if (/\b(?:tienen|manejan|venden|hay|consiguen)\b.*?\b(?:pastillas?|frenos?|kit|arrastre|repuesto|bater[ií]a|llanta|cadena|aceite|cilindro)\b/i.test(lower) ||
-             /\b(?:pastillas?|kit\s+de\s+arrastre|repuestos?)\b.*?\b(?:para|pa)\b.*?\b(?:nkd|boxer|pulsar|yamaha|akt|honda|nmax|fz|gixxer)\b/i.test(lower)) {
+  } else if (/\b(?:tienen|manejan|venden|hay|consiguen)\b.*?\b(?:pastillas?|frenos?|kit|arrastre|repuesto|bater[ií]a|llanta|cadena|aceite|cilindro|buj[ií]a)\b/i.test(lower) ||
+             /\b(?:pastillas?|kit\s+(?:de\s+)?arrastre|kit\s+(?:para|pa)\s+|repuestos?|zapatas?|bandas?|buj[ií]as?)\b.*?\b(?:para|pa)\b.*?\b(?:nkd|boxer|pulsar|yamaha|akt|honda|nmax|fz|gixxer|discover|apache)\b/i.test(lower)) {
     extracted.es_pregunta_comercial = true;
     extracted.pregunta_comercial_tema = 'consulta_repuesto_referencia';
-  } else if (/\b(?:d[oó]nde\s+quedan|d[oó]nde\s+est[aá]n|ubicaci[oó]n\s+de\s+ustedes|tienen\s+sede)\b/i.test(lower)) {
+  } else if (/\b(?:d[oó]nde\s+quedan|d[oó]nde\s+est[aá]n|ubicaci[oó]n\s+de\s+ustedes|tienen\s+sede|d[oó]nde\s+puedo\s+conseguir|tienda\s+m[aá]s\s+cercana|punto\s+de\s+venta)\b/i.test(lower)) {
     extracted.es_pregunta_comercial = true;
+    extracted.consulta_ubicacion = true;
     extracted.pregunta_comercial_tema = 'ubicacion_empresa';
-  } else if (/\b(?:cu[aá]nto\s+cuesta|qu[eé]\s+precio|precios|cat[aá]logo)\b/i.test(lower)) {
+  } else if (/\b(?:cu[aá]nto\s+cuesta|qu[eé]\s+precio|precios|cat[aá]logo|m[aá]ndame\s+el\s+cat[aá]logo|qu[eé]\s+referencias\s+manejan)\b/i.test(lower)) {
     extracted.es_pregunta_comercial = true;
     extracted.pregunta_comercial_tema = 'precios_catalogo';
+  }
+
+  // Consultas de catálogo y compatibilidad
+  if (/\b(?:cat[aá]logo|portafolio|folleto|m[aá]ndame\s+el\s+cat[aá]logo)\b/i.test(lower)) {
+    extracted.consulta_catalogo = true;
+    extracted.es_pregunta_comercial = true;
+  }
+  if (/\b(?:le\s+sirve|es\s+compatible|tienen\s+para\s+(?:una|la)\b|sirve\s+para|aplica\s+para)\b/i.test(lower)) {
+    extracted.consulta_compatibilidad = true;
+    extracted.es_pregunta_comercial = true;
+  }
+
+  // Detección de repuestos solicitados (soporte multi-referencia)
+  const commercialRequestedParts = [];
+  if (/\b(?:kit\s+(?:de\s+)?arrastre|kit\s+(?:para|pa)\s+|relaci[oó]n|pi[ñn][oó]n\s+y\s+corona|arrastre)\b/i.test(lower)) {
+    commercialRequestedParts.push('Kit de arrastre');
+  }
+  if (/\b(?:pastillas?(?:\s+de\s+freno)?|frenos?|bandas?(?:\s+traseras?)?|zapatas?)\b/i.test(lower)) {
+    commercialRequestedParts.push('Frenos (pastillas / bandas)');
+  }
+  if (/\b(?:cadenas?(?:\s+reforzada|\s+gold|\s+o-ring)?)\b/i.test(lower)) {
+    commercialRequestedParts.push('Cadena de transmisión');
+  }
+  if (/\b(?:clutch|embrague|discos?\s+de\s+clutch|prensa)\b/i.test(lower)) {
+    commercialRequestedParts.push('Embrague / Clutch');
+  }
+  if (/\b(?:bater[ií]as?)\b/i.test(lower)) {
+    commercialRequestedParts.push('Batería');
+  }
+  if (/\b(?:llantas?)\b/i.test(lower)) {
+    commercialRequestedParts.push('Llanta');
+  }
+  if (/\b(?:buj[ií]as?)\b/i.test(lower)) {
+    commercialRequestedParts.push('Bujía');
+  }
+  if (/\b(?:aceite|lubricante)\b/i.test(lower)) {
+    commercialRequestedParts.push('Aceite');
+  }
+  extracted.repuestos_solicitados = commercialRequestedParts;
+  if (commercialRequestedParts.length > 0) {
+    extracted.repuesto_solicitado = commercialRequestedParts[0];
+  }
+  if (commercialRequestedParts.length > 1 || /\b(?:varias?\s+referencias|todos?\s+(?:estos|los)\s+repuestos|pedido\s+completo|combo)\b/i.test(lower)) {
+    extracted.cotizacion_multiple = true;
+  }
+
+  // Detección de saludos, despedidas y pausas
+  const isGreetingWord = /\b(?:hola|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|quiubo|quihubo|qu[eé]\s+m[aá]s|buen\s+d[ií]a|ey\s+hola)\b/i.test(lower);
+  extracted.es_saludo = isGreetingWord;
+
+  const isFarewellWord = /\b(?:chao|adi[oó]s|hasta\s+luego|nos\s+vemos)\b/i.test(lower);
+  const isPausePhrase = /\b(?:despu[eé]s\s+(?:te\s+confirmo|seguimos|le\s+escribo|te\s+escribo|reviso|miro|hablamos)|hablamos\s+luego|luego\s+te\s+escribo|por\s+ahora\s+no\s+necesito\s+nada|d[eé]jame\s+pensarlo|voy\s+a\s+revisar|m[aá]s\s+tarde\s+te\s+aviso|despu[eé]s\s+te\s+aviso)\b/i.test(lower);
+  const hasFollowUpQuestion = /(?:\bah\b|\buna\s+cosa\b|\bpregunta\b|\bcu[aá]nto\b|\bqu[eé]\s+vale\b|\btienen\b).*?(?:\?|[a-z0-9])/i.test(lower) && (lower.includes('?') || /\b(?:cu[aá]nto|qu[eé]\s+vale|precio|repuesto|kit|tienen|venden)\b/i.test(lower));
+
+  if (isFarewellWord && hasFollowUpQuestion) {
+    extracted.despedida_con_pregunta = true;
+    extracted.es_pregunta_comercial = true;
+    extracted.es_despedida = false;
+  } else if (isPausePhrase) {
+    extracted.es_pausa = true;
+  } else if (isFarewellWord) {
+    extracted.es_despedida = true;
+  }
+
+  // Detección de no poseer taller (Mecánico independiente / sin taller)
+  if (/\b(?:no\s+tengo\s+taller|todav[ií]a\s+no\s+tengo\s+taller|no\s+cuento\s+con\s+taller|trabajo\s+independiente|mec[aá]nico\s+independiente|sin\s+taller|no\s+poseo\s+taller)\b/i.test(lower)) {
+    extracted.no_tiene_taller = true;
+    if (!extracted.relacion_taller) extracted.relacion_taller = 'Mecánico Independiente / A domicilio';
+    if (!extracted.nombre_taller) extracted.nombre_taller = 'Mecánico Independiente / A domicilio';
+  }
+
+  // Detección de motocicleta solicitada en la consulta comercial
+  let bikeSearchText = lower;
+  const correctionMatch = lower.match(/\b(?:no\s+(?:es|era))\s+[a-z0-9]+\s+(?:es\s+(?:para|pa)?\s+|para\s+)(.*)/i);
+  if (correctionMatch) {
+    bikeSearchText = correctionMatch[1];
+  }
+  const bikeMatch = bikeSearchText.match(/\b(pulsar(?:\s+(?:ns\s*200|200\s*ns|180|150|135|220|ug))?|boxer(?:\s+(?:ct\s*100|ct100|bm\s*100|100))?|nkd(?:\s*125)?|gixxer(?:\s*(?:150|250))?|fz(?:\s*(?:16|2\.0|25))?|nmax(?:\s*155)?|apache(?:\s*(?:160|180|200))?|discover(?:\s*(?:125|135|150))?|akt(?:\s*(?:125|special|cr4))?|yamaha(?:\s*(?:crypton|xtz|libero))?|honda(?:\s*(?:cb|cbf|wave|xr))?)\b/i);
+  if (bikeMatch) {
+    const rawBike = bikeMatch[1].trim();
+    extracted.moto_solicitada = rawBike.charAt(0).toUpperCase() + rawBike.slice(1);
   }
 
   // 4. CIUDADES, MUNICIPIOS Y TALLERES COMPUESTOS ("Pj en Bogotá", "La 50 en Medellín", "Taller El Paisa en Cali")
@@ -424,7 +546,7 @@ function extractSemanticEntities(text, sessionContext = {}) {
   if (workshopCityMatch) {
     const rawShop = workshopCityMatch[1].trim();
     const rawCity = workshopCityMatch[2].trim();
-    const isBadShop = /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|mentira)\b/i.test(rawShop) || /^(?:hola|buenas|soy|yo|si|sí|ok)$/i.test(rawShop);
+    const isBadShop = /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|mentira)\b/i.test(rawShop) || /^(?:hola|buenas|soy|yo|si|sí|ok|estoy|vivo|queda|estamos|ubicado|ubicados)$/i.test(rawShop);
     if (rawShop.length >= 1 && !isBadShop) {
       if (!sessionContext.nombre_taller) {
         const formattedShop = rawShop.toLowerCase().startsWith('taller') || /motos|racing|motor/i.test(rawShop) ? rawShop : `Taller ${rawShop}`;
@@ -450,7 +572,7 @@ function extractSemanticEntities(text, sessionContext = {}) {
   }
 
   for (const m of municipalities) {
-    if (m.regex.test(lower)) {
+    if (m.regex.test(lower) || m.regex.test(unaccented)) {
       extracted.ciudad_taller = m.name;
       break;
     }
@@ -753,6 +875,51 @@ function extractSemanticEntities(text, sessionContext = {}) {
       extracted.autorizacion_habeas_data = true;
     }
   }
+
+  // 20. EXTRACCIÓN MULTIINTENCIÓN DE NOMBRE Y TALLER
+  if (!extracted.nombres_apellidos) {
+    const explicitPersonMatch = raw.match(/\b(?:yo\s+soy|soy|me\s+llamo|mi\s+nombre\s+es|mi\s+nombre\s+completo\s+es|puedes\s+decirme)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+){0,3})\b/i);
+    if (explicitPersonMatch) {
+      let cand = explicitPersonMatch[1].trim();
+      cand = cand.replace(/\s+(?:y|e|pero|para|que|de|del|con)\b.*$/i, '').trim();
+      cand = cand.replace(/\s+(?:gerente|propietario|mecanico|mecánico|dueño).*$/i, '').trim();
+      cand = cand.replace(/\s+(?:pero\s+dime|dime).*$/i, '').trim();
+      if (cand && !/\b(?:propietario|mecanico|mecánico|dueño|cliente|independiente|taller|motos)\b/i.test(cand)) {
+        extracted.nombres_apellidos = cand.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      }
+    }
+  }
+
+  if (!extracted.nombre_taller && !extracted.no_tiene_taller) {
+    const explicitShopIntro = raw.match(/\b(?:el\s+taller\s+se\s+llama|mi\s+taller\s+se\s+llama|el\s+negocio\s+se\s+llama)\s+([A-Za-z0-9ÁÉÍÓÚáéíóúñÑ\s#\-\.]{2,35}?)(?:\s+(?:y|en|pero|para|que|con)|\s*$)/i);
+    if (explicitShopIntro) {
+      const sCand = explicitShopIntro[1].trim();
+      if (!/\b(?:hola|buenas|soy|yo|si|no)\b/i.test(sCand)) {
+        extracted.nombre_taller = sCand.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      }
+    }
+  }
+
+  // 21. CATÁLOGO DE INTENCIONES DETECTADAS (MULTIINTENCIÓN)
+  const intList = [];
+  if (extracted.es_saludo) intList.push('saludo');
+  if (extracted.es_despedida) intList.push('despedida');
+  if (extracted.es_pausa) intList.push('pausa');
+  if (extracted.despedida_con_pregunta) intList.push('despedida_con_pregunta');
+  if (extracted.nombres_apellidos) intList.push('nombre_personal');
+  if (extracted.nombre_taller && !extracted.no_tiene_taller) intList.push('nombre_taller');
+  if (extracted.no_tiene_taller) intList.push('no_tiene_taller');
+  if (extracted.intencion_compra) intList.push('compra');
+  if (extracted.intencion_cotizacion) intList.push('cotizacion');
+  if (extracted.cotizacion_multiple) intList.push('cotizacion_multiple');
+  if (extracted.consulta_catalogo) intList.push('consulta_catalogo');
+  if (extracted.consulta_compatibilidad) intList.push('consulta_compatibilidad');
+  if (extracted.consulta_ubicacion) intList.push('consulta_ubicacion');
+  if (extracted.rechazo_registro) intList.push('rechazo_registro');
+  if (extracted.intencion_retomar_formulario) intList.push('retomar_formulario');
+  if (extracted.protesta_repeticion) intList.push('protesta_repeticion');
+  if (extracted.autorizacion_habeas_data !== null) intList.push('habeas_data');
+  extracted.intenciones_detectadas = intList;
 
   return extracted;
 }
