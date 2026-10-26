@@ -721,6 +721,18 @@ runTest('AP. Fallback formula bifurcación de compra y jamás fuerza preguntas d
   assert.ok(expectedFork.includes('formulario'), 'Debe ofrecer la opción de seguir con el formulario');
 });
 
+// -------------------------------------------------------------
+// TEST 43: Nombre de persona con intención de compra añadida ("Walter González pero hoy quiero hacer una compra")
+// -------------------------------------------------------------
+runTest('AQ. Extracción de nombre limpio y detección de intención de compra compuesta', () => {
+  const input = "Walter González pero hoy quiero hacer una compra";
+  const parsed = parseNameAndWorkshop(input);
+  assert.strictEqual(parsed.name, 'Walter González', 'Debe extraer únicamente el nombre "Walter González"');
+
+  const nlp = processNlpPipeline(input, { _lastQuestion: 'NOMBRE' });
+  assert.strictEqual(nlp.entities.intencion_compra, true, 'Debe detectar intencion_compra = true');
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

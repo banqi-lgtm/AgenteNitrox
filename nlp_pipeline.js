@@ -337,9 +337,9 @@ function extractSemanticEntities(text, sessionContext = {}) {
   }
 
   // Detección de Intención de Compra explícita
-  const isPurchaseIntent = /\b(?:quiero\s+comprar|comprar\s+repuestos|c[oó]mo\s+compro|d[oó]nde\s+compro|d[oó]nde\s+puedo\s+comprar|venden\s+repuestos|necesito\s+comprar|a\s+c[oó]mo\s+los\s+repuestos|precio\s+de|cotizar|comprar)\b/i.test(lower) ||
+  const isPurchaseIntent = /\b(?:quiero\s+comprar|comprar\s+repuestos|c[oó]mo\s+compro|d[oó]nde\s+compro|d[oó]nde\s+puedo\s+comprar|venden\s+repuestos|necesito\s+comprar|a\s+c[oó]mo\s+los\s+repuestos|precio\s+de|cotizar|comprar|hacer\s+una\s+compra|para\s+una\s+compra)\b/i.test(lower) ||
     /^(?:hola\s+)?(?:quiero\s+comprar|comprar|compro|compras|cotizar)[\s.,!]*$/i.test(lower) ||
-    /\b(?:quiero|necesito|deseo|voy\s+a)\s+comprar\b/i.test(lower);
+    /\b(?:quiero|necesito|deseo|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra)\b/i.test(lower);
 
   if (isPurchaseIntent) {
     extracted.intencion_compra = true;

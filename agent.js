@@ -82,8 +82,10 @@ function cleanPersonName(str) {
   if (/\b(?:no\s+es\s+mi\s+nombre|no\s+sea|no\s+me\s+llamo|te\s+equivocaste|mentira|equivocado|no\s+joda|saludas?|respondes?|hablas?)\b/i.test(s)) return '';
 
   s = s.replace(/^(?:hola|buenas|buenos dias|buenas tardes|soy|me llamo|mi nombre es|yo soy|yo me llamo)\s+/gi, '');
+  // Remover cláusulas adversativas o de compra añadidas al nombre (ej: "Walter González pero hoy quiero hacer una compra")
+  s = s.replace(/\s+(?:pero|mas|aunque|sin embargo)?\s*(?:hoy|solo)?\s*(?:quiero|deseo|necesito|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra|cotizar).*$/gi, '').trim();
   s = s.replace(/(?:taller|motos|repuestos).*$/gi, '').trim();
-  s = s.replace(/\s+(?:y|de|del)$/gi, '').trim();
+  s = s.replace(/\s+(?:y|de|del|pero)$/gi, '').trim();
   s = s.replace(/[.,;:]+$/, '').trim();
 
   if (isPureGreeting(s) || isGreetingResponse(s) || isGreeting(s)) return '';
@@ -221,9 +223,13 @@ function parseNameAndWorkshop(raw) {
   }
 
   const words = clean.split(/\s+/).filter(Boolean);
+  // Limpiar cláusulas adversativas de compra antes de evaluar el nombre
+  const candidateForName = clean.replace(/\s+(?:pero|mas|aunque|sin embargo)?\s*(?:hoy|solo)?\s*(?:quiero|deseo|necesito|voy\s+a)\s+(?:comprar|hacer\s+una\s+compra|cotizar).*$/gi, '').trim();
+  const candWords = candidateForName.split(/\s+/).filter(Boolean);
+
   // Si son entre 1 y 4 palabras, sin palabras clave de taller, sin números y sin términos de negocio: es el NOMBRE del mecánico
-  if (words.length <= 4 && !workshopKeywords.test(lower) && !/\d/.test(clean) && !/(?:dorado|racing|garage|motor|repuestos|leon|león|taller|motos|moto|centro|servicio|serviteca|repuesto)/i.test(lower)) {
-    const pName = cleanPersonName(clean);
+  if (candWords.length >= 1 && candWords.length <= 4 && !workshopKeywords.test(candidateForName.toLowerCase()) && !/\d/.test(candidateForName) && !/(?:dorado|racing|garage|motor|repuestos|leon|león|taller|motos|moto|centro|servicio|serviteca|repuesto)/i.test(candidateForName.toLowerCase())) {
+    const pName = cleanPersonName(candidateForName);
     if (pName) {
       return { name: pName, workshop: '', ambiguous: null };
     }

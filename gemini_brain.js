@@ -372,6 +372,10 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
       session.data._modo_compra = 'preguntando_opcion';
     } else if (/ahora\s+s[ií]\s+seguimos\s+con\s+el\s+formulario/i.test(reply)) {
       session.data._modo_compra = 'compra_resuelta';
+    } else if (session.data._modo_compra === 'preguntando_opcion' && !/solo\s+comprar|comprar/i.test(reply)) {
+      // Guardabarrera: si se debe bifurcar la compra pero el modelo insistió con preguntas del formulario
+      const nameGreeting = session.data.nombres_apellidos ? `¡Mucho gusto, ${String(session.data.nombres_apellidos).split(/\s+/)[0]}! 🏍️ ` : '¡Claro que sí! ';
+      reply = `${nameGreeting}¿Seguimos con el formulario de tu taller o quieres solo comprar repuestos NITROX?`;
     }
 
     // 4. GUARDABARRERAS SEMÁNTICO Y ANTI-REPETICIÓN
@@ -443,7 +447,7 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
 
     // 4.1 GARANTÍA DE PROGRESIÓN CONVERSACIONAL (REGLA DE UNA SOLA PREGUNTA OBLIGATORIA)
     // EXCEPCIONES: NO forzar preguntas si el usuario fue hostil, reportó malestar de salud o está en modo compra
-    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation && session.data._modo_compra !== 'asesoria_compra') {
+    if (!isFinished && !reply.includes('?') && !isHostileRejection && !isHealthSituation && session.data._modo_compra !== 'asesoria_compra' && session.data._modo_compra !== 'preguntando_opcion') {
       const remainingPending = getConversationalPendingTopics(session.data, memory);
       let nextKeyToAsk = null;
       let nextQuestionText = null;
