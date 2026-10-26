@@ -280,11 +280,33 @@ function resetMlLearnings() {
   localMlLearningsStore.length = 0;
 }
 
+/**
+ * Retorna los aprendizajes más recientes y relevantes para ser inyectados dinámicamente
+ * en el contexto conversacional de Mateo en cada turno (Closed-Loop Learning).
+ */
+function getLiveLearningsForPrompt(limit = 4) {
+  if (!Array.isArray(localMlLearningsStore) || localMlLearningsStore.length === 0) {
+    return '';
+  }
+  const top = localMlLearningsStore.slice(0, limit);
+  const bullets = [];
+  top.forEach(rec => {
+    if (rec.recomendacion_mejora) {
+      bullets.push(`- [Recomendación ${rec.nombre_taller || rec.municipio || 'Taller'}]: ${rec.recomendacion_mejora}`);
+    }
+    if (Array.isArray(rec.que_aprendio_mateo) && rec.que_aprendio_mateo.length > 0) {
+      bullets.push(`- [Aprendizaje]: ${rec.que_aprendio_mateo[0]}`);
+    }
+  });
+  return bullets.slice(0, 5).join('\n');
+}
+
 module.exports = {
   analyzeConversation,
   analyzeConversationAsync,
   getAllLearnings,
   analyzeAllStoredSessions,
   localMlLearningsStore,
-  resetMlLearnings
+  resetMlLearnings,
+  getLiveLearningsForPrompt
 };

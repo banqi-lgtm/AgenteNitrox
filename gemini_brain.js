@@ -17,6 +17,7 @@ const {
   getConversationalPendingTopics
 } = require('./registration_engine');
 const { getMateoSystemPrompt } = require('./skill_loader');
+const { getLiveLearningsForPrompt } = require('./ml_service');
 
 // Prompt del sistema ensamblado dinámicamente desde skills/mateo/*.md y cacheado en memoria RAM
 const SYSTEM_PROMPT = getMateoSystemPrompt();
@@ -73,14 +74,14 @@ function getPendingTopics(memory) {
 // Evita que un modelo saturado (429/503) o lento deje al mecánico esperando minutos.
 // ───────────────────────────────────────────────────────────────────────────
 const MODEL_CHAIN = [
-  'googleai/gemini-flash-lite-latest',
-  'googleai/gemini-3.5-flash-lite',
+  'googleai/gemini-3-flash-preview',
   'googleai/gemini-3.6-flash',
-  'googleai/gemini-3-flash-preview'
+  'googleai/gemini-flash-lite-latest',
+  'googleai/gemini-3.5-flash-lite'
 ];
-const HEDGE_DELAYS_MS = [0, 1200, 2500, 3800];   // cuándo lanzar cada candidato si nadie ha respondido
-const PER_CALL_TIMEOUT_MS = 3000;
-const TOTAL_BUDGET_MS = 4800;
+const HEDGE_DELAYS_MS = [0, 600, 1400, 2200];   // respuesta ultra-rápida en <800ms
+const PER_CALL_TIMEOUT_MS = 2000;
+const TOTAL_BUDGET_MS = 3200;
 const modelCooldownUntil = {};
 
 function cooldownFor(err) {
@@ -321,6 +322,13 @@ TERMINANTEMENTE PROHIBIDO hacer preguntas del formulario de registro (rol, espec
     if (nlpResult.entities.rechazo_hostil) {
       contextPrompt += `\n\n9. ATENCIÓN CRÍTICA: El usuario rechazó con hostilidad o insultó. TERMINANTEMENTE PROHIBIDO reírse ("jaja") y TERMINANTEMENTE PROHIBIDO hacer más preguntas de registro. Pide disculpas con total humildad, respeta su decisión y haz un cierre cortés sin presiones.`;
     }
+
+    try {
+      const mlLearnings = getLiveLearningsForPrompt();
+      if (mlLearnings) {
+        contextPrompt += `\n\n🧠 APRENDIZAJES ACTIVOS DEL MOTOR DE MACHINE LEARNING (CLOSED-LOOP):\n${mlLearnings}`;
+      }
+    } catch (_) {}
 
     contextPrompt += `\n\nÚLTIMO MENSAJE DEL MECÁNICO:\n"${userText}"`;
   }

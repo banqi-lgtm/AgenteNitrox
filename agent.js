@@ -1032,18 +1032,32 @@ const phoneLocks = new Map();
 
 async function runWithPhoneLock(phone, fn) {
   const cleanPhone = String(phone || '');
-  while (phoneLocks.has(cleanPhone)) {
+  if (phoneLocks.has(cleanPhone)) {
     try {
-      await phoneLocks.get(cleanPhone);
+      await Promise.race([
+        phoneLocks.get(cleanPhone),
+        new Promise(r => setTimeout(r, 3000))
+      ]);
     } catch (_) {}
   }
   let resolveLock;
   const lockPromise = new Promise(resolve => { resolveLock = resolve; });
   phoneLocks.set(cleanPhone, lockPromise);
+
+  const safetyTimer = setTimeout(() => {
+    if (phoneLocks.get(cleanPhone) === lockPromise) {
+      phoneLocks.delete(cleanPhone);
+      resolveLock();
+    }
+  }, 4500);
+
   try {
     return await fn();
   } finally {
-    phoneLocks.delete(cleanPhone);
+    clearTimeout(safetyTimer);
+    if (phoneLocks.get(cleanPhone) === lockPromise) {
+      phoneLocks.delete(cleanPhone);
+    }
     resolveLock();
   }
 }

@@ -1724,15 +1724,10 @@ async function handleIncomingMessage(req, res) {
           // 1. Mark message as read and show 3 dots typing indicator in WhatsApp
           await markMessageAsReadAndTyping(messageId);
 
-          // 2. Pausa natural ágil de escritura en WhatsApp (200ms - 350ms)
-          const initialDelay = Math.floor(Math.random() * 150) + 200;
-          console.log(`⏳ [ESCRIBIENDO...] Mostrando indicador de escritura por ${(initialDelay / 1000).toFixed(2)}s...`);
-          await sleep(initialDelay);
-
-          // 3. Generate response bubbles
+          // 2. Generate response bubbles de inmediato (cero latencia artificial)
           const bubbles = await generateMateoResponse(from, incomingText);
 
-          // 4. Send bubbles with stable, paced interval (350ms)
+          // 3. Send bubbles with stable, paced interval (150ms)
           for (let i = 0; i < bubbles.length; i++) {
             const bubble = bubbles[i];
             if (bubble && typeof bubble === 'object' && bubble.type === 'image') {
@@ -1749,7 +1744,7 @@ async function handleIncomingMessage(req, res) {
             }
 
             if (i < bubbles.length - 1) {
-              await sleep(350);
+              await sleep(150);
             }
           }
           console.log(`✅ [RESPUESTA COMPLETADA para +${from}]\n`);
