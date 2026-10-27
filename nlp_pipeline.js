@@ -44,7 +44,35 @@ function normalizeText(rawText) {
     { pattern: /(?<=^|[^\p{L}\p{N}])(?:rep|repuests)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'repuestos' },
     { pattern: /(?<=^|[^\p{L}\p{N}])(?:ptas|pastillitas)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'pastillas' },
     { pattern: /(?<=^|[^\p{L}\p{N}])(?:inyecc)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'inyección' },
-    { pattern: /(?<=^|[^\p{L}\p{N}])(?:electr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'electricidad' }
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:electr)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'electricidad' },
+    // Diccionario de errores tipográficos y jerga colombiana
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:disko|discoo)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'disco' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:pastiya|pastia|pastiyas)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'pastillas' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:repueto|repuetso)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'repuesto' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:kawasaky|kawazaki|kawa)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'kawasaki' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:nitros|nitroxz)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'nitrox' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:cotisar|cotisame)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'cotizar' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:preico|presio|presioo|prescio)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'precio' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:enbio|embio)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'envío' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:direcsion|direción|direcccion)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'dirección' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:disponble|disponivle)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'disponible' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:delntero|delanetro)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'delantero' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:tracero|traserro)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'trasero' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:kuanto)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'cuánto' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:bale)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'vale' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:balen)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'valen' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:ciento\s+cincuenta)(?=[^\p{L}\p{N}]|$)/giu, replacement: '150' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:ciento\s+veinticinco)(?=[^\p{L}\p{N}]|$)/giu, replacement: '125' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:doscientos)(?=[^\p{L}\p{N}]|$)/giu, replacement: '200' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:cien)(?=[^\p{L}\p{N}]|$)/giu, replacement: '100' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:nesesito|nesecito)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'necesito' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:conprar|komprar)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'comprar' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:referensia|ref)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'referencia' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:cto)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'cuánto' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:domi)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'domicilio' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:medallo)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'Medellín' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:buca)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'Bucaramanga' },
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:barranca)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'Barrancabermeja' }
   ];
 
   for (const item of abbreviations) {
