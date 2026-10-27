@@ -365,6 +365,10 @@ PRÓXIMOS TEMAS A INDAGAR EN ORDEN CONVERSACIONAL NATURAL:
 ${pendingTopics.length > 0 ? pendingTopics.map((t, idx) => `${idx + 1}. [Sección ${t.section}] ${t.label}${t.mandatory ? ' (Obligatorio)' : ''}`).join('\n') : '(Ficha completa)'}
 
 INSTRUCCIONES CLAVE PARA ESTE TURNO:
+0. PREGUNTA CRUCIAL TRAS OBTENER EL NOMBRE:
+   - Si ya conoces el nombre del usuario y aún no se sabe el nombre del taller ni la finalidad del contacto:
+   - Pregúntale cordialmente por su nombre si desea afiliar su taller a la RED NITROX para recibir muestras, premios y capacitaciones, o si desea cotizar o comprar repuestos hoy.
+   - Ejemplo: "¡Mucho gusto, ${session.data.nombres_apellidos ? String(session.data.nombres_apellidos).split(/\s+/)[0] : 'amigo'}! Cuéntame, ¿deseas afiliar tu taller a la RED NITROX o deseas cotizar o comprar repuestos hoy?"
 1. SI EL MECÁNICO HIZO UNA PREGUNTA O CONSULTA COMERCIAL (ej. quiénes son, repuestos para NKD, precios):
    - RESPÓNDELE PRIMERO A SU DUDA con total claridad, calidez y conocimiento. NO saltes de una vez a pedirle datos.
 2. SI EL MECÁNICO MENCIONA TALLER Y CIUDAD (ej. "La 50 en Medellín", "Taller El Paisa en Bello"):
@@ -443,12 +447,22 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       session.data._modo_compra = 'compra_resuelta';
     } else if (session.data.active_flow === 'commercial') {
       // Guardabarrera para Flujo Comercial:
-      // Si el modelo por error formuló una pregunta de registro de taller
-      const isAccidentalRegistrationQuestion = /\b(?:c[oó]mo\s+se\s+llama\s+tu\s+taller|qu[eé]\s+nombre\s+tiene\s+tu\s+taller|eres\s+el\s+due[ñn]o\s+o\s+mec[aá]nico|cu[aá]ntas\s+motos\s+atienden|me\s+regalas\s+tu\s+c[eé]dula|me\s+compartes\s+tu\s+correo|autorizas\s+a\s+red\s+nitrox)\b/i.test(reply);
+      // Si el modelo por error formuló una pregunta de registro de taller o de ciudad del taller
+      const isAccidentalRegistrationQuestion = /\b(?:c[oó]mo\s+se\s+llama\s+tu\s+taller|qu[eé]\s+nombre\s+tiene\s+tu\s+taller|eres\s+el\s+due[ñn]o\s+o\s+mec[aá]nico|cu[aá]ntas\s+motos\s+atienden|me\s+regalas\s+tu\s+c[eé]dula|me\s+compartes\s+tu\s+correo|autorizas\s+a\s+red\s+nitrox|en\s+qu[eé]\s+ciudad.*taller)\b/i.test(reply);
       if (isAccidentalRegistrationQuestion) {
-        const firstName = session.data.nombres_apellidos ? String(session.data.nombres_apellidos).split(/\s+/)[0] : '';
-        const nameGreeting = firstName ? `¡Mucho gusto, ${firstName}! ` : '¡De una! ';
-        reply = `${nameGreeting}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te ayudo con la compra.`;
+        const commState = session.data.commercial_state || {};
+        if (!commState.repuesto || !commState.moto) {
+          const firstName = session.data.nombres_apellidos ? String(session.data.nombres_apellidos).split(/\s+/)[0] : '';
+          const nameGreeting = firstName ? `¡Mucho gusto, ${firstName}! ` : '¡De una! ';
+          reply = `${nameGreeting}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te ayudo con la cotización o compra.`;
+        } else if (!commState.ciudad_o_barrio) {
+          reply = '¡Excelente! ¿En qué ciudad o municipio te encuentras para indicarte el distribuidor NITROX más cercano?';
+        }
+      }
+      // Reemplazo estético si se coló algún residuo en la respuesta
+      if (session.data.nombre_taller && /\b(?:cotizar|comprar|hacer\s+una\s+compra|quiero)\b/i.test(session.data.nombre_taller)) {
+        delete session.data.nombre_taller;
+        reply = reply.replace(/taller\s+en\s+este\s+momento\s+quiero\s+cotizar/gi, 'tu compra').replace(/taller\s+quiero\s+comprar/gi, 'tu compra');
       }
     }
 
@@ -629,14 +643,16 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       if (chosenKey === 'nombre_taller' && session.data.nombres_apellidos && !isBadWord(session.data.nombres_apellidos)) {
         const firstName = String(session.data.nombres_apellidos).trim().split(/\s+/)[0];
         if (firstName.length >= 2 && !isBadWord(firstName)) {
-          nextQ = `¡Mucho gusto, ${firstName}! 🏍️ ¿Cómo se llama tu taller de motos?`;
+          nextQ = `¡Mucho gusto, ${firstName}! 🏍️ Cuéntame, ¿deseas afiliar tu taller a la RED NITROX para recibir beneficios y muestras, o deseas cotizar o comprar repuestos hoy?`;
         } else {
-          nextQ = '¡Qué gusto saludarte! Cuéntame, ¿cómo se llama tu taller de motos?';
+          nextQ = '¡Qué gusto saludarte! Cuéntame, ¿deseas afiliar tu taller a la RED NITROX o deseas cotizar o comprar repuestos hoy?';
         }
-      } else if (chosenKey === 'ciudad_taller' && session.data.nombre_taller && !isBadWord(session.data.nombre_taller)) {
-        nextQ = `¡Excelente! ¿Y en qué ciudad o municipio queda ${session.data.nombre_taller}?`;
-      } else if (chosenKey === 'barrio_taller' && session.data.nombre_taller && session.data.ciudad_taller && !isBadWord(session.data.nombre_taller)) {
-        nextQ = `¡Entendido! ${session.data.nombre_taller} en ${session.data.ciudad_taller} 🏍️. ¿En qué barrio o sector están?`;
+      } else if (chosenKey === 'ciudad_taller') {
+        const cleanShop = (session.data.nombre_taller && !/\b(?:cotizar|comprar|quiero)\b/i.test(session.data.nombre_taller) && !isBadWord(session.data.nombre_taller)) ? session.data.nombre_taller : 'tu taller';
+        nextQ = `¡Excelente! ¿Y en qué ciudad o municipio queda ${cleanShop}?`;
+      } else if (chosenKey === 'barrio_taller' && session.data.ciudad_taller) {
+        const cleanShop = (session.data.nombre_taller && !/\b(?:cotizar|comprar|quiero)\b/i.test(session.data.nombre_taller) && !isBadWord(session.data.nombre_taller)) ? session.data.nombre_taller : 'tu taller';
+        nextQ = `¡Entendido! ${cleanShop} en ${session.data.ciudad_taller} 🏍️. ¿En qué barrio o sector están?`;
       }
 
       fallbackReply = (isAlreadyRegistered ? '¡Con gusto! Ya estás en la red. ¿En qué más te ayudo?' : nextQ);

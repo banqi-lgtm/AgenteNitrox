@@ -126,6 +126,9 @@ function cleanWorkshopName(str) {
   if (/\b(?:no\s+es\s+mi\s+nombre|ese\s+no\s+es|no\s+sea|no\s+me\s+llamo|te\s+equivocaste|mentira|equivocado|no\s+joda|qu[eé]\s+dice)\b/i.test(s)) return '';
   // Si es solo una palabra conversacional o confirmación
   if (/^(?:si|sí|no|ok|listo|ya|bien|gracias|nada|espera|dime|decime|hola|buenas|entonces)\b/i.test(s)) return '';
+  // Si contiene frases de compra, cotización, catálogo o repuestos (ej: "En este momento quiero cotizar", "Quiero comprar", "Solo comprar")
+  if (/\b(?:quiero|deseo|necesito|voy\s+a)?\s*(?:cotizar|cotizaci[oó]n|comprar|compra|pedir|averiguar|adquirir|consultar|catalogo|cat[aá]logo|precio|precios|cu[aá]nto|qu[eé]\s+vale)\b/i.test(s)) return '';
+  if (/^(?:en\s+este\s+momento\s+)?(?:quiero|deseo|necesito|solo)\s+(?:cotizar|comprar|hacer\s+una\s+compra|saber|preguntar)/i.test(s)) return '';
   // Si son repuestos o piezas mecánicas solas (evitar convertir "Pastillas", "Pastillas de freno" en "Taller Pastillas")
   if (/^(?:pastillas?(?:\s+de\s+frenos?)?|frenos?|kit(?:\s+de\s+arrastre)?|bandas?(?:\s+de\s+frenos?)?|aceite|repuestos?|cadena|cadenas|buj[ií]as?|llantas?|disco(?:s)?(?:\s+de\s+frenos?)?)$/i.test(s)) return '';
   if (/\b(?:pastillas?\s+de\s+frenos?|kit\s+de\s+arrastre|cambio\s+de\s+aceite)\b/i.test(s)) return '';
@@ -539,8 +542,9 @@ function extractEntities(text, sessionData) {
         if (p) updates.nombres_apellidos = p;
       }
     } else if (sessionData._lastQuestion === 'TALLER' && !sessionData.nombre_taller) {
-      if (isNameRejection || /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|entonces\??)\b/i.test(raw)) {
-        // No asignar insultos ni protestas como nombre de taller
+      const isCommercialMessage = /\b(?:cotizar|cotizacion|cotización|comprar|compra|pedir|averiguar|adquirir|repuestos?|precios?|cu[aá]nto|qu[eé]\s+vale|kit|arrastre|frenos?|pastillas?)\b/i.test(raw);
+      if (isNameRejection || isCommercialMessage || /\b(?:mierda|hp|hpta|hijueputa|gonorrea|marica|carechimba|malparido|no\s+sea|no\s+es|entonces\??)\b/i.test(raw)) {
+        // No asignar insultos, protestas ni intenciones comerciales como nombre de taller
       } else {
         const parsed = parseNameAndWorkshop(raw);
         if (parsed.workshop) {
@@ -1304,9 +1308,10 @@ async function generateMateoResponse(fromNumber, userText) {
     if (!session.data.nombres_apellidos) {
       brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?`;
     } else if (!session.data.nombre_taller) {
-      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cómo se llama tu taller de motos?`;
+      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ Cuéntame, ¿deseas afiliar tu taller a la RED NITROX o deseas cotizar o comprar repuestos hoy?`;
     } else if (!session.data.ciudad_taller) {
-      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿En qué ciudad o municipio queda tu taller?`;
+      const cleanShop = (session.data.nombre_taller && !/\b(?:cotizar|comprar|quiero)\b/i.test(session.data.nombre_taller)) ? session.data.nombre_taller : 'tu taller';
+      brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿En qué ciudad o municipio queda ${cleanShop}?`;
     }
   }
 
