@@ -23,6 +23,8 @@ function normalizeText(rawText) {
 
   // 2. Diccionario de abreviaturas y modismos frecuentes en WhatsApp Colombia
   const abbreviations = [
+    // Saludos con typos o jerga
+    { pattern: /(?<=^|[^\p{L}\p{N}])(?:hols|holi|holis|ola|oola)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'hola' },
     // Preposiciones y conjunciones (con límites Unicode para no afectar palabras con tildes)
     { pattern: /(?<=^|[^\p{L}\p{N}])(?:q|ke)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'que' },
     { pattern: /(?<=^|[^\p{L}\p{N}])(?:xq|pq|xk)(?=[^\p{L}\p{N}]|$)/giu, replacement: 'por qué' },

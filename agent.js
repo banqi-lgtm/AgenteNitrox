@@ -43,7 +43,7 @@ function isPureGreeting(text) {
   }
   const words = clean.split(/\s+/).filter(Boolean);
   if (words.length === 0 || words.length > 7) return false;
-  const greetingTokens = /^(?:hola|buenas|buenos|dia|dias|día|días|tarde|tardes|noche|noches|que|qué|mas|más|tal|como|cómo|estas|estás|esta|está|va|todo|bien|amigo|hermano|mateo|sr|señor|senor|nitrox|asesor|saludos|alo|aló|hey|y|no|saludas?|saludan?|saludo|saludar|respondes?|hablas?|por\s*que|por\s*qué)$/i;
+  const greetingTokens = /^(?:hola|hols|holi|holis|ola|olas|oola|oolas|buenas|buenos|dia|dias|día|días|tarde|tardes|noche|noches|que|qué|mas|más|tal|como|cómo|estas|estás|esta|está|va|todo|bien|amigo|hermano|mateo|sr|señor|senor|nitrox|asesor|saludos|alo|aló|hey|y|no|saludas?|saludan?|saludo|saludar|respondes?|hablas?|por\s*que|por\s*qué)$/i;
   return words.every(w => greetingTokens.test(w));
 }
 
@@ -101,10 +101,10 @@ function cleanPersonName(str) {
 
   const words = s.split(/\s+/).filter(Boolean);
   if (words.length === 0) return '';
-  // Descartar palabras que sean de <= 2 caracteres o conjunciones/preposiciones/pronombres
+  // Descartar palabras que sean de <= 2 caracteres o conjunciones/preposiciones/pronombres/saludos
   if (words.length === 1) {
     if (words[0].length <= 2) return '';
-    if (/^(?:hola|buenas|quiero|taller|motos|info|entonces|nada|amigo|bien|saludo|saludas|usted|vos|tu|tú|yo)$/i.test(words[0])) return '';
+    if (/^(?:hola|hols|holi|holis|ola|olas|oola|buenas|buenos|quiero|taller|motos|info|entonces|nada|amigo|bien|saludo|saludas|usted|vos|tu|tú|yo|que|qué|qui[eé]n)$/i.test(words[0])) return '';
     if (/^(?:el|la|los|las|un|una|unos|unas|de|del|al|en|por|para|con|sin|que|qué|si|sí|no|ya|se|es|me|te|le|nos|mi|su)$/i.test(words[0])) return '';
   }
   // Si la primera palabra es conjunción suelta ("y", "e", "o", "u")
