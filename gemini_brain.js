@@ -34,11 +34,11 @@ function cleanResponseText(rawText, userText = '') {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Si el usuario expresó molestia, insulto, hostilidad o emojis de rabia, erradicar cualquier risa
-  const isAngryOrHostile = /madre|mierda|hp|hpta|hijueputa|malparid|gonorrea|carechimba|no\s+me\s+jod|😡|🤬/i.test(userText);
-  if (isAngryOrHostile) {
-    s = s.replace(/^[¡!]?\s*(?:jaj+a*|jej+e*|jij+i*)[\s,!.]*/gi, '');
-  }
+  // Erradicar completamente risas inapropiadas
+  s = s.replace(/^[¡!]?\s*(?:jaj+a*|jej+e*|jij+i*)[\s,!.]*/gi, '');
+  s = s.replace(/\b(?:jaj+a*|jej+e*|jij+i*)\b/gi, '');
+  // Erradicar excusas inapropiadas
+  s = s.replace(/\b(?:se\s+me\s+cruz[oó]\s+con\s+otro\s+cliente|otro\s+cliente)\b/gi, 'qué pena contigo');
 
   // Eliminar prefijos mecánicos de chatbot
   s = s.replace(/^(?:perfecto|excelente|anotado|listo)[\s,.:!]+\s*/i, '');
@@ -79,9 +79,9 @@ const MODEL_CHAIN = [
   'googleai/gemini-flash-lite-latest',
   'googleai/gemini-3.5-flash-lite'
 ];
-const HEDGE_DELAYS_MS = [0, 600, 1400, 2200];   // respuesta ultra-rápida en <800ms
-const PER_CALL_TIMEOUT_MS = 2500;
-const TOTAL_BUDGET_MS = 4500;
+const HEDGE_DELAYS_MS = [0, 800, 1800, 2800];   // respuesta ultra-rápida en <800ms
+const PER_CALL_TIMEOUT_MS = 3800;
+const TOTAL_BUDGET_MS = 6500;
 const modelCooldownUntil = {};
 
 function cooldownFor(err) {
@@ -149,21 +149,38 @@ function generateResilient(params) {
     launchNext();
     // Hedging: si el primero tarda, lanza los siguientes en paralelo
     for (let i = 1; i < candidates.length; i++) {
-      setTimeout(launchNext, HEDGE_DELAYS_MS[i] || (3500 * i));
+      setTimeout(launchNext, HEDGE_DELAYS_MS[i] || (1000 * i));
     }
   });
 }
 
-/** Recorta localmente (sin llamar a la IA) una respuesta demasiado larga para WhatsApp. */
-function trimReplyLocally(reply, maxWords = 22) {
-  if (countWords(reply) <= maxWords) return reply;
-  const sentences = (reply.match(/[^.!?¡¿]*[.!?]+|[^.!?]+$/g) || [reply]).map(x => x.trim()).filter(Boolean);
+/** Recorta localmente (sin llamar a la IA) una respuesta demasiado larga para WhatsApp sin amputar oraciones ni preguntas. */
+function trimReplyLocally(reply, maxWords = 32) {
+  if (!reply) return '';
+  const trimmed = reply.trim();
+  if (countWords(trimmed) <= maxWords) return trimmed;
+  const sentences = (trimmed.match(/[^.!?¡¿]*[.!?]+|[^.!?]+$/g) || [trimmed]).map(x => x.trim()).filter(Boolean);
   const question = [...sentences].reverse().find(x => x.includes('?'));
-  const first = sentences[0];
-  if (question && first && first !== question && countWords(first + ' ' + question) <= maxWords + 3) return first + ' ' + question;
-  if (question && countWords(question) <= maxWords + 3) return question;
-  if (first && countWords(first) <= maxWords + 3) return first;
-  return reply.split(/\s+/).slice(0, maxWords).join(' ').replace(/[,;:]$/, '') + '…';
+
+  if (question) {
+    if (sentences.length > 1 && sentences[0] !== question) {
+      const combined = sentences[0] + ' ' + question;
+      if (countWords(combined) <= maxWords + 5) return combined;
+      return question;
+    }
+    return question;
+  }
+
+  let acc = '';
+  for (const s of sentences) {
+    if (countWords(acc + ' ' + s) <= maxWords) {
+      acc = acc ? (acc + ' ' + s) : s;
+    } else {
+      break;
+    }
+  }
+  if (acc && countWords(acc) >= 4) return acc;
+  return trimmed.split(/\s+/).slice(0, maxWords).join(' ').replace(/[,;:]$/, '') + '…';
 }
 
 // Preguntas de respaldo (sin IA) para que la conversación avance con MÁXIMO UNA SOLA PREGUNTA
@@ -440,13 +457,18 @@ async function processGeminiBrainTurn(session, userText) {
   }
   if (nlpResult.entities.barrio_solicitado || nlpResult.entities.ciudad_solicitada || nlpResult.entities.ciudad_taller) {
     const loc = [nlpResult.entities.barrio_solicitado, nlpResult.entities.ciudad_solicitada || nlpResult.entities.ciudad_taller].filter(Boolean).join(', ');
-    if (loc) session.data.commercial_state.ciudad_o_barrio = loc;
+    if (loc) {
+      session.data.commercial_state.ciudad_o_barrio = loc;
+      session.data.ciudad_taller = nlpResult.entities.ciudad_solicitada || nlpResult.entities.ciudad_taller || session.data.ciudad_taller;
+      session.data.ciudad_residencia = session.data.ciudad_taller;
+    }
   }
 
   const isCommercialIntent = Boolean(
     nlpResult.entities.intencion_compra ||
     nlpResult.entities.es_pregunta_comercial ||
-    session.data._modo_compra === 'asesoria_compra'
+    session.data._modo_compra === 'asesoria_compra' ||
+    session.data.active_flow === 'commercial'
   );
 
   const wantsToResumeRegistration = Boolean(
@@ -655,24 +677,26 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     let reply = cleanResponseText(parsed.respuesta_mateo || '', userText);
 
     // Longitud WhatsApp: recorte local instantáneo (sin una segunda llamada a la IA)
-    reply = trimReplyLocally(reply);
-
     // Detección de retoma comercial en la respuesta
-    if (/ahora\s+s[ií]\s+seguimos\s+con\s+el\s+formulario|despu[eé]s\s+retomamos\s+(?:el\s+registro|tu\s+registro|el\s+formulario)/i.test(reply)) {
+    if (wantsToResumeRegistration) {
       if (session.data.commercial_state) session.data.commercial_state.status = 'resuelto';
       session.data._modo_compra = 'compra_resuelta';
     } else if (session.data.active_flow === 'commercial') {
       // Guardabarrera para Flujo Comercial:
-      // Si el modelo por error formuló una pregunta de registro de taller o de ciudad del taller
-      const isAccidentalRegistrationQuestion = /\b(?:c[oó]mo\s+se\s+llama\s+tu\s+taller|qu[eé]\s+nombre\s+tiene\s+tu\s+taller|eres\s+el\s+due[ñn]o\s+o\s+mec[aá]nico|cu[aá]ntas\s+motos\s+atienden|me\s+regalas\s+tu\s+c[eé]dula|me\s+compartes\s+tu\s+correo|autorizas\s+a\s+red\s+nitrox|en\s+qu[eé]\s+ciudad.*taller)\b/i.test(reply);
+      // Si el modelo por error formuló una pregunta de registro de taller o de afiliación
+      const isAccidentalRegistrationQuestion = /\b(?:c[oó]mo\s+se\s+llama\s+tu\s+taller|qu[eé]\s+nombre\s+tiene\s+tu\s+taller|eres\s+el\s+due[ñn]o\s+o\s+mec[aá]nico|cu[aá]ntas\s+motos\s+atienden|me\s+regalas\s+tu\s+c[eé]dula|me\s+compartes\s+tu\s+correo|autorizas\s+a\s+red\s+nitrox|en\s+qu[eé]\s+ciudad.*taller|afiliar\s+tu\s+taller)\b/i.test(reply);
       if (isAccidentalRegistrationQuestion) {
         const commState = session.data.commercial_state || {};
+        const rep = commState.repuesto || 'repuesto';
+        const mot = commState.moto || '';
         if (!commState.repuesto || !commState.moto) {
           const firstName = session.data.nombres_apellidos ? String(session.data.nombres_apellidos).split(/\s+/)[0] : '';
           const nameGreeting = firstName ? `¡Mucho gusto, ${firstName}! ` : '¡De una! ';
           reply = `${nameGreeting}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te ayudo con la cotización o compra.`;
         } else if (!commState.ciudad_o_barrio) {
-          reply = '¡Excelente! ¿En qué ciudad o municipio te encuentras para indicarte el distribuidor NITROX más cercano?';
+          reply = `¡Listo, tenemos ${rep} NITROX para tu ${mot}! 🏍️ ¿En qué ciudad o barrio te encuentras, o compárteme tu ubicación por WhatsApp para indicarte la tienda Mundimotos más cercana o coordinar despacho directo? 📍`;
+        } else {
+          reply = `¡Listo! Tenemos ${rep} NITROX para tu ${mot}. ¿Deseas que te lo despachemos directo a tu taller vía WhatsApp (+57 302 427 6647)? 🏍️📦`;
         }
       }
       // Reemplazo estético si se coló algún residuo en la respuesta
@@ -866,19 +890,21 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       const firstName = session.data.nombres_apellidos ? session.data.nombres_apellidos.trim().split(' ')[0] : '';
       const greetingName = firstName ? `¡Mucho gusto, ${firstName}! ` : '¡De una! ';
       const commState = session.data.commercial_state || {};
+      const rep = commState.repuesto || 'repuesto';
+      const mot = commState.moto || '';
 
       if (nlpResult.entities.cotizacion_multiple) {
         fallbackReply = `${greetingName}Claro que sí, con gusto te cotizo esas referencias NITROX. ¿Para qué moto las necesitas?`;
       } else if (!commState.repuesto || !commState.moto) {
         if (commState.repuesto && !commState.moto) {
-          fallbackReply = `${greetingName}¡Excelente elección el ${commState.repuesto} NITROX! ¿Para qué modelo de moto lo necesitas?`;
+          fallbackReply = `${greetingName}¡Excelente elección el ${commState.repuesto} NITROX! ¿Para qué modelo o cilindraje de moto lo necesitas?`;
         } else {
           fallbackReply = `${greetingName}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te colaboro con la cotización o compra.`;
         }
       } else if (!commState.ciudad_o_barrio) {
-        fallbackReply = '¡Excelente! ¿En qué ciudad, barrio o dirección estás, o compárteme tu ubicación por WhatsApp para indicarte el punto más cercano o despacharte directo? 📍🏍️';
+        fallbackReply = `¡Listo, tenemos ${rep} NITROX para tu ${mot}! 🏍️ ¿En qué ciudad o barrio te encuentras, o compárteme tu ubicación por WhatsApp para indicarte la tienda Mundimotos más cercana o coordinar despacho directo? 📍`;
       } else {
-        fallbackReply = '¡Listo! Ya te confirmo disponibilidad y punto de venta NITROX más cercano.';
+        fallbackReply = `¡Listo! Tenemos ${rep} NITROX para tu ${mot}. ¿Deseas que te lo despachemos directo a tu taller vía WhatsApp (+57 302 427 6647)? 🏍️📦`;
       }
     } else {
       const latestPending = getConversationalPendingTopics(session.data, memory);

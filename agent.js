@@ -1304,6 +1304,21 @@ async function generateMateoResponse(fromNumber, userText) {
   // EXCEPCIÓN: Si estamos en modo de atención comercial (Flujo A) o el usuario se despide/pausa, no forzar preguntas de registro.
   const isCommercialFlow = session.data.active_flow === 'commercial' || session.data._modo_compra === 'asesoria_compra';
   const isFarewellOrPause = Boolean(session.data._es_despedida || session.data._es_pausa || /^(?:muchas\s+gracias|gracias|hasta\s+luego|chao|adi[oó]s|nos\s+vemos|hablamos\s+luego|despu[eé]s\s+te\s+confirmo|listo\s+muchas\s+gracias)[\s.,!]*$/i.test(raw));
+
+  // Sanitizar si por error se generó una respuesta mocha o fragmento sin sentido (ej. "¡Excelente Wilson.")
+  if (/^¡?(?:excelente|dime|perfecto|anotado|listo)[\s\w]*[.!]?$/i.test(brainResult.reply.trim())) {
+    if (isCommercialFlow) {
+      const commState = session.data.commercial_state || {};
+      const rep = commState.repuesto || 'repuesto';
+      const mot = commState.moto || '';
+      if (rep && mot) {
+        brainResult.reply = `¡De una! Tenemos ${rep} NITROX para tu ${mot} 🏍️🔧. ¿En qué ciudad o barrio te encuentras para indicarte el punto Mundimotos más cercano o coordinar despacho directo?`;
+      } else {
+        brainResult.reply = '¡De una! Cuéntame qué repuesto necesitas y para qué moto, y con gusto te colaboro con la cotización.';
+      }
+    }
+  }
+
   if (!session.data._finished && !brainResult.reply.includes('?') && !isCommercialFlow && !isFarewellOrPause) {
     if (!session.data.nombres_apellidos) {
       brainResult.reply = `${brainResult.reply.replace(/[.!\s]+$/, '')}. 🏍️ ¿Cuál es tu nombre para tenerte bien registrado?`;

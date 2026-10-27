@@ -478,10 +478,16 @@ function extractSemanticEntities(text, sessionContext = {}) {
   if (correctionMatch) {
     bikeSearchText = correctionMatch[1];
   }
-  const bikeMatch = bikeSearchText.match(/\b(pulsar(?:\s+(?:ns\s*200|200\s*ns|180|150|135|220|ug))?|boxer(?:\s+(?:ct\s*100|ct100|bm\s*100|100))?|nkd(?:\s*125)?|gixxer(?:\s*(?:150|250))?|fz(?:\s*(?:16|2\.0|25))?|nmax(?:\s*155)?|apache(?:\s*(?:160|180|200))?|discover(?:\s*(?:125|135|150))?|akt(?:\s*(?:125|special|cr4))?|yamaha(?:\s*(?:crypton|xtz|libero))?|honda(?:\s*(?:cb|cbf|wave|xr))?)\b/i);
+  const bikeMatch = bikeSearchText.match(/\b(kawasaki(?:\s*(?:klx|ninja|versys|z\s*\d+|150|250|300|400|650))?|pulsar(?:\s+(?:ns\s*200|200\s*ns|180|150|135|220|ug))?|boxer(?:\s+(?:ct\s*100|ct100|bm\s*100|100))?|nkd(?:\s*125)?|gixxer(?:\s*(?:150|250))?|fz(?:\s*(?:16|2\.0|25))?|nmax(?:\s*155)?|apache(?:\s*(?:160|180|200))?|discover(?:\s*(?:125|135|150))?|akt(?:\s*(?:125|special|cr4|tt))?|yamaha(?:\s*(?:crypton|xtz|libero|bws|mt))?|honda(?:\s*(?:cb|cbf|wave|xr|dio|navi))?|suzuki(?:\s*(?:gn|gixxer|vivax|dr|ax))?|ktm(?:\s*(?:duke|rc|adventure))?|kymco(?:\s*(?:agility|twist))?|victory(?:\s*(?:mrx|one|nitro))?)\b/i);
   if (bikeMatch) {
     const rawBike = bikeMatch[1].trim();
     extracted.moto_solicitada = rawBike.charAt(0).toUpperCase() + rawBike.slice(1);
+  } else if ((sessionContext.active_flow === 'commercial' || sessionContext._modo_compra === 'asesoria_compra') && /^(?:es\s+(?:una\s+)?)?(\d{2,4}|[a-z]{1,4}\s*\d{2,4}|ns\s*200|klx\s*\d+|cr4|special|ct\s*100)$/i.test(raw.trim())) {
+    // Si estamos en flujo comercial y el usuario responde solo el modelo o cilindraje (ej: "150", "200", "klx 150")
+    const modelOrCc = raw.replace(/^(?:es\s+(?:una\s+)?)/i, '').trim();
+    const prevMoto = sessionContext.commercial_state?.moto || sessionContext.moto || '';
+    extracted.moto_solicitada = prevMoto ? `${prevMoto} ${modelOrCc}` : modelOrCc;
+    extracted.intencion_compra = true;
   }
 
   // 4. CIUDADES, MUNICIPIOS Y TALLERES COMPUESTOS ("Pj en Bogotá", "La 50 en Medellín", "Taller El Paisa en Cali")
