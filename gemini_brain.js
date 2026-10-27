@@ -186,6 +186,209 @@ const FALLBACK_QUESTIONS = {
   autorizacion_tratamiento_datos: '¿Autorizas a RED NITROX a registrar los datos de tu taller?'
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// DIRECTORIO OFICIAL DE SEDES MUNDIMOTOS EN COLOMBIA Y LOCALIZADOR INTELIGENTE
+// ───────────────────────────────────────────────────────────────────────────
+const MUNDIMOTOS_STORES = [
+  {
+    city: 'medellin',
+    cityTitle: 'Medellín',
+    name: 'Sede La Bayadera',
+    address: 'Calle 38 # 52-30',
+    zones: ['la bayadera', 'bayadera', 'barrio antioquia', 'antioquia', 'plaza mayor', 'estadio', 'guayabal', 'poblado', 'el poblado', 'belen', 'belén', 'laureles', 'sur'],
+    lat: 6.2404,
+    lon: -75.5746,
+    phrase: '¡Te queda cerquísima! Vete al Mundimotos de **La Bayadera**, en la **Calle 38 # 52-30** (al ladito de Barrio Antioquia y Plaza Mayor). Allá consigues repuestos oficiales NITROX 🏍️🔧'
+  },
+  {
+    city: 'medellin',
+    cityTitle: 'Medellín',
+    name: 'Sede La Paz (Centro)',
+    address: 'Calle 59 # 51D-72',
+    zones: ['la paz', 'paz', 'centro', 'la candelaria', 'candelaria', 'norte', 'aranjuez', 'manrique', 'bello', 'castilla', 'robledo'],
+    lat: 6.2575,
+    lon: -75.5684,
+    phrase: 'Te vas directo al Mundimotos de **La Paz (Centro)**, en la **Calle 59 # 51D-72**. Allá encuentras toda la línea oficial NITROX 🏍️🔧'
+  },
+  {
+    city: 'bogota',
+    cityTitle: 'Bogotá',
+    name: 'Sede Venecia',
+    address: 'Calle 45A Sur # 51D-65',
+    zones: ['venecia', 'tunjuelito', 'bosa', 'ciudad bolivar', 'ciudad bolívar', 'soacha', 'sur'],
+    lat: 4.5938,
+    lon: -74.1378,
+    phrase: '¡Te queda ahí al lado! Vete al Mundimotos de **Venecia**, en la **Calle 45A Sur # 51D-65**. Allá pides directo repuestos NITROX 🏍️🔧'
+  },
+  {
+    city: 'bogota',
+    cityTitle: 'Bogotá',
+    name: 'Sede Primera de Mayo',
+    address: 'Carrera 29B # 22-26 Sur',
+    zones: ['primera de mayo', '1 de mayo', 'restrepo', 'san cristobal', 'san cristóbal', 'antonio nariño', 'kennedy'],
+    lat: 4.5889,
+    lon: -74.1086,
+    phrase: '¡De una! Te queda perfecto el Mundimotos de la **Primera de Mayo**, en la **Carrera 29B # 22-26 Sur**. Allá pides repuestos oficiales NITROX 🏍️🔧'
+  },
+  {
+    city: 'bogota',
+    cityTitle: 'Bogotá',
+    name: 'Sede Avenida Boyacá',
+    address: 'Carrera 72 # 74A-04',
+    zones: ['boyaca', 'boyacá', 'avenida boyaca', 'engativa', 'engativá', 'fontibon', 'fontibón', 'calle 80', 'normandia', 'normandía', 'titan'],
+    lat: 4.6865,
+    lon: -74.0995,
+    phrase: '¡Te queda cerca! Llega al Mundimotos de la **Avenida Boyacá**, en la **Carrera 72 # 74A-04**. Allá consigues toda la línea oficial NITROX 🏍️🔧'
+  },
+  {
+    city: 'bogota',
+    cityTitle: 'Bogotá',
+    name: 'Sede Suba La Campiña',
+    address: 'Carrera 98B # 139-29',
+    zones: ['suba', 'suba la campiña', 'campiña', 'rincon', 'rincón', 'tibabuyes'],
+    lat: 4.7431,
+    lon: -74.0934,
+    phrase: '¡Te queda de una! Llega al Mundimotos de **Suba La Campiña**, en la **Carrera 98B # 139-29**. Allá pides tus repuestos NITROX 🏍️🔧'
+  },
+  {
+    city: 'bogota',
+    cityTitle: 'Bogotá',
+    name: 'Sede Suba Calle 130',
+    address: 'Calle 130 Bis # 104-04',
+    zones: ['calle 130', 'colina', 'niza'],
+    lat: 4.7330,
+    lon: -74.0980,
+    phrase: '¡Te queda cerca! Llega al Mundimotos de **Suba Calle 130**, en la **Calle 130 Bis # 104-04**. Allá pides tus repuestos NITROX 🏍️🔧'
+  },
+  {
+    city: 'cali',
+    cityTitle: 'Cali',
+    name: 'Sede Carrera 15',
+    address: 'Carrera 15 # 11-52',
+    zones: ['cali', 'carrera 15', 'san bosco', 'bretaña', 'centro'],
+    lat: 3.4435,
+    lon: -76.5298,
+    phrase: 'En Cali te vas directo al Mundimotos de la **Carrera 15 # 11-52** (San Bosco). Allá encuentras toda la línea oficial NITROX 🏍️🔧'
+  },
+  {
+    city: 'bucaramanga',
+    cityTitle: 'Bucaramanga',
+    name: 'Sede La Concordia',
+    address: 'Carrera 17B # 49-19',
+    zones: ['bucaramanga', 'concordia', 'la concordia', 'floridablanca', 'giron', 'girón'],
+    lat: 7.1132,
+    lon: -73.1221,
+    phrase: 'En Bucaramanga te vas al Mundimotos de **La Concordia**, en la **Carrera 17B # 49-19**. Allá consigues repuestos oficiales NITROX 🏍️🔧'
+  },
+  {
+    city: 'barranquilla',
+    cityTitle: 'Barranquilla',
+    name: 'Sede La Cordialidad',
+    address: 'Calle 47 # 16-45',
+    zones: ['barranquilla', 'cordialidad', 'la cordialidad', 'soledad'],
+    lat: 10.9632,
+    lon: -74.7972,
+    phrase: 'En Barranquilla te vas al Mundimotos de **La Cordialidad**, en la **Calle 47 # 16-45**. Allá pides toda la línea NITROX 🏍️🔧'
+  },
+  {
+    city: 'pereira',
+    cityTitle: 'Pereira',
+    name: 'Sede Centro',
+    address: 'Calle 12A # 11-06',
+    zones: ['pereira', 'centro', 'dosquebradas'],
+    lat: 4.8155,
+    lon: -75.6953,
+    phrase: 'En Pereira te vas al Mundimotos del **Centro**, en la **Calle 12A # 11-06**. Allá encuentras repuestos oficiales NITROX 🏍️🔧'
+  }
+];
+
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function resolveStoreLocation({ text, lat, lon, lastAssistantMsg = '' }) {
+  const lower = (text || '').toLowerCase().trim();
+
+  // 1. Coordenadas GPS de WhatsApp
+  if (lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon)) {
+    let closest = null;
+    let minKm = Infinity;
+    for (const store of MUNDIMOTOS_STORES) {
+      const d = getDistanceKm(lat, lon, store.lat, store.lon);
+      if (d < minKm) {
+        minKm = d;
+        closest = store;
+      }
+    }
+    if (closest && minKm <= 35) {
+      return `¡Recibí tu ubicación! 📍 Tu sede Mundimotos más cercana es **${closest.name}**, en la **${closest.address}** (${closest.cityTitle}). Allá consigues repuestos oficiales NITROX 🏍️🔧. ¿Te queda fácil pasar o prefieres que te lo despachemos a tu taller?`;
+    } else {
+      return `¡Recibí tu ubicación! 📍 Como te encuentras retirado de tiendas físicas, te lo despachamos directo a donde estás por el WhatsApp oficial +57 302 427 6647 con entrega rápida 🏍️📦.`;
+    }
+  }
+
+  // 2. Preguntas de insistencia: "¿pero no hay más?", "¿no hay más puntos en medellín?", "¿otra sede?", "¿queda muy lejos?"
+  const isAskingMorePoints = /\b(?:no\s+hay\s+m[aá]s|pero\s+no\s+hay|otra\s+sede|otro\s+punto|otra\s+tienda|m[aá]s\s+puntos|queda\s+muy\s+lejos|me\s+queda\s+lejos|lejos\s+de)\b/i.test(lower);
+  const mentionsMedellin = /\b(?:medell[ií]n|antioquia|paisa)\b/i.test(lower) || /medell[ií]n|calle\s+59|la\s+paz|bayadera/i.test(lastAssistantMsg);
+
+  if (isAskingMorePoints && mentionsMedellin) {
+    if (/calle\s+59|la\s+paz/i.test(lastAssistantMsg)) {
+      return '¡Claro que sí! En Medellín también contamos con la sede de **La Bayadera** en la **Calle 38 # 52-30** (al ladito de Plaza Mayor y Barrio Antioquia). ¿Te queda más cerca o prefieres despacho directo a tu taller vía WhatsApp (+57 302 427 6647)? 🏍️📦';
+    } else {
+      return '¡Totalmente! Además de las sedes de La Bayadera y La Paz en Medellín, te despachamos directo a tu taller o domicilio pidiéndolo al WhatsApp oficial +57 302 427 6647 con entrega rápida 🏍️📦. ¿En qué barrio o dirección te encuentras?';
+    }
+  }
+
+  // 3. Usuario menciona Barrio Antioquia, Plaza Mayor, Estadio, Bayadera
+  if (/\b(?:barrio\s+antioquia|plaza\s+mayor|la\s+bayadera|bayadera|estadio)\b/i.test(lower)) {
+    return '¡Te queda cerquísima! Vete al Mundimotos de **La Bayadera**, en la **Calle 38 # 52-30** (al ladito de Barrio Antioquia y Plaza Mayor). Allá consigues repuestos oficiales NITROX 🏍️🔧';
+  }
+
+  // 4. Usuario pregunta dónde comprar / puntos de venta sin especificar ubicación
+  const isAskingWhereToBuy = /\b(?:d[oó]nde\s+(?:puedo\s+|se\s+puede\s+)?(?:compro|comprar|conseguir|consigo|comprarlos|los\s+consigo|queda|venden|est[aá]n)|tienen\s+(?:tiendas?|puntos?\s+de\s+venta|sedes?|almacenes?)|puntos?\s+de\s+venta)\b/i.test(lower);
+  if (isAskingWhereToBuy) {
+    // Si especificó zona o barrio conocido
+    for (const store of MUNDIMOTOS_STORES) {
+      for (const z of store.zones) {
+        if (new RegExp(`\\b${z}\\b`, 'i').test(lower)) {
+          return store.phrase;
+        }
+      }
+    }
+    // Si no ha dado ubicación, indagar barrio, dirección o ubicación WhatsApp
+    return '¡Claro que sí! Para indicarte el punto oficial más cercano o coordinar el despacho directo, ¿en qué ciudad, barrio o dirección estás, o compárteme tu ubicación por WhatsApp? 📍🏍️';
+  }
+
+  return null;
+}
+
+function isVerbatimRepetition(reply, lastAssistantMsg) {
+  if (!lastAssistantMsg || !reply) return false;
+  const clean = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+  const c1 = clean(reply);
+  const c2 = clean(lastAssistantMsg);
+  if (!c1 || !c2) return false;
+  if (c1 === c2) return true;
+  if ((c1.includes(c2) || c2.includes(c1)) && Math.min(c1.length, c2.length) / Math.max(c1.length, c2.length) > 0.75) {
+    return true;
+  }
+  const w1 = c1.split(' ').filter(Boolean);
+  const w2 = new Set(c2.split(' ').filter(Boolean));
+  if (w1.length > 0 && w2.size > 0) {
+    const common = w1.filter(w => w2.has(w)).length;
+    const overlap = common / Math.max(w1.length, w2.size);
+    if (overlap > 0.75) return true;
+  }
+  return false;
+}
+
 /**
  * Procesa un turno conversacional aplicando la canalización de NLP, memoria semántica y Gemini Brain.
  */
@@ -341,6 +544,19 @@ REGLAS ABSOLUTAS DEL FLUJO COMERCIAL:
 12. PAUSAS COMERCIALES: Si el cliente dice "después te confirmo", "hablamos luego", "déjame pensarlo", responde cordialmente ("¡De una, con mucho gusto! Aquí quedo atento cuando decidas confirmar.") sin forzar venta ni darla por perdida.
 13. COTIZACIÓN MÚLTIPLE: Si el cliente ya mencionó varios repuestos (ej. kit de arrastre y zapatas), NO vuelvas a pedir los repuestos. Confirma que NITROX maneja ambas referencias y pregúntale por el modelo de moto o ciudad.
 14. CLIENTE SIN TALLER / INDEPENDIENTE: Si el cliente dice que no tiene taller o trabaja independiente, acéptalo con naturalidad ("¡De una!") y continúa la asesoría comercial con total normalidad sin exigirle nombre de taller.
+15. SEDES MUNDIMOTOS EN MEDELLÍN Y OTRAS CIUDADES:
+    - En Medellín hay DOS puntos oficiales:
+      * Sede La Bayadera (Calle 38 # 52-30) - ideal para Barrio Antioquia, Guayabal, Poblado, Belén, Estadio, Plaza Mayor.
+      * Sede La Paz (Calle 59 # 51D-72) - ideal para Centro, Norte, Aranjuez, Manrique.
+      * Si el cliente está en Barrio Antioquia o cerca a Plaza Mayor / Estadio, LA SEDE MÁS CERCA ES LA BAYADERA (Calle 38 # 52-30), ¡NO La Paz!
+    - En Cali: Carrera 15 # 11-52.
+    - En Bogotá: Venecia (Calle 45A Sur # 51D-65), Primera de Mayo (Carrera 29B # 22-26 Sur), Boyacá (Carrera 72 # 74A-04), Suba La Campiña (Carrera 98B # 139-29).
+    - En Bucaramanga: Carrera 17B # 49-19. En Barranquilla: Calle 47 # 16-45. En Pereira: Calle 12A # 11-06.
+    - Si no hay sede física o le queda lejos: Ofrécele despacho directo a su taller o casa por el WhatsApp oficial +57 302 427 6647 pidiéndole su dirección o barrio.
+16. CAPTURA RÁPIDA DE UBICACIÓN: Si el usuario pregunta dónde comprar o le queda lejos, pide su barrio, dirección o ubicación de WhatsApp:
+    "¿En qué barrio o dirección estás, o compárteme tu ubicación por WhatsApp para decirte el punto más cercano o coordinar el despacho directo?"
+17. PROHIBIDO REPETIR LA MISMA RESPUESTA:
+    TERMINANTEMENTE PROHIBIDO enviar la misma respuesta dos veces seguidas. Si el usuario insiste o pregunta "¿Pero no hay más?", dale la segunda sede disponible (ej. La Bayadera en Medellín) o la opción de despacho directo a domicilio.
 
 ÚLTIMO MENSAJE DEL CLIENTE:
 "${userText}"`;
@@ -474,6 +690,17 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       }
     }
 
+    // 3.5 LOCALIZADOR INTELIGENTE DE TIENDAS Y PUNTOS DE VENTA (Medellín, Bogotá, Cali, etc.)
+    const storeReply = resolveStoreLocation({
+      text: userText,
+      lat: nlpResult.entities.coordenadas_gps?.lat,
+      lon: nlpResult.entities.coordenadas_gps?.lon,
+      lastAssistantMsg: lastAssistantMsg
+    });
+    if (storeReply) {
+      reply = storeReply;
+    }
+
     // 4. GUARDABARRERAS SEMÁNTICO Y ANTI-REPETICIÓN
     // Inspecciona si la respuesta generada intenta formular una pregunta sobre un dato que ya se conoce.
     if (reply.includes('?')) {
@@ -577,6 +804,23 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       }
     }
 
+    // 4.2 GUARDABARRERAS ESTRICTO CONTRA REPETICIÓN VERBATIM
+    if (isVerbatimRepetition(reply, lastAssistantMsg)) {
+      console.warn(`🚨 [ANTI-REPETICIÓN ACTIVADO]: Respuesta idéntica a la anterior interceptada.`);
+      const isLocQuery = /\b(?:no\s+hay\s+m[aá]s|pero\s+no\s+hay|otra\s+sede|otro\s+punto|otra\s+tienda|m[aá]s\s+puntos|queda\s+muy\s+lejos|me\s+queda\s+lejos|lejos\s+de|puntos?\s+de\s+venta|tienda|sedes?)\b/i.test(userText) || /mundimotos|sede|calle\s+59|la\s+paz|bayadera/i.test(lastAssistantMsg);
+      if (isLocQuery) {
+        if (/calle\s+59|la\s+paz/i.test(lastAssistantMsg)) {
+          reply = '¡Claro que sí! En Medellín también contamos con la sede de **La Bayadera** en la **Calle 38 # 52-30** (al ladito de Plaza Mayor y Barrio Antioquia). ¿Te queda más cerca o prefieres despacho directo a tu taller vía WhatsApp (+57 302 427 6647)? 🏍️📦';
+        } else {
+          reply = '¡Totalmente! Además de las tiendas físicas, te lo despachamos directo a donde te encuentres vía WhatsApp (+57 302 427 6647) 🏍️📦. ¿En qué barrio o dirección te encuentras?';
+        }
+      } else if (session.data.active_flow === 'registration') {
+        reply = '¡Entendido! Cuéntame, ¿en qué más te puedo colaborar hoy?';
+      } else {
+        reply = '¡De una! Cuéntame qué repuesto necesitas o compárteme tu barrio, dirección o ubicación para asesorarte al instante.';
+      }
+    }
+
     return {
       analysis: parsed.analisis_interno || {},
       updates: parsed.datos_extraidos || {},
@@ -603,7 +847,17 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
     let fallbackReply;
     const isCommercial = session.data.active_flow === 'commercial' || nlpResult.entities.intencion_compra || nlpResult.entities.es_pregunta_comercial || nlpResult.entities.despedida_con_pregunta;
 
-    if (nlpResult.entities.es_despedida && !nlpResult.entities.despedida_con_pregunta && !isCommercial) {
+    // Verificar si el mensaje era una consulta de puntos de venta
+    const storeFallback = resolveStoreLocation({
+      text: userText,
+      lat: nlpResult?.entities?.coordenadas_gps?.lat,
+      lon: nlpResult?.entities?.coordenadas_gps?.lon,
+      lastAssistantMsg: lastAssistantMsg
+    });
+
+    if (storeFallback) {
+      fallbackReply = storeFallback;
+    } else if (nlpResult.entities.es_despedida && !nlpResult.entities.despedida_con_pregunta && !isCommercial) {
       fallbackReply = '¡Con todo gusto! Que estés muy bien y que tengas un excelente día.';
     } else if (nlpResult.entities.es_pausa && !isCommercial) {
       fallbackReply = '¡Listo, perfecto! Aquí quedamos atentos para cuando desees continuar. ¡Un feliz día!';
@@ -622,7 +876,7 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
           fallbackReply = `${greetingName}Cuéntame qué repuesto necesitas y para qué moto, y con gusto te colaboro con la cotización o compra.`;
         }
       } else if (!commState.ciudad_o_barrio) {
-        fallbackReply = '¡Excelente! ¿En qué ciudad o barrio estás para indicarte el punto de venta más cercano?';
+        fallbackReply = '¡Excelente! ¿En qué ciudad, barrio o dirección estás, o compárteme tu ubicación por WhatsApp para indicarte el punto más cercano o despacharte directo? 📍🏍️';
       } else {
         fallbackReply = '¡Listo! Ya te confirmo disponibilidad y punto de venta NITROX más cercano.';
       }
@@ -692,5 +946,8 @@ module.exports = {
   getPendingTopics,
   SYSTEM_PROMPT,
   countWords,
-  cleanResponseText
+  cleanResponseText,
+  resolveStoreLocation,
+  isVerbatimRepetition,
+  MUNDIMOTOS_STORES
 };

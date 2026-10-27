@@ -1140,6 +1140,85 @@ runTest('MI-18. Respuesta a dato ya suministrado activa protesta y evita repetic
   assert.strictEqual(nlp.entities.ciudad_taller, 'Medellín');
 });
 
+// ============================================================================
+// TESTS DE LOCALIZADOR DE PUNTOS DE VENTA, UBICACIÓN Y ANTI-REPETICIÓN
+// ============================================================================
+const { resolveStoreLocation, isVerbatimRepetition, MUNDIMOTOS_STORES } = require('../gemini_brain');
+
+runTest('LOC-1. Pregunta sobre dónde comprar sin ubicación indaga barrio, dirección o ubicación WhatsApp', () => {
+  const reply = resolveStoreLocation({ text: '¿Dónde puedo comprar repuestos NITROX?' });
+  assert.ok(reply.includes('barrio o dirección'));
+  assert.ok(reply.includes('ubicación por WhatsApp'));
+});
+
+runTest('LOC-2. Mención de Barrio Antioquia direcciona a Sede La Bayadera (Calle 38 # 52-30)', () => {
+  const reply = resolveStoreLocation({ text: 'Estoy en Barrio Antioquia' });
+  assert.ok(reply.includes('La Bayadera'));
+  assert.ok(reply.includes('Calle 38 # 52-30'));
+  assert.ok(!reply.includes('Calle 59'));
+});
+
+runTest('LOC-3. Pregunta "pero no hay más?" tras mencionar La Paz responde con Sede La Bayadera', () => {
+  const reply = resolveStoreLocation({
+    text: 'pero no hay mas ?',
+    lastAssistantMsg: 'Te vas directo al Mundimotos de La Paz (Centro), en la Calle 59 # 51D-72 en Medellín.'
+  });
+  assert.ok(reply.includes('La Bayadera'));
+  assert.ok(reply.includes('Calle 38 # 52-30'));
+});
+
+runTest('LOC-4. Pregunta "pero no hay más?" tras mencionar La Bayadera ofrece despacho directo sin repetir', () => {
+  const reply = resolveStoreLocation({
+    text: 'pero no hay mas puntos?',
+    lastAssistantMsg: 'En Medellín también contamos con la sede de La Bayadera en la Calle 38 # 52-30.'
+  });
+  assert.ok(reply.includes('despachamos directo'));
+  assert.ok(reply.includes('+57 302 427 6647'));
+});
+
+runTest('LOC-5. Coordenadas GPS de WhatsApp cerca de Medellín calculan la sede más cercana', () => {
+  // Coordenadas cercanas a La Bayadera (lat 6.2404, lon -75.5746)
+  const reply = resolveStoreLocation({
+    text: 'Ubicación GPS: 6.2410, -75.5750',
+    lat: 6.2410,
+    lon: -75.5750
+  });
+  assert.ok(reply.includes('Recibí tu ubicación'));
+  assert.ok(reply.includes('La Bayadera'));
+  assert.ok(reply.includes('Calle 38 # 52-30'));
+});
+
+runTest('LOC-6. Coordenadas GPS en municipio distante ofrecen despacho directo vía WhatsApp', () => {
+  // Coordenadas en municipio lejano (ej. Apartadó, Urabá lat ~7.88, lon ~-76.62)
+  const reply = resolveStoreLocation({
+    text: 'Ubicación GPS: 7.8800, -76.6200',
+    lat: 7.8800,
+    lon: -76.6200
+  });
+  assert.ok(reply.includes('Recibí tu ubicación'));
+  assert.ok(reply.includes('despachamos directo'));
+  assert.ok(reply.includes('+57 302 427 6647'));
+});
+
+runTest('LOC-7. Directorio de sedes cubre todas las ciudades principales de Colombia', () => {
+  const cities = MUNDIMOTOS_STORES.map(s => s.city);
+  assert.ok(cities.includes('medellin'));
+  assert.ok(cities.includes('bogota'));
+  assert.ok(cities.includes('cali'));
+  assert.ok(cities.includes('bucaramanga'));
+  assert.ok(cities.includes('barranquilla'));
+  assert.ok(cities.includes('pereira'));
+  assert.ok(MUNDIMOTOS_STORES.length >= 10);
+});
+
+runTest('LOC-8. Detector de repetición verbatim identifica respuestas idénticas o casi idénticas', () => {
+  const msg1 = "¡Ese es el punto autorizado principal en Medellín! Y recuerda que te lo despachamos directo a tu taller pidiéndolo al WhatsApp +57 302 427 6647 🏍️📦";
+  const msg2 = "Ese es el punto autorizado principal en Medellin Y recuerda que te lo despachamos directo a tu taller pidiendolo al WhatsApp +57 302 427 6647";
+  const msg3 = "¡Claro que sí! En Medellín también contamos con la sede de La Bayadera.";
+  assert.strictEqual(isVerbatimRepetition(msg1, msg2), true);
+  assert.strictEqual(isVerbatimRepetition(msg1, msg3), false);
+});
+
 console.log('\n=======================================================');
 console.log(`📊 RESULTADOS DEL TEST SUITE: ${passedTests}/${totalTests} PRUEBAS SUPERADAS CON ÉXITO.`);
 if (passedTests === totalTests) {

@@ -591,24 +591,70 @@ function extractSemanticEntities(text, sessionContext = {}) {
     }
   }
 
-  // 5. BARRIOS (Medellín y Área Metropolitana)
-  const barrios = [
-    'Belén', 'Laureles', 'Guayabal', 'Robledo', 'Castilla', 'Aranjuez', 'Manrique',
-    'Prado', 'San Javier', 'Buenos Aires', 'Centro', 'La América', 'El Poblado',
-    'Floresta', 'Estadio', 'Calasanz', 'Santa Cruz', 'Popular', 'Villa Hermosa',
-    'San Cristóbal', 'San Antonio de Prado', 'Niquía', 'Cabañas', 'Boston', 'Ditaires',
-    'Santa María', 'Simón Bolívar', 'La Castellana', 'El Dorado'
+  // 5. BARRIOS Y ZONAS (Medellín, Bogotá, Cali, Bucaramanga, Barranquilla, Pereira)
+  const barriosConCiudad = [
+    // Medellín y Valle de Aburrá
+    { name: 'Barrio Antioquia', city: 'Medellín', regex: /\b(?:barrio\s+antioquia|antioquia)\b/i },
+    { name: 'La Bayadera', city: 'Medellín', regex: /\b(?:la\s+bayadera|bayadera)\b/i },
+    { name: 'Plaza Mayor', city: 'Medellín', regex: /\b(?:plaza\s+mayor)\b/i },
+    { name: 'Estadio', city: 'Medellín', regex: /\b(?:estadio|la\s+70)\b/i },
+    { name: 'Guayabal', city: 'Medellín', regex: /\bguayabal\b/i },
+    { name: 'El Poblado', city: 'Medellín', regex: /\b(?:el\s+poblado|poblado)\b/i },
+    { name: 'Belén', city: 'Medellín', regex: /\b(?:bel[eé]n)\b/i },
+    { name: 'Laureles', city: 'Medellín', regex: /\blaureles\b/i },
+    { name: 'Centro', city: 'Medellín', regex: /\b(?:centro|la\s+candelaria|la\s+paz)\b/i },
+    { name: 'Aranjuez', city: 'Medellín', regex: /\baranjuez\b/i },
+    { name: 'Manrique', city: 'Medellín', regex: /\bmanrique\b/i },
+    { name: 'Robledo', city: 'Medellín', regex: /\brobledo\b/i },
+    { name: 'Castilla', city: 'Medellín', regex: /\bcastilla\b/i },
+    { name: 'Prado', city: 'Medellín', regex: /\bprado\b/i },
+    { name: 'San Javier', city: 'Medellín', regex: /\bsan\s+javier\b/i },
+    { name: 'Buenos Aires', city: 'Medellín', regex: /\bbuenos\s+aires\b/i },
+    { name: 'La América', city: 'Medellín', regex: /\bla\s+am[eé]rica\b/i },
+    { name: 'Floresta', city: 'Medellín', regex: /\bfloresta\b/i },
+    { name: 'Calasanz', city: 'Medellín', regex: /\bcalasanz\b/i },
+    { name: 'Santa Cruz', city: 'Medellín', regex: /\bsanta\s+cruz\b/i },
+    { name: 'Popular', city: 'Medellín', regex: /\bpopular\b/i },
+    { name: 'Villa Hermosa', city: 'Medellín', regex: /\bvilla\s+hermosa\b/i },
+    { name: 'San Antonio de Prado', city: 'Medellín', regex: /\bsan\s+antonio\s+de\s+prado\b/i },
+    { name: 'Niquía', city: 'Bello', regex: /\bniqu[ií]a\b/i },
+    { name: 'Cabañas', city: 'Bello', regex: /\bcaba[ñn]as\b/i },
+    { name: 'Ditaires', city: 'Itagüí', regex: /\bditaires\b/i },
+    { name: 'Santa María', city: 'Itagüí', regex: /\bsanta\s+mar[ií]a\b/i },
+    // Bogotá
+    { name: 'Venecia', city: 'Bogotá', regex: /\bvenecia\b/i },
+    { name: 'Primera de Mayo', city: 'Bogotá', regex: /\b(?:primera\s+de\s+mayo|1\s+de\s+mayo|restrepo)\b/i },
+    { name: 'Avenida Boyacá', city: 'Bogotá', regex: /\b(?:boyac[aá]|normand[ií]a|engativ[aá]|fontib[oó]n|calle\s+80)\b/i },
+    { name: 'Suba', city: 'Bogotá', regex: /\b(?:suba|la\s+campi[ñn]a|colina|rinc[oó]n|calle\s+130)\b/i },
+    { name: 'Kennedy', city: 'Bogotá', regex: /\bkennedy\b/i },
+    { name: 'Bosa', city: 'Bogotá', regex: /\bbosa\b/i },
+    { name: 'Tunjuelito', city: 'Bogotá', regex: /\btunjuelito\b/i },
+    { name: 'Ciudad Bolívar', city: 'Bogotá', regex: /\bciudad\s+bol[ií]var\b/i },
+    // Cali
+    { name: 'San Bosco', city: 'Cali', regex: /\b(?:san\s+bosco|breta[ñn]a)\b/i },
+    // Bucaramanga
+    { name: 'La Concordia', city: 'Bucaramanga', regex: /\b(?:la\s+concordia|concordia)\b/i },
+    // Barranquilla
+    { name: 'La Cordialidad', city: 'Barranquilla', regex: /\b(?:la\s+cordialidad|cordialidad)\b/i }
   ];
 
-  for (const b of barrios) {
-    const bRegex = new RegExp(`\\b(?:en\\s+|barrio\\s+)?${b.replace('El ', '')}\\b`, 'i');
-    if (bRegex.test(lower)) {
-      extracted.barrio_taller = b;
+  for (const b of barriosConCiudad) {
+    if (b.regex.test(lower)) {
+      extracted.barrio_taller = b.name;
       if (!extracted.ciudad_taller && !sessionContext.ciudad_taller) {
-        extracted.ciudad_taller = 'Medellín';
+        extracted.ciudad_taller = b.city;
       }
       break;
     }
+  }
+
+  // 5b. COORDENADAS GPS DE WHATSAPP (ej. "Ubicación GPS: 6.2404, -75.5746")
+  const gpsMatch = raw.match(/Ubicaci[oó]n\s+GPS:\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)/i)
+                || raw.match(/([+-]?\d{1,2}\.\d{3,})\s*,\s*([+-]?\d{1,3}\.\d{3,})/);
+  if (gpsMatch) {
+    const lat = parseFloat(gpsMatch[1]);
+    const lon = parseFloat(gpsMatch[2]);
+    extracted.coordenadas_gps = { lat, lon };
   }
 
   // 6. DIRECCIÓN DEL TALLER
