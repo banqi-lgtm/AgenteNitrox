@@ -1642,9 +1642,6 @@ async function handleIncomingMessage(req, res) {
     return res.status(200).send('EVENT_RECEIVED');
   }
 
-  // Responder 200 inmediatamente a Meta para confirmar recepción y evitar reintentos duplicados
-  res.status(200).send('EVENT_RECEIVED');
-
   for (const entry of body.entry) {
     if (!entry.changes || !Array.isArray(entry.changes)) continue;
 
@@ -1721,8 +1718,8 @@ async function handleIncomingMessage(req, res) {
         console.log(`\n📩 [MENSAJE RECIBIDO de +${from}]: "${incomingText}"`);
 
         try {
-          // 1. Mark message as read and show 3 dots typing indicator in WhatsApp
-          await markMessageAsReadAndTyping(messageId);
+          // 1. Mark message as read and show 3 dots typing indicator in WhatsApp (background, sin bloquear)
+          markMessageAsReadAndTyping(messageId).catch(e => console.warn('[TYPING BG ERROR]', e.message));
 
           // 2. Generate response bubbles de inmediato (cero latencia artificial)
           const bubbles = await generateMateoResponse(from, incomingText);
@@ -1762,6 +1759,10 @@ async function handleIncomingMessage(req, res) {
       }
     }
   }
+
+  if (!res.headersSent) {
+    res.status(200).send('EVENT_RECEIVED');
+  }
 }
 
 app.post('/webhook', handleIncomingMessage);
@@ -1778,7 +1779,14 @@ app.get('/api/genkit/run', async (req, res) => {
   }
 });
 
-exports.webhook = onRequest({ cors: true, invoker: 'public' }, app);
+exports.webhook = onRequest({
+  cors: true,
+  invoker: 'public',
+  timeoutSeconds: 60,
+  memory: '512MiB',
+  cpu: 1,
+  minInstances: 1
+}, app);
 
 exports.helloFlow = onRequest({ cors: true, invoker: 'public' }, async (req, res) => {
   try {
