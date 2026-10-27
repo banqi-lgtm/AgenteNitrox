@@ -404,6 +404,10 @@ function integrateFactsIntoMemory(memory, extractedEntities, userText = '') {
     let newVal = extractedEntities[field];
     if (newVal !== null && newVal !== undefined && newVal !== '') {
       if (Array.isArray(newVal) && newVal.length === 0) continue;
+      // Descartar cadenas vacías, signos de interrogación o puntuación espuria (ej. "??", "...", "?")
+      if (typeof newVal === 'string' && (/^[?¿!¡.\-_\s]+$/.test(newVal) || newVal.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/g, '').length < 2)) {
+        continue;
+      }
 
       // Normalización estricta de rol (evitar guardar frases crudas como "el que comanda")
       if (field === 'relacion_taller' && typeof newVal === 'string') {

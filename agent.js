@@ -650,7 +650,7 @@ function extractEntities(text, sessionData) {
       if (updates.barrio_taller.toLowerCase() === 'dorado') updates.barrio_taller = 'El Dorado';
     } else if (isExplicitBarrioQuestion && !sessionData.barrio_taller && !updates.ciudad_taller) {
       const cleanRawBarrio = raw.trim();
-      if (!cleanCityName(cleanRawBarrio) && !cleanRawBarrio.toLowerCase().includes('taller')) {
+      if (!cleanCityName(cleanRawBarrio) && !cleanRawBarrio.toLowerCase().includes('taller') && !/^[?¿!¡.\-_\s]+$/.test(cleanRawBarrio) && cleanRawBarrio.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/g, '').length >= 3) {
         updates.barrio_taller = cleanRawBarrio;
       }
     }
@@ -1305,17 +1305,25 @@ async function generateMateoResponse(fromNumber, userText) {
   const isCommercialFlow = session.data.active_flow === 'commercial' || session.data._modo_compra === 'asesoria_compra';
   const isFarewellOrPause = Boolean(session.data._es_despedida || session.data._es_pausa || /^(?:muchas\s+gracias|gracias|hasta\s+luego|chao|adi[oó]s|nos\s+vemos|hablamos\s+luego|despu[eé]s\s+te\s+confirmo|listo\s+muchas\s+gracias)[\s.,!]*$/i.test(raw));
 
-  // Sanitizar si por error se generó una respuesta mocha o fragmento sin sentido (ej. "¡Excelente Wilson.")
-  if (/^¡?(?:excelente|dime|perfecto|anotado|listo)[\s\w]*[.!]?$/i.test(brainResult.reply.trim())) {
-    if (isCommercialFlow) {
-      const commState = session.data.commercial_state || {};
-      const rep = commState.repuesto || 'repuesto';
-      const mot = commState.moto || '';
-      if (rep && mot) {
-        brainResult.reply = `¡De una! Tenemos ${rep} NITROX para tu ${mot} 🏍️🔧. ¿En qué ciudad o barrio te encuentras para indicarte el punto Mundimotos más cercano o coordinar despacho directo?`;
-      } else {
-        brainResult.reply = '¡De una! Cuéntame qué repuesto necesitas y para qué moto, y con gusto te colaboro con la cotización.';
-      }
+  // Sanitizar si por error se generó una respuesta mocha, vacía o disculpa aislada sin continuidad (ej. "¡Excelente Wilson.", "¡Mil disculpas Wilson.")
+  const isBareFragmentOrApology = /^¡?(?:excelente|dime|perfecto|anotado|listo|mil\s+disculpas|qu[eé]\s+pena(?:\s+contigo)?|disculpa|disculpas|lo\s+siento|perd[oó]n|entiendo|ya\s+veo|tienes\s+toda\s+la\s+raz[oó]n)[\s\w]*[.!]?$/i.test(brainResult.reply.trim());
+
+  if (isCommercialFlow && (isBareFragmentOrApology || (!brainResult.reply.includes('?') && !isFarewellOrPause))) {
+    const commState = session.data.commercial_state || {};
+    const rep = commState.repuesto || 'repuesto';
+    const mot = commState.moto || '';
+    const city = commState.ciudad_o_barrio || session.data.ciudad_solicitada || '';
+    const isApology = /disculp|pena|raz[oó]n|perd[oó]n/i.test(brainResult.reply);
+    const prefix = isApology ? 'Tienes toda la razón, qué pena por la confusión. ' : '';
+
+    if (rep && mot && city) {
+      brainResult.reply = `${prefix}Retomemos tu solicitud de ${rep} NITROX para tu ${mot} en ${city}: ¿en qué barrio o sector te encuentras para indicarte la sede más cercana o coordinar despacho directo a tu taller? 🏍️📦`;
+    } else if (rep && mot) {
+      brainResult.reply = `${prefix}Retomemos tu solicitud de ${rep} NITROX para tu ${mot}: ¿en qué ciudad te encuentras para verificar disponibilidad y entregártelo? 📍🏍️`;
+    } else if (rep) {
+      brainResult.reply = `${prefix}Retomemos tu solicitud de ${rep} NITROX: ¿para qué marca y modelo de moto lo necesitas? 🏍️🔧`;
+    } else {
+      brainResult.reply = `${prefix}Cuéntame qué repuesto NITROX necesitas y para qué moto, y de una te ayudo a cotizarlo o comprarlo.`;
     }
   }
 

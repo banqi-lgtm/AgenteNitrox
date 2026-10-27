@@ -418,7 +418,7 @@ function extractSemanticEntities(text, sessionContext = {}) {
   if (/\b(?:kit\s+(?:de\s+)?arrastre|kit\s+(?:para|pa)\s+|relaci[oó]n|pi[ñn][oó]n\s+y\s+corona|arrastre)\b/i.test(lower)) {
     commercialRequestedParts.push('Kit de arrastre');
   }
-  if (/\b(?:pastillas?(?:\s+de\s+freno)?|frenos?|bandas?(?:\s+traseras?)?|zapatas?)\b/i.test(lower)) {
+  if (/\b(?:pastillas?(?:\s+de\s+freno)?|frenos?|bandas?(?:\s+traseras?)?|zapatas?|discos?(?:\s+de\s+freno)?)\b/i.test(lower)) {
     commercialRequestedParts.push('Frenos (pastillas / bandas)');
   }
   if (/\b(?:cadenas?(?:\s+reforzada|\s+gold|\s+o-ring)?)\b/i.test(lower)) {
@@ -442,6 +442,11 @@ function extractSemanticEntities(text, sessionContext = {}) {
   extracted.repuestos_solicitados = commercialRequestedParts;
   if (commercialRequestedParts.length > 0) {
     extracted.repuesto_solicitado = commercialRequestedParts[0];
+    if (/\b(?:necesito|busco|quiero|tienen|manejan|consiguen|cotizar|comprar|venden|hay|precio|cu[aá]nto|para\s+mi\s+moto|a\s+c[oó]mo)\b/i.test(lower)) {
+      extracted.intencion_compra = true;
+      extracted.es_pregunta_comercial = true;
+      if (!extracted.pregunta_comercial_tema) extracted.pregunta_comercial_tema = 'intencion_compra';
+    }
   }
   if (commercialRequestedParts.length > 1 || /\b(?:varias?\s+referencias|todos?\s+(?:estos|los)\s+repuestos|pedido\s+completo|combo)\b/i.test(lower)) {
     extracted.cotizacion_multiple = true;
@@ -579,10 +584,39 @@ function extractSemanticEntities(text, sessionContext = {}) {
     }
   }
 
-  for (const m of municipalities) {
-    if (m.regex.test(lower) || m.regex.test(unaccented)) {
-      extracted.ciudad_taller = m.name;
-      break;
+  // 4c. Detección de corrección de ciudad o afirmación explícita ("Vivo en Medellín", "¿Cómo sabes que vivo en Bogotá? Vivo en Medellín")
+  const cityCorrectionMatch = lower.match(/(?:c[oó]mo\s+sabes\s+que\s+(?:vivo|estoy)\s+en\s+([a-zñáéíóú\s]+?)[?,\s]+(?:vivo|estoy)\s+en\s+([a-zñáéíóú\s]+)|no\s+(?:vivo|estoy|quedo|queda|es)\s+(?:en\s+)?([a-zñáéíóú\s]+?)[,;.\s]+(?:vivo|estoy|queda|es)\s+(?:en\s+)?([a-zñáéíóú\s]+)|(?:vivo|estoy)\s+en\s+([a-zñáéíóú\s]+?)[,;.\s]+no\s+(?:en\s+)?([a-zñáéíóú\s]+))/i);
+  const explicitLivingMatch = lower.match(/\b(?:vivo|estoy|me\s+encuentro|ubicado)\s+en\s+([a-zñáéíóú\s]+)/i);
+
+  if (cityCorrectionMatch) {
+    const assertedCandidate = (cityCorrectionMatch[2] || cityCorrectionMatch[4] || cityCorrectionMatch[5] || '').trim();
+    for (const m of municipalities) {
+      if (m.regex.test(assertedCandidate)) {
+        extracted.ciudad_taller = m.name;
+        extracted.ciudad_solicitada = m.name;
+        extracted.friccion_o_reclamo = true;
+        extracted.correccion_ciudad = true;
+        break;
+      }
+    }
+  } else if (explicitLivingMatch) {
+    const livingCandidate = explicitLivingMatch[1].trim();
+    for (const m of municipalities) {
+      if (m.regex.test(livingCandidate)) {
+        extracted.ciudad_taller = m.name;
+        extracted.ciudad_solicitada = m.name;
+        break;
+      }
+    }
+  }
+
+  if (!extracted.ciudad_taller) {
+    for (const m of municipalities) {
+      if (m.regex.test(lower) || m.regex.test(unaccented)) {
+        extracted.ciudad_taller = m.name;
+        extracted.ciudad_solicitada = m.name;
+        break;
+      }
     }
   }
 
@@ -592,6 +626,7 @@ function extractSemanticEntities(text, sessionContext = {}) {
     for (const m of municipalities) {
       if (m.regex.test(cleanCityCandidate)) {
         extracted.ciudad_taller = m.name;
+        extracted.ciudad_solicitada = m.name;
         break;
       }
     }
