@@ -1184,7 +1184,7 @@ async function generateMateoResponse(fromNumber, userText) {
         const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Cómo se llama tu taller de motos?';
         resumeReply = `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. Estábamos hablando de tu taller${shopName}. ${pendingQ}`;
       } else {
-        const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Cómo se llama tu taller de motos?';
+        const pendingQ = FALLBACK_QUESTIONS[nextKey] || '¿Deseas afiliar tu taller a la RED NITROX o deseas cotizar o comprar repuestos hoy?';
         resumeReply = `¡Hola${firstName}! Qué alegría saludarte de nuevo 🏍️. ${pendingQ}`;
       }
 

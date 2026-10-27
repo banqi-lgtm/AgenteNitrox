@@ -169,7 +169,7 @@ function trimReplyLocally(reply, maxWords = 22) {
 // Preguntas de respaldo (sin IA) para que la conversación avance con MÁXIMO UNA SOLA PREGUNTA
 const FALLBACK_QUESTIONS = {
   nombres_apellidos: '¡Hola! Mi nombre es Mateo de RED NITROX. Bienvenido a la *Ruta NITROX*, un programa creado para apoyar a tu taller de motos con capacitaciones técnicas, muestras y premios. 🏍️ Para comenzar a conversar, ¿cuál es tu nombre?',
-  nombre_taller: '¡Qué gusto! Cuéntame, ¿cómo se llama tu taller de motos?',
+  nombre_taller: 'Cuéntame, ¿deseas afiliar tu taller a la RED NITROX o deseas cotizar o comprar repuestos hoy?',
   ciudad_taller: '¿En qué ciudad o municipio queda el taller?',
   celular_whatsapp: '¿Me regalas tu número de celular para tenerte en la red?',
   barrio_taller: '¿En qué barrio o sector queda el taller?',
@@ -463,6 +463,14 @@ INSTRUCCIONES CLAVE PARA ESTE TURNO:
       if (session.data.nombre_taller && /\b(?:cotizar|comprar|hacer\s+una\s+compra|quiero)\b/i.test(session.data.nombre_taller)) {
         delete session.data.nombre_taller;
         reply = reply.replace(/taller\s+en\s+este\s+momento\s+quiero\s+cotizar/gi, 'tu compra').replace(/taller\s+quiero\s+comprar/gi, 'tu compra');
+      }
+    } else if (session.data.active_flow === 'registration' && !session.data.nombre_taller) {
+      // PREGUNTA CRUCIAL DETERMINÍSTICA TRAS EL NOMBRE:
+      // Si el modelo pregunta cómo se llama el taller antes de indagar la finalidad
+      if (/\b(?:c[oó]mo\s+se\s+llama\s+tu\s+taller|qu[eé]\s+nombre\s+tiene\s+tu\s+taller|nombre\s+de\s+tu\s+taller)\b/i.test(reply)) {
+        const firstName = session.data.nombres_apellidos ? String(session.data.nombres_apellidos).split(/\s+/)[0] : '';
+        const greeting = firstName ? `¡Mucho gusto, ${firstName}! 🏍️ ` : '¡Mucho gusto! 🏍️ ';
+        reply = `${greeting}Cuéntame, ¿deseas afiliar tu taller a la RED NITROX o deseas cotizar o comprar repuestos hoy?`;
       }
     }
 
